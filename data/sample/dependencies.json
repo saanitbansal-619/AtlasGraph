@@ -1,0 +1,40 @@
+{
+  "dependencies": [
+    { "source": "Taiwan", "target": "semiconductors", "relationship_type": "exports", "weight": 0.95, "concentration": 0.92, "commodity": "semiconductors", "description": "Taiwan dominates advanced semiconductor fabrication." },
+    { "source": "South Korea", "target": "semiconductors", "relationship_type": "exports", "weight": 0.55, "concentration": 0.45, "commodity": "semiconductors", "description": "South Korea is a major memory chip producer." },
+    { "source": "United States", "target": "semiconductors", "relationship_type": "exports", "weight": 0.45, "concentration": 0.30, "commodity": "semiconductors", "description": "US fabrication and design capacity." },
+
+    { "source": "semiconductors", "target": "United States", "relationship_type": "imports", "weight": 0.88, "concentration": 0.85, "commodity": "semiconductors", "description": "US compute supply chains rely heavily on imported chips." },
+    { "source": "semiconductors", "target": "Japan", "relationship_type": "imports", "weight": 0.72, "concentration": 0.60, "commodity": "semiconductors", "description": "Japanese manufacturing depends on chip imports." },
+    { "source": "semiconductors", "target": "China", "relationship_type": "imports", "weight": 0.65, "concentration": 0.55, "commodity": "semiconductors", "description": "Chinese electronics assembly imports advanced chips." },
+    { "source": "semiconductors", "target": "Germany", "relationship_type": "imports", "weight": 0.58, "concentration": 0.50, "commodity": "semiconductors", "description": "German industry depends on imported semiconductors." },
+
+    { "source": "United States", "target": "AI hardware", "relationship_type": "industry_dependency", "weight": 0.85, "concentration": 0.70, "commodity": "semiconductors", "sector": "AI hardware", "description": "US AI hardware is chip-intensive." },
+    { "source": "United States", "target": "cloud infrastructure", "relationship_type": "industry_dependency", "weight": 0.80, "concentration": 0.65, "commodity": "semiconductors", "sector": "cloud infrastructure", "description": "US hyperscale cloud build-out." },
+    { "source": "AI hardware", "target": "cloud infrastructure", "relationship_type": "used_by", "weight": 0.82, "concentration": 0.65, "commodity": "semiconductors", "sector": "cloud infrastructure", "description": "Cloud build-out depends on AI hardware supply." },
+    { "source": "Japan", "target": "automotive electronics", "relationship_type": "industry_dependency", "weight": 0.78, "concentration": 0.60, "commodity": "semiconductors", "sector": "automotive electronics", "description": "Japanese automotive electronics manufacturing." },
+    { "source": "Germany", "target": "automotive electronics", "relationship_type": "industry_dependency", "weight": 0.70, "concentration": 0.55, "commodity": "semiconductors", "sector": "automotive electronics", "description": "German automotive electronics manufacturing." },
+    { "source": "China", "target": "consumer devices", "relationship_type": "industry_dependency", "weight": 0.75, "concentration": 0.60, "commodity": "semiconductors", "sector": "consumer devices", "description": "Chinese consumer electronics assembly." },
+    { "source": "South Korea", "target": "consumer devices", "relationship_type": "industry_dependency", "weight": 0.65, "concentration": 0.50, "commodity": "semiconductors", "sector": "consumer devices", "description": "South Korean consumer device manufacturing." },
+
+    { "source": "China", "target": "lithium", "relationship_type": "exports", "weight": 0.75, "concentration": 0.65, "commodity": "lithium", "description": "China dominates lithium refining capacity." },
+    { "source": "DRC", "target": "cobalt", "relationship_type": "exports", "weight": 0.90, "concentration": 0.70, "commodity": "cobalt", "description": "The DRC supplies the majority of mined cobalt." },
+    { "source": "China", "target": "cobalt", "relationship_type": "exports", "weight": 0.35, "concentration": 0.30, "commodity": "cobalt", "description": "China refines a large share of global cobalt." },
+    { "source": "lithium", "target": "EV batteries", "relationship_type": "used_by", "weight": 0.80, "concentration": 0.60, "commodity": "lithium", "sector": "EV batteries", "description": "EV battery cells depend on refined lithium." },
+    { "source": "cobalt", "target": "EV batteries", "relationship_type": "used_by", "weight": 0.85, "concentration": 0.65, "commodity": "cobalt", "sector": "EV batteries", "description": "High-density cathodes depend on cobalt." },
+    { "source": "lithium", "target": "automotive electronics", "relationship_type": "price_exposure", "weight": 0.50, "concentration": 0.40, "commodity": "lithium", "sector": "automotive electronics", "description": "Lithium price feeds into EV-heavy automotive electronics cost." },
+
+    { "source": "United States", "target": "crude oil", "relationship_type": "exports", "weight": 0.50, "concentration": 0.40, "commodity": "crude oil", "description": "US shale and conventional crude production." },
+    { "source": "Saudi Arabia", "target": "crude oil", "relationship_type": "exports", "weight": 0.90, "concentration": 0.85, "commodity": "crude oil", "description": "Saudi Arabia is a swing producer of crude oil." },
+    { "source": "Middle East", "target": "crude oil", "relationship_type": "exports", "weight": 0.80, "concentration": 0.70, "commodity": "crude oil", "description": "The wider Middle East is the largest crude exporting region." },
+    { "source": "Suez Canal", "target": "crude oil", "relationship_type": "route_exposure", "weight": 0.60, "concentration": 0.50, "commodity": "crude oil", "description": "A large share of crude oil and goods transit the Suez Canal." },
+    { "source": "Strait of Hormuz", "target": "crude oil", "relationship_type": "route_exposure", "weight": 0.85, "concentration": 0.80, "commodity": "crude oil", "description": "The primary chokepoint for Gulf crude exports." },
+
+    { "source": "crude oil", "target": "United States", "relationship_type": "imports", "weight": 0.40, "concentration": 0.35, "commodity": "crude oil", "description": "US imports crude oil to supplement domestic supply." },
+    { "source": "crude oil", "target": "Europe", "relationship_type": "imports", "weight": 0.70, "concentration": 0.60, "commodity": "crude oil", "description": "Europe is heavily reliant on imported crude oil." },
+    { "source": "crude oil", "target": "energy-intensive manufacturing", "relationship_type": "used_by", "weight": 0.70, "concentration": 0.55, "commodity": "crude oil", "sector": "energy-intensive manufacturing", "description": "Steel, chemicals and heavy industry burn oil-derived energy." },
+    { "source": "crude oil", "target": "shipping logistics", "relationship_type": "used_by", "weight": 0.72, "concentration": 0.55, "commodity": "crude oil", "sector": "shipping logistics", "description": "Freight and transport run on fuel refined from crude oil." },
+    { "source": "crude oil", "target": "shipping logistics", "relationship_type": "shipping_dependency", "weight": 0.75, "concentration": 0.60, "commodity": "crude oil", "sector": "shipping logistics", "description": "Shipping capacity is exposed to crude-driven route and fuel shocks." },
+    { "source": "crude oil", "target": "automotive electronics", "relationship_type": "price_exposure", "weight": 0.45, "concentration": 0.35, "commodity": "crude oil", "sector": "automotive electronics", "description": "Petrochemical inputs feed automotive component manufacturing." }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "scenarios": [
+    {
+      "id": "taiwan_semiconductor_shock",
+      "name": "Taiwan Semiconductor Supply Shock",
+      "source": "Taiwan",
+      "commodity": "semiconductors",
+      "shock_type": "export_collapse",
+      "shock_percent": 30,
+      "depth": 3,
+      "description": "A 30% drop in Taiwan's semiconductor exports and its cascade across compute-dependent economies and sectors."
+    },
+    {
+      "id": "suez_route_disruption",
+      "name": "Suez Canal Route Disruption",
+      "source": "Suez Canal",
+      "commodity": "crude oil",
+      "shock_type": "route_disruption",
+      "shock_percent": 35,
+      "depth": 3,
+      "description": "A 35% reduction in crude oil transiting the Suez Canal and the downstream pressure on import-reliant economies and logistics."
+    },
+    {
+      "id": "lithium_price_spike",
+      "name": "Lithium Price Spike",
+      "source": "China",
+      "commodity": "lithium",
+      "shock_type": "price_spike",
+      "shock_percent": 40,
+      "depth": 3,
+      "description": "A 40% effective supply contraction in Chinese lithium refining and its impact on EV battery production."
+    },
+    {
+      "id": "crude_oil_supply_shock",
+      "name": "Crude Oil Supply Shock",
+      "source": "Saudi Arabia",
+      "commodity": "crude oil",
+      "shock_type": "supply_cut",
+      "shock_percent": 25,
+      "depth": 3,
+      "description": "A 25% cut in Saudi crude oil output and the cascade into logistics, automotive and downstream sectors."
+    }
+  ]
+}

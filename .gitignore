@@ -1,0 +1,32 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+atlas
+atlas.exe
+
+# Test / coverage artifacts
+*.out
+coverage.*
+*.test
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Generated CLI output
+/results/
+
+# Environment / local
+*.local
+.env

@@ -1,0 +1,34 @@
+{
+  "countries": [
+    { "name": "Taiwan", "description": "Dominant producer of advanced semiconductors." },
+    { "name": "United States", "description": "Major chip designer, oil producer and compute hub." },
+    { "name": "China", "description": "Largest electronics manufacturer and lithium/cobalt refiner." },
+    { "name": "Japan", "description": "Key automotive electronics and precision manufacturing economy." },
+    { "name": "Germany", "description": "Industrial and automotive manufacturing powerhouse." },
+    { "name": "South Korea", "description": "Leading memory and consumer electronics producer." },
+    { "name": "DRC", "description": "Dominant global source of mined cobalt." },
+    { "name": "Saudi Arabia", "description": "One of the largest crude oil exporters." },
+    { "name": "Europe", "description": "Import-reliant industrial bloc dependent on energy and chips." },
+    { "name": "Middle East", "description": "Major crude oil exporting region feeding global energy markets." }
+  ],
+  "commodities": [
+    { "name": "semiconductors", "description": "Advanced logic and memory chips." },
+    { "name": "lithium", "description": "Refined lithium for battery cells." },
+    { "name": "crude oil", "description": "Unrefined petroleum feedstock and fuel." },
+    { "name": "cobalt", "description": "Critical input for high-density battery cathodes." }
+  ],
+  "sectors": [
+    { "name": "AI hardware", "description": "Accelerators, GPUs and specialised compute hardware." },
+    { "name": "cloud infrastructure", "description": "Hyperscale data centres and managed compute." },
+    { "name": "automotive electronics", "description": "ECUs, sensors and in-vehicle compute." },
+    { "name": "consumer devices", "description": "Phones, laptops and consumer electronics." },
+    { "name": "EV batteries", "description": "Battery packs for electric vehicles and storage." },
+    { "name": "shipping logistics", "description": "Freight, shipping and fuel-dependent transport." },
+    { "name": "energy-intensive manufacturing", "description": "Steel, chemicals and other energy-hungry industry." }
+  ],
+  "routes": [
+    { "name": "Suez Canal", "description": "Critical maritime chokepoint linking Asia and Europe." },
+    { "name": "Strait of Hormuz", "description": "Primary transit chokepoint for Gulf crude oil." }
+  ],
+  "companies": []
+}
