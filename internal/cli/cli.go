@@ -29,6 +29,10 @@ func Run(args []string, out, errOut io.Writer) int {
 		return runGraph(args[1:], out, errOut)
 	case "risk":
 		return runRisk(args[1:], out, errOut)
+	case "ingest":
+		return runIngest(args[1:], out, errOut)
+	case "indicators":
+		return runIndicators(args[1:], out, errOut)
 	case "version", "--version", "-v":
 		fmt.Fprintf(out, "atlas %s (commit %s, built %s)\n", config.Version, config.Commit, config.BuildDate)
 		return 0
@@ -66,6 +70,8 @@ Commands:
   graph paths           Show dependency paths between two entities
   graph dump            Print every dependency edge
   risk leaderboard      Rank entities by baseline fragility
+  ingest worldbank      Fetch real macro indicators from the World Bank API
+  indicators country    Show ingested macro indicators for a country
   version               Print version information
   help                  Show this help
 
@@ -86,5 +92,7 @@ Examples:
   atlas graph summary --data data/sample
   atlas graph paths --from Taiwan --to "cloud infrastructure" --data data/sample
   atlas risk leaderboard --data data/sample
+  atlas ingest worldbank --countries USA,CHN,JPN,DEU,KOR --start 2018 --end 2023 --out data/raw/worldbank
+  atlas indicators country USA --data data/raw/worldbank
 `, "\n"))
 }

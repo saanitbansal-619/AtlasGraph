@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/simulation"
 )
@@ -175,6 +176,68 @@ func renderSummary(out io.Writer, g *graph.Graph, res simulation.Result) {
 	if maxNode != "" {
 		fmt.Fprintf(out, "  Largest single impact : %s (+%.1f fragility)\n", maxNode, maxDelta)
 	}
+}
+
+// --- world bank indicators -------------------------------------------------
+
+func renderCountryIndicators(out io.Writer, s worldbank.Summary) {
+	section(out, "COUNTRY INDICATORS")
+	name := s.CountryName
+	if name == "" {
+		name = "(unknown)"
+	}
+	fmt.Fprintf(out, "  Country               : %s (%s)\n", name, s.CountryCode)
+	if s.LatestYear > 0 {
+		fmt.Fprintf(out, "  Latest year with data : %d\n\n", s.LatestYear)
+	} else {
+		fmt.Fprint(out, "  Latest year with data : (none)\n\n")
+	}
+
+	tw := newTable(out)
+	fmt.Fprintln(tw, "  INDICATOR\tYEAR\tVALUE")
+	for _, line := range s.Lines {
+		year := "-"
+		if line.Year > 0 {
+			year = fmt.Sprintf("%d", line.Year)
+		}
+		fmt.Fprintf(tw, "  %s\t%s\t%s\n", line.IndicatorName, year, formatIndicatorValue(line.IndicatorCode, line.Value))
+	}
+	flush(tw)
+}
+
+// formatIndicatorValue renders a value appropriately for its indicator:
+// currency series (codes ending in "CD") get grouped digits with a US$ marker,
+// everything else is treated as a percentage.
+func formatIndicatorValue(code string, v *float64) string {
+	if v == nil {
+		return "n/a"
+	}
+	if strings.HasSuffix(code, "CD") {
+		return "US$ " + groupThousands(*v)
+	}
+	return fmt.Sprintf("%.2f%%", *v)
+}
+
+// groupThousands formats a float's integer part with comma separators, e.g.
+// 27360935000000 -> "27,360,935,000,000".
+func groupThousands(v float64) string {
+	neg := v < 0
+	if neg {
+		v = -v
+	}
+	digits := fmt.Sprintf("%.0f", v)
+	var b strings.Builder
+	if neg {
+		b.WriteByte('-')
+	}
+	n := len(digits)
+	for i, d := range digits {
+		if i > 0 && (n-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(d)
+	}
+	return b.String()
 }
 
 // --- small formatting helpers ---------------------------------------------

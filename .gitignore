@@ -27,6 +27,10 @@ Thumbs.db
 # Generated CLI output
 /results/
 
+# Ingested raw data (can be large); keep the directory, not its downloads
+data/raw/
+!data/raw/.gitkeep
+
 # Environment / local
 *.local
 .env

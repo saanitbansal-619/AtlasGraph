@@ -78,10 +78,11 @@ AtlasGraph/
 │   └── main.go
 ├── data/
 │   ├── embed.go               # //go:embed of the bundled sample dataset
-│   └── sample/                # The dataset — single source of truth
-│       ├── entities.json
-│       ├── dependencies.json
-│       └── scenarios.json
+│   ├── sample/                # The graph dataset — single source of truth
+│   │   ├── entities.json
+│   │   ├── dependencies.json
+│   │   └── scenarios.json
+│   └── raw/                   # Ingested real data lands here (git-ignored)
 ├── internal/
 │   ├── config/                # Engine tunables + build metadata
 │   ├── models/                # Domain types + relationship/shock vocabulary
@@ -89,6 +90,8 @@ AtlasGraph/
 │   ├── data/                  # JSON loader, validation, Dataset + scenarios
 │   ├── scoring/               # Fragility model
 │   ├── simulation/            # Shock profiles, propagation rules, simulation
+│   ├── ingest/
+│   │   └── worldbank/         # World Bank API client, normalisation, summary
 │   └── cli/                   # Command dispatch, text rendering, JSON output
 ├── Makefile
 ├── go.mod
@@ -276,6 +279,8 @@ atlas graph summary                      [--data dir] [--top N]
 atlas graph paths  --from <e> --to <e>   [--data dir] [--depth N]
 atlas graph dump                         [--data dir]
 atlas risk leaderboard                   [--data dir] [--top N]
+atlas ingest worldbank --countries <ISO3,…> [--start Y] [--end Y] [--out dir]
+atlas indicators country <ISO3>          [--data dir]
 atlas version
 ```
 
@@ -372,6 +377,85 @@ relationship), `changed_fragility_scores`, `highest_risk_entities`,
 
 ---
 
+## Real data ingestion: World Bank macro indicators
+
+This is AtlasGraph's **first real external data source**. The
+[`internal/ingest/worldbank`](internal/ingest/worldbank) package fetches
+macroeconomic indicators from the [World Bank Indicators API v2](https://api.worldbank.org/v2)
+using only the Go standard library, normalises them into a flat record set, and
+saves them locally. Later milestones will use this data to ground baseline
+fragility scoring in real-world numbers instead of seeded weights.
+
+### Indicators fetched
+
+| Code             | Indicator                                   |
+| ---------------- | ------------------------------------------- |
+| `NY.GDP.MKTP.CD` | GDP (current US$)                           |
+| `NE.IMP.GNFS.ZS` | Imports of goods and services (% of GDP)    |
+| `NE.EXP.GNFS.ZS` | Exports of goods and services (% of GDP)    |
+| `NV.IND.MANF.ZS` | Manufacturing value added (% of GDP)        |
+| `FP.CPI.TOTL.ZG` | Inflation, consumer prices (annual %)       |
+| `TX.VAL.TECH.CD` | High-technology exports (current US$)       |
+
+### Fetch and inspect
+
+```bash
+# Fetch a panel of countries (ISO3 codes) over a year range
+go run ./cmd/atlas ingest worldbank --countries USA,CHN,JPN,DEU,KOR --start 2018 --end 2023 --out data/raw/worldbank
+
+# Inspect the latest available indicators for one country
+go run ./cmd/atlas indicators country USA --data data/raw/worldbank
+```
+
+```
+COUNTRY INDICATORS
+----------------------------------------------------------------
+  Country               : United States (USA)
+  Latest year with data : 2023
+
+  INDICATOR                                 YEAR  VALUE
+  GDP (current US$)                         2023  US$ 27,292,170,793,214
+  Imports of goods and services (% of GDP)  2023  14.11%
+  Exports of goods and services (% of GDP)  2023  11.18%
+  Manufacturing value added (% of GDP)      2021  10.71%
+  Inflation, consumer prices (annual %)     2023  4.12%
+  High-technology exports (current US$)     2023  US$ 208,514,376,770
+```
+
+### Notes
+
+- **Reliable country set.** Use ISO3 codes the API supports cleanly:
+  `USA, CHN, JPN, DEU, KOR, IND, SAU, COD`. Taiwan (TWN) is intentionally **not**
+  ingested here because the World Bank API does not serve it cleanly — it remains
+  a first-class node in the seeded graph, just not in the macro panel.
+- **Batched requests.** All requested countries are fetched in a single call per
+  indicator (semicolon-separated), so a five-country panel is six HTTP requests,
+  not thirty.
+- **Robust client.** Context timeouts, non-200 handling, malformed-JSON
+  detection, API error messages, pagination and genuinely missing values (kept as
+  JSON `null`, never coerced to 0) are all handled with clear errors.
+- **Output.** Normalised records are written to
+  `data/raw/worldbank/worldbank_indicators.json` (the directory is created if
+  needed). `data/raw/` is git-ignored — only a `.gitkeep` is tracked — so large
+  downloads never land in version control.
+
+The output record shape:
+
+```json
+{
+  "country_code": "USA",
+  "country_name": "United States",
+  "indicator_code": "NY.GDP.MKTP.CD",
+  "indicator_name": "GDP (current US$)",
+  "year": 2023,
+  "value": 27292170793214,
+  "source": "World Bank Indicators API v2",
+  "fetched_at": "2024-07-01T00:00:00Z"
+}
+```
+
+---
+
 ## Testing
 
 The engine is covered by unit tests across the core packages:
@@ -390,9 +474,14 @@ The engine is covered by unit tests across the core packages:
   semiconductor shock not reaching crude oil/lithium/cobalt, `price_spike`
   travelling `price_exposure`, `route_disruption` travelling `route_exposure`,
   relationship-labelled paths, and unknown shock types failing cleanly.
+- `internal/ingest/worldbank` — the World Bank client against an `httptest`
+  server (success, pagination, non-200, malformed JSON, API error messages,
+  empty results and context timeout), normalisation, save/load round-trips and
+  per-country summary building. **No test touches the real network.**
 - `internal/cli` — command dispatch, scenario list/run, graph summary/paths,
   risk leaderboard, JSON output shape (incl. profile/rules/blocked edges),
-  labelled paths, `--explain` output and save-to-file behaviour.
+  labelled paths, `--explain` output, the `ingest`/`indicators` commands and
+  save-to-file behaviour.
 
 ```bash
 go test ./...
@@ -407,9 +496,11 @@ The engine is deliberately a clean, data-driven core. Planned expansion:
 - **Phase 1 — Seeded graph engine** ✅ *(current)* — JSON-driven **typed** graph,
   shock profiles + rule-based propagation, fragility scoring, scenarios, CLI and
   tests.
-- **Phase 2 — Real trade data ingestion** — pull production shares and trade
-  flows from economic/trade APIs to replace the seed data; keep the same graph
-  interface so nothing downstream changes.
+- **Phase 2 — Real trade data ingestion** 🛠️ *(in progress)* — the World Bank
+  macro ingestion module (`atlas ingest worldbank`) is the first real source.
+  Next: pull production shares and trade flows from trade APIs and feed them into
+  baseline fragility, keeping the same graph interface so nothing downstream
+  changes.
 - **Phase 3 — Neo4j graph database** — persist the dependency graph and push
   traversal into the database for larger, real-world graphs.
 - **Phase 4 — ClickHouse analytics layer** — store scenario runs and time series

@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 )
 
 func run(args ...string) (string, string, int) {
@@ -211,6 +214,94 @@ func TestShockJSONIncludesProfileAndRules(t *testing.T) {
 		if _, ok := parsed[key]; !ok {
 			t.Errorf("JSON output missing %q", key)
 		}
+	}
+}
+
+func TestIngestRequiresCountries(t *testing.T) {
+	_, errOut, code := run("ingest", "worldbank")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, "required") {
+		t.Errorf("expected a 'required' error, got %q", errOut)
+	}
+}
+
+func TestIngestUnknownSource(t *testing.T) {
+	_, errOut, code := run("ingest", "imf")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, "unknown ingest source") {
+		t.Errorf("expected unknown source error, got %q", errOut)
+	}
+}
+
+// seedIndicatorFile writes a small World Bank dataset to a temp dir for the
+// indicators command tests.
+func seedIndicatorFile(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	gdp := 27360935000000.0
+	cpi := 4.1
+	file := worldbank.IndicatorFile{
+		Source:    worldbank.SourceName,
+		FetchedAt: time.Now().UTC(),
+		StartYear: 2018,
+		EndYear:   2023,
+		Countries: []string{"USA"},
+		Records: []worldbank.CountryIndicatorRecord{
+			{CountryCode: "USA", CountryName: "United States", IndicatorCode: "NY.GDP.MKTP.CD", IndicatorName: "GDP (current US$)", Year: 2023, Value: &gdp, Source: worldbank.SourceName},
+			{CountryCode: "USA", CountryName: "United States", IndicatorCode: "FP.CPI.TOTL.ZG", IndicatorName: "Inflation, consumer prices (annual %)", Year: 2023, Value: &cpi, Source: worldbank.SourceName},
+		},
+	}
+	if _, err := worldbank.Save(dir, file); err != nil {
+		t.Fatalf("seeding indicator file: %v", err)
+	}
+	return dir
+}
+
+func TestIndicatorsCountry(t *testing.T) {
+	dir := seedIndicatorFile(t)
+	out, _, code := run("indicators", "country", "USA", "--data", dir)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	for _, want := range []string{"COUNTRY INDICATORS", "United States (USA)", "2023", "GDP (current US$)", "27,360,935,000,000", "4.10%"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("indicators output missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+func TestIndicatorsCountryUnknown(t *testing.T) {
+	dir := seedIndicatorFile(t)
+	_, errOut, code := run("indicators", "country", "BRA", "--data", dir)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "no data for country") {
+		t.Errorf("expected no-data error, got %q", errOut)
+	}
+}
+
+func TestIndicatorsCountryMissingFile(t *testing.T) {
+	_, errOut, code := run("indicators", "country", "USA", "--data", t.TempDir())
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "reading") {
+		t.Errorf("expected a read error, got %q", errOut)
+	}
+}
+
+func TestIndicatorsCountryRequiresCode(t *testing.T) {
+	_, errOut, code := run("indicators", "country")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, "required") {
+		t.Errorf("expected required error, got %q", errOut)
 	}
 }
 
