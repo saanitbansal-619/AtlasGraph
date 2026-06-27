@@ -73,6 +73,7 @@ Commands:
   graph summary         Show high-level graph statistics
   graph paths           Show dependency paths between two entities
   graph dump            Print every dependency edge
+  graph build-trade     Build a graph dataset from ingested trade flows
   risk leaderboard      Rank entities by baseline fragility
   ingest worldbank      Fetch real macro indicators from the World Bank API
   ingest trade          Ingest country-to-country trade flows from a local CSV
@@ -108,5 +109,7 @@ Examples:
   atlas trade summary --data data/processed/trade
   atlas trade dependency --importer USA --commodity semiconductors --data data/processed/trade
   atlas trade concentration --importer USA --commodity semiconductors --data data/processed/trade
+  atlas graph build-trade --trade-data data/processed/trade --out data/generated/trade_graph
+  atlas graph summary --data data/generated/trade_graph
 `, "\n"))
 }

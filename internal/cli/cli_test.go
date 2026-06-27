@@ -653,6 +653,80 @@ func TestTradeSummaryMissingData(t *testing.T) {
 	}
 }
 
+// --- generated trade graph -------------------------------------------------
+
+func TestGraphBuildTradeReport(t *testing.T) {
+	dir := seedProcessedTrade(t, tradeSampleCSV)
+	outDir := filepath.Join(t.TempDir(), "trade_graph")
+	out, _, code := run("graph", "build-trade", "--trade-data", dir, "--out", outDir)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	for _, want := range []string{
+		"TRADE GRAPH BUILD", "Countries", "Commodities", "Sectors",
+		"Dependencies", "Generated scenarios", "Top generated dependency",
+		"Highest concentration import dependency",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("build report missing %q\n---\n%s", want, out)
+		}
+	}
+	for _, name := range []string{"entities.json", "dependencies.json", "scenarios.json"} {
+		if _, err := os.Stat(filepath.Join(outDir, name)); err != nil {
+			t.Errorf("expected generated %s: %v", name, err)
+		}
+	}
+}
+
+func TestGraphBuildTradeMissingData(t *testing.T) {
+	_, errOut, code := run("graph", "build-trade", "--trade-data", t.TempDir())
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "reading") {
+		t.Errorf("expected a read error, got %q", errOut)
+	}
+}
+
+// buildTradeGraphDir ingests the sample CSV, builds a trade graph and returns
+// the generated dataset directory.
+func buildTradeGraphDir(t *testing.T) string {
+	t.Helper()
+	tradeDir := seedProcessedTrade(t, tradeSampleCSV)
+	outDir := filepath.Join(t.TempDir(), "trade_graph")
+	if _, _, code := run("graph", "build-trade", "--trade-data", tradeDir, "--out", outDir); code != 0 {
+		t.Fatalf("graph build-trade exit = %d, want 0", code)
+	}
+	return outDir
+}
+
+func TestGeneratedGraphSummaryCommand(t *testing.T) {
+	outDir := buildTradeGraphDir(t)
+	out, _, code := run("graph", "summary", "--data", outDir)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	for _, want := range []string{"GRAPH SUMMARY", "Countries", "Commodities", "semiconductors", "United States"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generated graph summary missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+func TestGeneratedGraphShockCommand(t *testing.T) {
+	outDir := buildTradeGraphDir(t)
+	out, _, code := run("shock", "--source", "Taiwan", "--commodity", "semiconductors",
+		"--drop", "30", "--depth", "3", "--data", outDir, "--explain")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	for _, want := range []string{"SCENARIO", "PROPAGATION LOGIC", "United States", "--exports/semiconductors-->"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generated graph shock missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
 func TestShockSaveWritesFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "result.json")
 	out, _, code := run("shock", "--source", "Taiwan", "--commodity", "semiconductors", "--save", path)

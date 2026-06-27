@@ -14,6 +14,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
+	"github.com/atlasgraph/atlas/internal/tradegraph"
 )
 
 const ruleWidth = 64
@@ -444,6 +445,40 @@ func labelOrCode(name, code string) string {
 		return name
 	}
 	return code
+}
+
+// --- generated trade graph -------------------------------------------------
+
+func renderTradeGraphBuild(out io.Writer, srcData, outDir string, r tradegraph.Result) {
+	section(out, "TRADE GRAPH BUILD")
+	fmt.Fprintf(out, "  Source trade data  : %s\n", srcData)
+	fmt.Fprintf(out, "  Output             : %s\n", outDir)
+	fmt.Fprintf(out, "  Countries          : %d\n", r.CountCountries())
+	fmt.Fprintf(out, "  Commodities        : %d\n", r.CountCommodities())
+	fmt.Fprintf(out, "  Sectors            : %d\n", r.CountSectors())
+	fmt.Fprintf(out, "  Dependencies       : %d\n", r.CountDependencies())
+	fmt.Fprintf(out, "  Generated scenarios: %d\n", r.CountScenarios())
+
+	if r.TopDependency != nil {
+		d := r.TopDependency
+		fmt.Fprintf(out, "  Top generated dependency: %s --%s--> %s (weight %.2f)\n",
+			d.Source, d.Relationship, d.Target, d.Weight)
+	} else {
+		fmt.Fprintln(out, "  Top generated dependency: (none)")
+	}
+	if c := r.HighestImportConc; c != nil {
+		fmt.Fprintf(out, "  Highest concentration import dependency: %s <- %s (HHI %.2f, top %s %.1f%%)\n",
+			c.Importer, c.Commodity, c.HHI, c.TopSupplier, c.TopSupplierSh*100)
+	} else {
+		fmt.Fprintln(out, "  Highest concentration import dependency: (none)")
+	}
+
+	if len(r.Scenarios.Scenarios) > 0 {
+		fmt.Fprintln(out, "\n  Scenarios:")
+		for _, s := range r.Scenarios.Scenarios {
+			fmt.Fprintf(out, "    - %s (%s, %s %.0f%%)\n", s.ID, s.Source, s.ShockType, s.ShockPercent)
+		}
+	}
 }
 
 // --- small formatting helpers ---------------------------------------------

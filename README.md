@@ -108,7 +108,8 @@ AtlasGraph/
 | `scoring`    | Turns graph structure into fragility numbers.                       |
 | `scoring/macro` | Turns ingested macro indicators into a macro exposure score.      |
 | `simulation` | Orchestrates a scenario: inject → propagate → score → summarise.    |
-| `ingest`     | Pulls real external data (World Bank) into normalised records.       |
+| `ingest`     | Pulls real external data (World Bank, trade CSVs) into normalised records. |
+| `tradegraph` | Converts normalised trade flows into a loadable graph dataset.      |
 | `cli`        | Human interface, text rendering and JSON shaping. No business logic.|
 
 The `data` package is the only one that knows the graph comes from JSON. Because
@@ -641,6 +642,64 @@ the commodity as a name or HS code.
 
 ---
 
+## Generated Trade Graphs
+
+This step converts trade-flow data into a dependency graph, so scenario shocks
+are no longer limited to the manually seeded `data/sample` graph. The hand-seeded
+sample dataset is left untouched; generated graphs are written to a separate
+directory and consumed by the same `graph` / `shock` commands via `--data`. The
+conversion lives in [`internal/tradegraph`](internal/tradegraph).
+
+```bash
+go run ./cmd/atlas ingest trade --file data/examples/trade_flows_sample.csv --out data/processed/trade
+go run ./cmd/atlas graph build-trade --trade-data data/processed/trade --out data/generated/trade_graph
+go run ./cmd/atlas graph summary --data data/generated/trade_graph
+go run ./cmd/atlas shock --source Taiwan --commodity semiconductors --drop 30 --depth 3 --data data/generated/trade_graph --explain
+```
+
+### How records become a graph
+
+Each normalised trade record is turned into typed graph entities and edges:
+
+| Edge                                          | Relationship          | Weight                                                                 |
+| --------------------------------------------- | --------------------- | ---------------------------------------------------------------------- |
+| exporter country → commodity                  | `exports`             | exporter's share of that commodity's total export value (supplier importance) |
+| commodity → importer country                  | `imports`             | importer's **top-supplier share**, with sourcing **HHI** as concentration |
+| importer country → commodity-dependent sector | `industry_dependency` | coarse default dependency from the commodity→sector mapping            |
+
+This preserves the supplier-dependency signal end to end: e.g. if the USA sources
+62% of its semiconductors from Taiwan, the `Taiwan → semiconductors` edge carries
+Taiwan's supplier importance and the `semiconductors → United States` edge carries
+the 62% top-supplier share, so the `Taiwan → semiconductors → United States` path
+weight reflects that concentration. Sectors are attached from a small, explicit
+commodity→sector map (e.g. semiconductors → AI hardware, cloud infrastructure,
+automotive electronics, consumer devices).
+
+Generated scenario presets are emitted when their trigger flow is present in the
+data — `taiwan_semiconductor_shock` (Taiwan exports semiconductors),
+`lithium_battery_shock` (China exports lithium batteries) and
+`crude_oil_supply_shock` (Saudi Arabia exports crude oil).
+
+```
+TRADE GRAPH BUILD
+----------------------------------------------------------------
+  Source trade data  : data/processed/trade
+  Output             : data/generated/trade_graph
+  Countries          : 9
+  Commodities        : 5
+  Sectors            : 8
+  Dependencies       : 45
+  Generated scenarios: 3
+  Top generated dependency: DRC --exports--> cobalt ores (weight 1.00)
+  Highest concentration import dependency: China <- cobalt ores (HHI 1.00, top DRC 100.0%)
+```
+
+The generated `entities.json`, `dependencies.json` and `scenarios.json` use
+exactly the wire format the loader validates, so the standard `graph summary`,
+`graph paths`, `graph dump` and `shock` commands all work against the output.
+
+---
+
 ## Testing
 
 The engine is covered by unit tests across the core packages:
@@ -670,10 +729,15 @@ The engine is covered by unit tests across the core packages:
   column validation, malformed-row skipping with reasons, safe numeric parsing,
   save/load round-trips, summary aggregation, supplier-share and HHI
   concentration maths, and dependency/concentration risk bands.
+- `internal/tradegraph` — converting trade records into country/commodity/sector
+  entities, supplier-share export/import edge weighting, the
+  exports/imports/industry_dependency edge set, generated scenario triggers, and
+  a full round-trip proving the generated dataset loads and simulates.
 - `internal/cli` — command dispatch, scenario list/run, graph summary/paths,
   risk leaderboard, JSON output shape (incl. profile/rules/blocked edges),
-  labelled paths, `--explain` output, the `ingest`/`indicators`/`trade` commands
-  and save-to-file behaviour.
+  labelled paths, `--explain` output, the `ingest`/`indicators`/`trade` commands,
+  `graph build-trade` plus running `graph summary`/`shock` against the generated
+  graph, and save-to-file behaviour.
 
 ```bash
 go test ./...

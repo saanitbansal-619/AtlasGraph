@@ -6,11 +6,13 @@ import (
 	"io"
 
 	"github.com/atlasgraph/atlas/internal/config"
+	"github.com/atlasgraph/atlas/internal/ingest/trade"
+	"github.com/atlasgraph/atlas/internal/tradegraph"
 )
 
 func runGraph(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: atlas graph <summary|paths|dump> [flags]")
+		fmt.Fprintln(errOut, "Usage: atlas graph <summary|paths|dump|build-trade> [flags]")
 		return 2
 	}
 	switch args[0] {
@@ -20,10 +22,48 @@ func runGraph(args []string, out, errOut io.Writer) int {
 		return graphPaths(args[1:], out, errOut)
 	case "dump":
 		return graphDump(args[1:], out, errOut)
+	case "build-trade":
+		return graphBuildTrade(args[1:], out, errOut)
 	default:
-		fmt.Fprintf(errOut, "unknown graph subcommand %q (want summary, paths or dump)\n", args[0])
+		fmt.Fprintf(errOut, "unknown graph subcommand %q (want summary, paths, dump or build-trade)\n", args[0])
 		return 2
 	}
+}
+
+// graphBuildTrade converts an ingested trade panel into an AtlasGraph dataset
+// (entities/dependencies/scenarios) usable by the standard graph/shock commands.
+func graphBuildTrade(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("graph build-trade", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	tradeData := fs.String("trade-data", "data/processed/trade", "directory holding ingested trade data")
+	outDir := fs.String("out", "data/generated/trade_graph", "directory to write the generated graph to")
+	fs.Usage = func() {
+		fmt.Fprintln(errOut, "Usage: atlas graph build-trade [--trade-data dir] [--out dir]")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	file, err := trade.Load(*tradeData)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		fmt.Fprintln(errOut, "hint: run `atlas ingest trade --file <csv>` first")
+		return 1
+	}
+	if len(file.Records) == 0 {
+		fmt.Fprintf(errOut, "error: no trade records found in %s\n", *tradeData)
+		return 1
+	}
+
+	result := tradegraph.Build(file)
+	if err := tradegraph.Write(*outDir, result); err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+
+	renderTradeGraphBuild(out, *tradeData, *outDir, result)
+	return 0
 }
 
 func graphSummary(args []string, out, errOut io.Writer) int {

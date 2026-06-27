@@ -35,6 +35,10 @@ data/raw/
 data/processed/
 !data/processed/.gitkeep
 
+# Generated graph datasets (built from processed data); keep the directory only
+data/generated/
+!data/generated/.gitkeep
+
 # Environment / local
 *.local
 .env
