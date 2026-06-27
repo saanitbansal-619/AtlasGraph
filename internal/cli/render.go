@@ -345,6 +345,23 @@ func renderTradeIngestReport(out io.Writer, srcFile, outPath string, res trade.L
 	fmt.Fprintf(out, "  Total trade value : %s\n", usdShort(s.TotalValueUSD))
 }
 
+func renderComtradeIngestReport(out io.Writer, srcFile, outPath string, res trade.ComtradeLoadResult, s trade.Summary) {
+	section(out, "COMTRADE TRADE INGESTION")
+	fmt.Fprintf(out, "  Source file       : %s\n", srcFile)
+	fmt.Fprintf(out, "  Output            : %s\n", outPath)
+	fmt.Fprintf(out, "  Total rows        : %d\n", res.TotalRows)
+	fmt.Fprintf(out, "  Valid rows        : %d\n", res.ValidRows())
+	fmt.Fprintf(out, "  Skipped rows      : %d\n", len(res.Skipped))
+	for _, sk := range res.Skipped {
+		fmt.Fprintf(out, "    - line %d: %s\n", sk.Line, sk.Reason)
+	}
+	fmt.Fprintf(out, "  Flows imported    : %d\n", res.FlowsImported)
+	fmt.Fprintf(out, "  Flows exported    : %d\n", res.FlowsExported)
+	fmt.Fprintf(out, "  Countries detected: %d\n", s.Countries)
+	fmt.Fprintf(out, "  Commodities       : %d\n", s.Commodities)
+	fmt.Fprintf(out, "  Total trade value : %s\n", usdShort(s.TotalValueUSD))
+}
+
 func renderTradeSummary(out io.Writer, s trade.Summary) {
 	section(out, "TRADE FLOW SUMMARY")
 	fmt.Fprintf(out, "  Records          : %d\n", s.Records)

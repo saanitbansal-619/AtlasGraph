@@ -1,0 +1,20 @@
+refYear,flowDesc,reporterISO,reporterDesc,partnerISO,partnerDesc,cmdCode,cmdDesc,primaryValue,qty,qtyUnitAbbr
+2023,Import,USA,United States,TWN,Taiwan,8542,Electronic integrated circuits,85000000000,0,N/A
+2023,Import,USA,United States,KOR,"Korea, Rep.",8542,Electronic integrated circuits,21000000000,0,N/A
+2023,Import,USA,United States,JPN,Japan,8542,Electronic integrated circuits,12000000000,0,N/A
+2023,Import,USA,United States,CHN,China,8542,Electronic integrated circuits,10000000000,0,N/A
+2023,Import,USA,United States,DEU,Germany,8542,Electronic integrated circuits,9000000000,0,N/A
+2023,Export,TWN,Taiwan,JPN,Japan,8542,Electronic integrated circuits,32000000000,0,N/A
+2023,Export,KOR,"Korea, Rep.",JPN,Japan,8542,Electronic integrated circuits,8000000000,0,N/A
+2023,Import,USA,United States,CHN,China,8507,Electric accumulators; lithium-ion batteries,19000000000,0,N/A
+2023,Import,USA,United States,KOR,"Korea, Rep.",8507,Electric accumulators; lithium-ion batteries,7000000000,0,N/A
+2023,Import,USA,United States,JPN,Japan,8507,Electric accumulators; lithium-ion batteries,5000000000,0,N/A
+2023,Export,CHN,China,DEU,Germany,8507,Electric accumulators; lithium-ion batteries,11000000000,0,N/A
+2023,Export,COD,Dem. Rep. of the Congo,CHN,China,2605,Cobalt ores and concentrates,6200000000,0,N/A
+2023,Export,COD,Dem. Rep. of the Congo,DEU,Germany,2605,Cobalt ores and concentrates,1800000000,0,N/A
+2023,Export,SAU,Saudi Arabia,DEU,Germany,2709,"Petroleum oils, crude",14000000000,0,N/A
+2023,Export,USA,United States,DEU,Germany,2709,"Petroleum oils, crude",4000000000,0,N/A
+2023,Export,SAU,Saudi Arabia,IND,India,2709,"Petroleum oils, crude",22000000000,0,N/A
+2023,Export,CHN,China,JPN,Japan,2805,Rare earth metals and compounds,4000000000,0,N/A
+2023,Export,USA,United States,JPN,Japan,2805,Rare earth metals and compounds,1000000000,0,N/A
+2023,Import,USA,United States,CHN,China,2805,Rare earth metals and compounds,3000000000,0,N/A

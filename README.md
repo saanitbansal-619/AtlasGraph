@@ -642,6 +642,72 @@ the commodity as a name or HS code.
 
 ---
 
+## UN Comtrade-Style CSV Import
+
+Real trade datasets are most easily obtained as **downloaded UN Comtrade CSV
+exports**. This importer ingests those files directly — no API credentials are
+required yet — and normalises them into the *same* `trade_flows.json` the rest
+of the trade pipeline already consumes, so every downstream command works
+unchanged. It is implemented alongside the custom importer in
+[`internal/ingest/trade`](internal/ingest/trade); the original custom-schema
+ingest (`ingest trade`) is untouched.
+
+### Input columns
+
+Comtrade exports describe a flow from a **reporter** to a **partner** with a
+`flowDesc` direction; the importer resolves these into AtlasGraph's
+exporter/importer model:
+
+```
+refYear,flowDesc,reporterISO,reporterDesc,partnerISO,partnerDesc,cmdCode,cmdDesc,primaryValue,qty,qtyUnitAbbr
+2023,Import,USA,United States,TWN,Taiwan,8542,Electronic integrated circuits,85000000000,0,N/A
+2023,Export,SAU,Saudi Arabia,DEU,Germany,2709,"Petroleum oils, crude",14000000000,0,N/A
+```
+
+- **Import** rows: `importer = reporter`, `exporter = partner`.
+- **Export** rows: `exporter = reporter`, `importer = partner`.
+- Only `Import` / `Export` flows are kept; other flows (e.g. re-exports) and rows
+  missing `reporterISO`, `partnerISO`, `cmdCode` or `primaryValue` are skipped
+  with a clear, line-numbered reason.
+
+Commodity descriptions/HS codes are normalised to AtlasGraph's canonical
+commodity names so they line up with the curated graph and scenarios:
+`electronic integrated circuits` / code `8542` → **semiconductors**,
+`lithium`/`batteries` → **lithium batteries**, `cobalt` → **cobalt ores**,
+`petroleum oils`/`crude` → **crude oil**, `rare earth` → **rare earths**.
+Anything else keeps a cleaned, lower-cased description.
+
+### Commands
+
+```bash
+go run ./cmd/atlas ingest trade-comtrade --file data/examples/comtrade_sample.csv --out data/processed/trade
+go run ./cmd/atlas trade summary --data data/processed/trade
+go run ./cmd/atlas graph build-trade --trade-data data/processed/trade --out data/generated/trade_graph
+```
+
+Ingestion reports total / valid / skipped rows, the import vs export flow split,
+and the countries, commodities and total trade value detected:
+
+```
+COMTRADE TRADE INGESTION
+----------------------------------------------------------------
+  Source file       : data/examples/comtrade_sample.csv
+  Output            : data/processed/trade/trade_flows.json
+  Total rows        : 19
+  Valid rows        : 19
+  Skipped rows      : 0
+  Flows imported    : 9
+  Flows exported    : 10
+  Countries detected: 9
+  Commodities       : 5
+  Total trade value : US$ 275.0B
+```
+
+This supports downloaded Comtrade-style CSVs without requiring API credentials
+yet. (Live Comtrade API ingestion is intentionally out of scope for now.)
+
+---
+
 ## Generated Trade Graphs
 
 This step converts trade-flow data into a dependency graph, so scenario shocks

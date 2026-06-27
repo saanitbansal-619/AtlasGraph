@@ -652,6 +652,112 @@ func TestIngestTradeRequiresFile(t *testing.T) {
 	}
 }
 
+// --- UN Comtrade-style ingestion ------------------------------------------
+
+const comtradeSampleCSV = `refYear,flowDesc,reporterISO,reporterDesc,partnerISO,partnerDesc,cmdCode,cmdDesc,primaryValue,qty,qtyUnitAbbr
+2023,Import,USA,United States,TWN,Taiwan,8542,Electronic integrated circuits,60000000000,0,N/A
+2023,Import,USA,United States,KOR,"Korea, Rep.",8542,Electronic integrated circuits,30000000000,0,N/A
+2023,Export,JPN,Japan,USA,United States,8542,Electronic integrated circuits,10000000000,0,N/A
+2023,Export,SAU,Saudi Arabia,DEU,Germany,2709,"Petroleum oils, crude",14000000000,0,N/A
+`
+
+// seedComtradeTrade writes a Comtrade-style CSV and ingests it, returning the
+// processed output dir.
+func seedComtradeTrade(t *testing.T, csv string) string {
+	t.Helper()
+	srcDir := t.TempDir()
+	csvPath := filepath.Join(srcDir, "comtrade.csv")
+	if err := os.WriteFile(csvPath, []byte(csv), 0o644); err != nil {
+		t.Fatalf("writing csv: %v", err)
+	}
+	outDir := filepath.Join(t.TempDir(), "trade")
+	_, _, code := run("ingest", "trade-comtrade", "--file", csvPath, "--out", outDir)
+	if code != 0 {
+		t.Fatalf("ingest trade-comtrade exit = %d, want 0", code)
+	}
+	return outDir
+}
+
+func TestIngestTradeComtradeReport(t *testing.T) {
+	srcDir := t.TempDir()
+	csvPath := filepath.Join(srcDir, "comtrade.csv")
+	if err := os.WriteFile(csvPath, []byte(comtradeSampleCSV), 0o644); err != nil {
+		t.Fatalf("writing csv: %v", err)
+	}
+	outDir := filepath.Join(t.TempDir(), "trade")
+	out, _, code := run("ingest", "trade-comtrade", "--file", csvPath, "--out", outDir)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	for _, want := range []string{
+		"COMTRADE TRADE INGESTION", "Total rows        : 4", "Valid rows        : 4",
+		"Flows imported    : 2", "Flows exported    : 2", "Countries detected", "Total trade value",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("comtrade ingest output missing %q\n---\n%s", want, out)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "trade_flows.json")); err != nil {
+		t.Errorf("expected trade_flows.json to be written: %v", err)
+	}
+}
+
+func TestIngestTradeComtradeRequiresFile(t *testing.T) {
+	_, errOut, code := run("ingest", "trade-comtrade")
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, "required") {
+		t.Errorf("expected required-file error, got %q", errOut)
+	}
+}
+
+// TestComtradeOutputWorksWithTradeCommands confirms the normalised Comtrade
+// output is a drop-in for the existing trade pipeline: an import-reported flow
+// (USA importing from Taiwan) is correctly attributed to Taiwan as supplier.
+func TestComtradeOutputWorksWithTradeCommands(t *testing.T) {
+	dir := seedComtradeTrade(t, comtradeSampleCSV)
+
+	out, _, code := run("trade", "summary", "--data", dir)
+	if code != 0 {
+		t.Fatalf("trade summary exit = %d, want 0", code)
+	}
+	for _, want := range []string{"TRADE FLOW SUMMARY", "semiconductors", "Taiwan"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("summary missing %q\n---\n%s", want, out)
+		}
+	}
+
+	out, _, code = run("trade", "dependency", "--importer", "USA", "--commodity", "semiconductors", "--data", dir)
+	if code != 0 {
+		t.Fatalf("trade dependency exit = %d, want 0", code)
+	}
+	for _, want := range []string{"SUPPLIER DEPENDENCY", "United States", "Taiwan", "High"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("dependency missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+// TestComtradeOutputBuildsTradeGraph confirms graph build-trade consumes the
+// Comtrade-normalised output unchanged.
+func TestComtradeOutputBuildsTradeGraph(t *testing.T) {
+	dir := seedComtradeTrade(t, comtradeSampleCSV)
+	outDir := filepath.Join(t.TempDir(), "trade_graph")
+	out, _, code := run("graph", "build-trade", "--trade-data", dir, "--out", outDir)
+	if code != 0 {
+		t.Fatalf("graph build-trade exit = %d, want 0", code)
+	}
+	if !strings.Contains(out, "TRADE GRAPH BUILD") {
+		t.Errorf("build report missing header\n---\n%s", out)
+	}
+	for _, name := range []string{"entities.json", "dependencies.json", "scenarios.json"} {
+		if _, err := os.Stat(filepath.Join(outDir, name)); err != nil {
+			t.Errorf("expected generated %s: %v", name, err)
+		}
+	}
+}
+
 func TestIngestTradeSkipsMalformed(t *testing.T) {
 	csv := tradeSampleCSV + "notayear,TWN,Taiwan,USA,United States,8542,semiconductors,1,0,USD\n"
 	srcDir := t.TempDir()

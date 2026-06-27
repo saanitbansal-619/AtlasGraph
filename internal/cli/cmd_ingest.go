@@ -14,7 +14,7 @@ import (
 
 func runIngest(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade> [flags]")
+		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade|trade-comtrade> [flags]")
 		return 2
 	}
 	switch args[0] {
@@ -22,8 +22,10 @@ func runIngest(args []string, out, errOut io.Writer) int {
 		return ingestWorldBank(args[1:], out, errOut)
 	case "trade":
 		return ingestTrade(args[1:], out, errOut)
+	case "trade-comtrade":
+		return ingestTradeComtrade(args[1:], out, errOut)
 	default:
-		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank or trade)\n", args[0])
+		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, trade or trade-comtrade)\n", args[0])
 		return 2
 	}
 }
@@ -70,6 +72,55 @@ func ingestTrade(args []string, out, errOut io.Writer) int {
 	}
 
 	renderTradeIngestReport(out, *file, path, res, trade.BuildSummary(tf, 0))
+	return 0
+}
+
+// ingestTradeComtrade ingests a downloaded UN Comtrade-style CSV export and
+// normalises it into the same trade_flows.json the rest of the trade pipeline
+// consumes. It does not call the Comtrade API: this is a local importer for
+// CSVs the user has already downloaded.
+func ingestTradeComtrade(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("ingest trade-comtrade", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	file := fs.String("file", "", "path to a UN Comtrade-style CSV to ingest")
+	outDir := fs.String("out", "data/processed/trade", "directory to write normalized output to")
+	fs.Usage = func() {
+		fmt.Fprintln(errOut, "Usage: atlas ingest trade-comtrade --file <csv> [--out dir]")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if strings.TrimSpace(*file) == "" {
+		fmt.Fprintln(errOut, "error: --file is required (path to a UN Comtrade-style CSV)")
+		fs.Usage()
+		return 2
+	}
+
+	res, err := trade.LoadComtradeFile(*file)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+	if res.ValidRows() == 0 {
+		fmt.Fprintf(errOut, "error: no valid trade rows in %s\n", *file)
+		return 1
+	}
+
+	trade.SortRecords(res.Records)
+	tf := trade.TradeFile{
+		Source:     trade.ComtradeSourceName,
+		IngestedAt: time.Now().UTC(),
+		SourceFile: *file,
+		Records:    res.Records,
+	}
+	path, err := trade.Save(*outDir, tf)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+
+	renderComtradeIngestReport(out, *file, path, res, trade.BuildSummary(tf, 0))
 	return 0
 }
 
