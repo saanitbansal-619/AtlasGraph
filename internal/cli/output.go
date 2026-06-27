@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
 )
 
@@ -247,6 +248,96 @@ func writeResultJSON(w io.Writer, res simulation.Result, scen *data.Scenario, ex
 
 func saveResultJSON(path string, res simulation.Result, scen *data.Scenario, explain bool) error {
 	b, err := json.MarshalIndent(buildJSONResult(res, scen, explain), "", "  ")
+	if err != nil {
+		return err
+	}
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+// --- macro exposure scores -------------------------------------------------
+
+type jsonMacroFile struct {
+	YearLens  any                `json:"year_lens"` // int year, or "latest"
+	Weights   macro.Weights      `json:"weights"`
+	RiskBands map[string]string  `json:"risk_bands"`
+	Scores    []jsonMacroCountry `json:"scores"`
+}
+
+type jsonMacroCountry struct {
+	CountryCode        string               `json:"country_code"`
+	CountryName        string               `json:"country_name"`
+	Year               int                  `json:"year"`
+	MacroExposureScore float64              `json:"macro_exposure_score"`
+	RiskLevel          string               `json:"risk_level"`
+	TopDrivers         []string             `json:"top_drivers"`
+	Components         []jsonMacroComponent `json:"components"`
+}
+
+type jsonMacroComponent struct {
+	Key          string  `json:"key"`
+	Name         string  `json:"name"`
+	Score        float64 `json:"score"`
+	Weight       float64 `json:"weight"`
+	Contribution float64 `json:"contribution"`
+	YearUsed     int     `json:"year_used"`
+	Available    bool    `json:"available"`
+}
+
+func buildMacroJSON(scores []macro.CountryScore, yearLens int) jsonMacroFile {
+	out := jsonMacroFile{
+		Weights: macro.DefaultWeights(),
+		RiskBands: map[string]string{
+			"low": "0-30", "medium": "30-60", "high": "60-80", "critical": "80-100",
+		},
+		Scores: make([]jsonMacroCountry, 0, len(scores)),
+	}
+	if yearLens > 0 {
+		out.YearLens = yearLens
+	} else {
+		out.YearLens = "latest"
+	}
+	for _, s := range scores {
+		jc := jsonMacroCountry{
+			CountryCode:        s.CountryCode,
+			CountryName:        s.CountryName,
+			Year:               s.Year,
+			MacroExposureScore: round(s.Score, 1),
+			RiskLevel:          s.RiskLevel,
+			TopDrivers:         s.TopDrivers,
+			Components:         make([]jsonMacroComponent, 0, len(s.Components)),
+		}
+		if jc.TopDrivers == nil {
+			jc.TopDrivers = []string{}
+		}
+		for _, c := range s.Components {
+			jc.Components = append(jc.Components, jsonMacroComponent{
+				Key:          c.Key,
+				Name:         c.Name,
+				Score:        round(c.Score, 1),
+				Weight:       c.Weight,
+				Contribution: round(c.Contribution, 2),
+				YearUsed:     c.YearUsed,
+				Available:    c.Available,
+			})
+		}
+		out.Scores = append(out.Scores, jc)
+	}
+	return out
+}
+
+func writeMacroJSON(w io.Writer, scores []macro.CountryScore, yearLens int) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(buildMacroJSON(scores, yearLens))
+}
+
+func saveMacroJSON(path string, scores []macro.CountryScore, yearLens int) error {
+	b, err := json.MarshalIndent(buildMacroJSON(scores, yearLens), "", "  ")
 	if err != nil {
 		return err
 	}

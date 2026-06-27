@@ -33,6 +33,8 @@ func Run(args []string, out, errOut io.Writer) int {
 		return runIngest(args[1:], out, errOut)
 	case "indicators":
 		return runIndicators(args[1:], out, errOut)
+	case "score":
+		return runScore(args[1:], out, errOut)
 	case "version", "--version", "-v":
 		fmt.Fprintf(out, "atlas %s (commit %s, built %s)\n", config.Version, config.Commit, config.BuildDate)
 		return 0
@@ -72,6 +74,7 @@ Commands:
   risk leaderboard      Rank entities by baseline fragility
   ingest worldbank      Fetch real macro indicators from the World Bank API
   indicators country    Show ingested macro indicators for a country
+  score macro           Score macro exposure per country from macro indicators
   version               Print version information
   help                  Show this help
 
@@ -94,5 +97,6 @@ Examples:
   atlas risk leaderboard --data data/sample
   atlas ingest worldbank --countries USA,CHN,JPN,DEU,KOR --start 2018 --end 2023 --out data/raw/worldbank
   atlas indicators country USA --data data/raw/worldbank
+  atlas score macro --data data/raw/worldbank --year 2023 --verbose
 `, "\n"))
 }

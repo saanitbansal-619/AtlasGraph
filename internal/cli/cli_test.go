@@ -305,6 +305,178 @@ func TestIndicatorsCountryRequiresCode(t *testing.T) {
 	}
 }
 
+// seedMacroFile writes a richer multi-country, multi-indicator dataset so the
+// macro scorer has all components to work with.
+func seedMacroFile(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	rec := func(code, name, ind string, year int, v float64) worldbank.CountryIndicatorRecord {
+		val := v
+		return worldbank.CountryIndicatorRecord{
+			CountryCode: code, CountryName: name, IndicatorCode: ind,
+			Year: year, Value: &val, Source: worldbank.SourceName,
+		}
+	}
+	file := worldbank.IndicatorFile{
+		Source: worldbank.SourceName, StartYear: 2018, EndYear: 2023,
+		Countries: []string{"USA", "DEU"},
+		Records: []worldbank.CountryIndicatorRecord{
+			rec("USA", "United States", "NY.GDP.MKTP.CD", 2023, 27e12),
+			rec("USA", "United States", "NE.IMP.GNFS.ZS", 2023, 14.1),
+			rec("USA", "United States", "NE.EXP.GNFS.ZS", 2023, 11.2),
+			rec("USA", "United States", "NV.IND.MANF.ZS", 2021, 10.7),
+			rec("USA", "United States", "FP.CPI.TOTL.ZG", 2023, 4.1),
+			rec("USA", "United States", "TX.VAL.TECH.CD", 2023, 208e9),
+			rec("DEU", "Germany", "NY.GDP.MKTP.CD", 2023, 4.5e12),
+			rec("DEU", "Germany", "NE.IMP.GNFS.ZS", 2023, 39.0),
+			rec("DEU", "Germany", "NE.EXP.GNFS.ZS", 2023, 43.0),
+			rec("DEU", "Germany", "NV.IND.MANF.ZS", 2023, 18.9),
+			rec("DEU", "Germany", "FP.CPI.TOTL.ZG", 2023, 5.9),
+			rec("DEU", "Germany", "TX.VAL.TECH.CD", 2023, 260e9),
+		},
+	}
+	if _, err := worldbank.Save(dir, file); err != nil {
+		t.Fatalf("seeding macro file: %v", err)
+	}
+	return dir
+}
+
+func TestScoreMacroText(t *testing.T) {
+	dir := seedMacroFile(t)
+	out, _, code := run("score", "macro", "--data", dir, "--year", "2023")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	for _, want := range []string{"MACRO EXPOSURE SCORES", "COUNTRY", "Germany", "United States", "Risk bands"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("macro output missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+func TestScoreMacroExplainFormula(t *testing.T) {
+	out, _, code := run("score", "macro", "--explain-formula")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	// Score name and the weighted formula terms.
+	for _, want := range []string{
+		"Macro Exposure Score",
+		"0.30 * trade_exposure_score",
+		"0.25 * manufacturing_dependency_score",
+		"0.20 * inflation_stress_score",
+		"0.15 * high_tech_concentration_score",
+		"0.10 * economic_buffer_risk_score",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("explain-formula output missing weight %q\n---\n%s", want, out)
+		}
+	}
+	// Component definitions and risk bands.
+	for _, want := range []string{
+		"imports % GDP + exports % GDP exposure",
+		"inverse GDP-size buffer risk",
+		"Low      : 0-30",
+		"Critical : 80-100",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("explain-formula output missing %q", want)
+		}
+	}
+	// Limitation / disclaimer.
+	for _, want := range []string{"not a prediction of recession", "Full AtlasGraph fragility"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("explain-formula output missing disclaimer %q", want)
+		}
+	}
+}
+
+func TestScoreMacroVerbose(t *testing.T) {
+	dir := seedMacroFile(t)
+	out, _, code := run("score", "macro", "--data", dir, "--verbose")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	for _, want := range []string{"COMPONENT", "trade exposure", "manufacturing dependency", "CONTRIBUTION"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("verbose output missing %q", want)
+		}
+	}
+}
+
+func TestScoreMacroJSON(t *testing.T) {
+	dir := seedMacroFile(t)
+	out, _, code := run("score", "macro", "--data", dir, "--output", "json")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	for _, key := range []string{"year_lens", "weights", "risk_bands", "scores"} {
+		if _, ok := parsed[key]; !ok {
+			t.Errorf("macro JSON missing %q", key)
+		}
+	}
+	var scores []map[string]json.RawMessage
+	if err := json.Unmarshal(parsed["scores"], &scores); err != nil {
+		t.Fatalf("scores is not an array: %v", err)
+	}
+	if len(scores) != 2 {
+		t.Fatalf("expected 2 country scores, got %d", len(scores))
+	}
+	for _, key := range []string{"country_code", "macro_exposure_score", "risk_level", "components", "top_drivers"} {
+		if _, ok := scores[0][key]; !ok {
+			t.Errorf("country score missing %q", key)
+		}
+	}
+}
+
+func TestScoreMacroSave(t *testing.T) {
+	dir := seedMacroFile(t)
+	path := filepath.Join(t.TempDir(), "nested", "macro_scores.json")
+	out, _, code := run("score", "macro", "--data", dir, "--save", path)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !strings.Contains(out, "Saved macro exposure scores") {
+		t.Errorf("expected save confirmation, got %q", out)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("saved file not readable: %v", err)
+	}
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("saved file is not valid JSON: %v", err)
+	}
+	if _, ok := parsed["scores"]; !ok {
+		t.Errorf("saved JSON missing scores")
+	}
+}
+
+func TestScoreMacroMissingData(t *testing.T) {
+	_, errOut, code := run("score", "macro", "--data", t.TempDir())
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "reading") {
+		t.Errorf("expected a read error, got %q", errOut)
+	}
+}
+
+func TestScoreMacroInvalidOutput(t *testing.T) {
+	dir := seedMacroFile(t)
+	_, errOut, code := run("score", "macro", "--data", dir, "--output", "xml")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, "invalid --output") {
+		t.Errorf("expected invalid output error, got %q", errOut)
+	}
+}
+
 func TestShockInvalidOutput(t *testing.T) {
 	_, errOut, code := run("shock", "--source", "Taiwan", "--commodity", "semiconductors", "--output", "yaml")
 	if code != 2 {

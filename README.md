@@ -106,7 +106,9 @@ AtlasGraph/
 | `graph`      | Storage + traversal. No opinion about economics or scoring.         |
 | `data`       | Where the graph comes from: JSON in, validated `Dataset` out.       |
 | `scoring`    | Turns graph structure into fragility numbers.                       |
+| `scoring/macro` | Turns ingested macro indicators into a macro exposure score.      |
 | `simulation` | Orchestrates a scenario: inject → propagate → score → summarise.    |
+| `ingest`     | Pulls real external data (World Bank) into normalised records.       |
 | `cli`        | Human interface, text rendering and JSON shaping. No business logic.|
 
 The `data` package is the only one that knows the graph comes from JSON. Because
@@ -281,6 +283,7 @@ atlas graph dump                         [--data dir]
 atlas risk leaderboard                   [--data dir] [--top N]
 atlas ingest worldbank --countries <ISO3,…> [--start Y] [--end Y] [--out dir]
 atlas indicators country <ISO3>          [--data dir]
+atlas score macro                        [--data dir] [--year Y] [--output text|json] [--save file] [--verbose]
 atlas version
 ```
 
@@ -456,6 +459,100 @@ The output record shape:
 
 ---
 
+## Macro Exposure Scoring
+
+Once macro indicators are ingested, AtlasGraph turns them into an **explainable
+Macro Exposure Score** per country — the bridge between Phase 1's seeded graph
+weights and real-world fundamentals. This is implemented in
+[`internal/scoring/macro`](internal/scoring/macro).
+
+The score is built from a **selected set of World Bank macroeconomic exposure
+indicators** — trade exposure, manufacturing dependency, inflation stress,
+high-tech export concentration and economic-buffer risk.
+
+> **This is exposure/risk scoring, not forecasting.** It does not predict
+> markets, prices or crises. It measures how *structurally exposed* an economy
+> is — to trade, supply-chain, price and technology shocks — given its latest
+> macro fundamentals, and shows exactly which factors drive that exposure.
+>
+> **This is not the final, complete AtlasGraph fragility score.** It covers
+> macro exposure only. Full fragility scoring will later combine this with graph
+> dependency / centrality, supplier concentration, event risk and commodity
+> volatility.
+
+### Components
+
+Each country's score blends five normalised components (each 0–100):
+
+| Component                    | Built from                                   | Higher means …                          |
+| ---------------------------- | -------------------------------------------- | --------------------------------------- |
+| `trade_exposure`             | imports % GDP + exports % GDP                | more exposed to trade disruption        |
+| `manufacturing_dependency`   | manufacturing value added % GDP              | more exposed to supply-chain shocks     |
+| `inflation_stress`           | inflation, annual %                          | more macro price stress                 |
+| `high_tech_concentration`    | high-tech exports ÷ GDP                      | more exposed to tech-trade disruption   |
+| `economic_buffer_risk`       | GDP size (log scale), **inverse**            | smaller economy = less shock-absorbing  |
+
+Components use **calibrated absolute reference bands**, not min-max over the
+loaded panel, so a country's score is stable no matter which other countries are
+present (and a single-country file still scores sensibly).
+
+### Final score and risk bands
+
+```
+macro_exposure_score = 0.30·trade_exposure
+                     + 0.25·manufacturing_dependency
+                     + 0.20·inflation_stress
+                     + 0.15·high_tech_concentration
+                     + 0.10·economic_buffer_risk        → 0..100
+```
+
+Weights sum to 1.0. When an indicator is missing, its component is dropped and
+the remaining weights are **renormalised**, so gaps in the data never silently
+deflate a score. Each component records the year it actually used (the latest
+available at or before the requested `--year`).
+
+| Score   | Risk level |
+| ------- | ---------- |
+| 0–30    | Low        |
+| 30–60   | Medium     |
+| 60–80   | High       |
+| 80–100  | Critical   |
+
+### Commands
+
+```bash
+go run ./cmd/atlas score macro --data data/raw/worldbank
+go run ./cmd/atlas score macro --data data/raw/worldbank --year 2023
+go run ./cmd/atlas score macro --data data/raw/worldbank --verbose
+go run ./cmd/atlas score macro --data data/raw/worldbank --explain-formula
+go run ./cmd/atlas score macro --data data/raw/worldbank --output json
+go run ./cmd/atlas score macro --data data/raw/worldbank --save results/macro_scores.json
+```
+
+```
+MACRO EXPOSURE SCORES
+----------------------------------------------------------------
+  Year lens: 2023 (latest available <= 2023 per indicator)
+
+  COUNTRY        YEAR  SCORE  RISK    TOP DRIVERS
+  Korea, Rep.    2023  48.6   Medium  manufacturing dependency, trade exposure
+  Germany        2023  40.9   Medium  manufacturing dependency, trade exposure
+  China          2023  29.1   Low     manufacturing dependency, high-tech concentration
+  Japan          2023  26.5   Low     manufacturing dependency, trade exposure
+  United States  2023  9.4    Low     inflation stress, manufacturing dependency
+
+  Risk bands: Low 0-30 | Medium 30-60 | High 60-80 | Critical 80-100
+```
+
+`--verbose` adds a per-country breakdown of every component (score, weight,
+contribution and the year used); `--output json` emits the same data with
+`weights`, `risk_bands` and per-component detail (each country's score under the
+`macro_exposure_score` field) for programmatic use. `--explain-formula` prints
+the score name, weighted formula, component definitions, risk bands and an
+explicit limitation note, then exits without needing ingested data.
+
+---
+
 ## Testing
 
 The engine is covered by unit tests across the core packages:
@@ -478,6 +575,9 @@ The engine is covered by unit tests across the core packages:
   server (success, pagination, non-200, malformed JSON, API error messages,
   empty results and context timeout), normalisation, save/load round-trips and
   per-country summary building. **No test touches the real network.**
+- `internal/scoring/macro` — component normalisation and clamping, the weighted
+  blend, risk-band assignment, missing-indicator fallback + weight
+  renormalisation, year-lens selection and score ordering.
 - `internal/cli` — command dispatch, scenario list/run, graph summary/paths,
   risk leaderboard, JSON output shape (incl. profile/rules/blocked edges),
   labelled paths, `--explain` output, the `ingest`/`indicators` commands and
@@ -497,10 +597,11 @@ The engine is deliberately a clean, data-driven core. Planned expansion:
   shock profiles + rule-based propagation, fragility scoring, scenarios, CLI and
   tests.
 - **Phase 2 — Real trade data ingestion** 🛠️ *(in progress)* — the World Bank
-  macro ingestion module (`atlas ingest worldbank`) is the first real source.
-  Next: pull production shares and trade flows from trade APIs and feed them into
-  baseline fragility, keeping the same graph interface so nothing downstream
-  changes.
+  macro ingestion module (`atlas ingest worldbank`) is the first real source, and
+  `atlas score macro` already turns those indicators into an explainable macro
+  exposure score per country. Next: pull production shares and trade flows from
+  trade APIs and fold them into the graph's baseline weights, keeping the same
+  interface so nothing downstream changes.
 - **Phase 3 — Neo4j graph database** — persist the dependency graph and push
   traversal into the database for larger, real-world graphs.
 - **Phase 4 — ClickHouse analytics layer** — store scenario runs and time series

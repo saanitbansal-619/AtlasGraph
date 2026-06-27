@@ -11,6 +11,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/graph"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
 )
 
@@ -238,6 +239,91 @@ func groupThousands(v float64) string {
 		b.WriteRune(d)
 	}
 	return b.String()
+}
+
+// --- macro exposure scores -------------------------------------------------
+
+func renderMacroScores(out io.Writer, scores []macro.CountryScore, yearLens int, verbose bool) {
+	section(out, "MACRO EXPOSURE SCORES")
+	if yearLens > 0 {
+		fmt.Fprintf(out, "  Year lens: %d (latest available <= %d per indicator)\n\n", yearLens, yearLens)
+	} else {
+		fmt.Fprint(out, "  Year lens: latest available per indicator\n\n")
+	}
+
+	tw := newTable(out)
+	fmt.Fprintln(tw, "  COUNTRY\tYEAR\tSCORE\tRISK\tTOP DRIVERS")
+	for _, s := range scores {
+		fmt.Fprintf(tw, "  %s\t%s\t%.1f\t%s\t%s\n",
+			s.CountryName, yearLabel(s.Year), s.Score, s.RiskLevel, strings.Join(s.TopDrivers, ", "))
+	}
+	flush(tw)
+
+	fmt.Fprint(out, "\n  Risk bands: Low 0-30 | Medium 30-60 | High 60-80 | Critical 80-100\n")
+
+	if verbose {
+		for _, s := range scores {
+			renderMacroDetail(out, s)
+		}
+	}
+}
+
+func renderMacroDetail(out io.Writer, s macro.CountryScore) {
+	section(out, fmt.Sprintf("%s (%s) — %.1f %s", s.CountryName, s.CountryCode, s.Score, s.RiskLevel))
+	tw := newTable(out)
+	fmt.Fprintln(tw, "  COMPONENT\tSCORE\tWEIGHT\tCONTRIBUTION\tYEAR")
+	for _, c := range s.Components {
+		if !c.Available {
+			fmt.Fprintf(tw, "  %s\t(no data)\t%.2f\t-\t-\n", c.Name, c.Weight)
+			continue
+		}
+		fmt.Fprintf(tw, "  %s\t%.1f\t%.2f\t%.2f\t%s\n",
+			c.Name, c.Score, c.Weight, c.Contribution, yearLabel(c.YearUsed))
+	}
+	flush(tw)
+}
+
+func yearLabel(y int) string {
+	if y <= 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d", y)
+}
+
+// renderMacroFormula documents exactly how the Macro Exposure Score is built:
+// its weighted formula, what each component measures, the risk bands, and an
+// explicit statement of what the score is and is not.
+func renderMacroFormula(out io.Writer, w macro.Weights) {
+	section(out, "MACRO EXPOSURE SCORE — FORMULA")
+	fmt.Fprintf(out, "  Score name: Macro Exposure Score\n\n")
+
+	fmt.Fprintln(out, "  Formula weights:")
+	fmt.Fprintf(out, "      %.2f * trade_exposure_score\n", w.Trade)
+	fmt.Fprintf(out, "    + %.2f * manufacturing_dependency_score\n", w.Manufacturing)
+	fmt.Fprintf(out, "    + %.2f * inflation_stress_score\n", w.Inflation)
+	fmt.Fprintf(out, "    + %.2f * high_tech_concentration_score\n", w.HighTech)
+	fmt.Fprintf(out, "    + %.2f * economic_buffer_risk_score\n\n", w.BufferRisk)
+
+	fmt.Fprintln(out, "  Component definitions:")
+	fmt.Fprintln(out, "    trade_exposure_score           = imports % GDP + exports % GDP exposure")
+	fmt.Fprintln(out, "    manufacturing_dependency_score = manufacturing value added % GDP exposure")
+	fmt.Fprintln(out, "    inflation_stress_score         = inflation pressure")
+	fmt.Fprintln(out, "    high_tech_concentration_score  = high-tech exports relative to GDP")
+	fmt.Fprintln(out, "    economic_buffer_risk_score     = inverse GDP-size buffer risk")
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "  Risk bands:")
+	fmt.Fprintln(out, "    Low      : 0-30")
+	fmt.Fprintln(out, "    Medium   : 30-60")
+	fmt.Fprintln(out, "    High     : 60-80")
+	fmt.Fprintln(out, "    Critical : 80-100")
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "  Note:")
+	fmt.Fprintln(out, "    This is an exposure-oriented macro score, not a prediction of recession,")
+	fmt.Fprintln(out, "    crisis, default, or stock-market performance. Full AtlasGraph fragility")
+	fmt.Fprintln(out, "    scoring will later combine macro exposure with graph dependency, trade")
+	fmt.Fprintln(out, "    concentration, event risk, and commodity volatility.")
 }
 
 // --- small formatting helpers ---------------------------------------------
