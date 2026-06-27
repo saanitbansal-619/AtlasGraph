@@ -1,0 +1,20 @@
+year,exporter_code,exporter_name,importer_code,importer_name,commodity_code,commodity_name,trade_value_usd,quantity,unit
+2023,TWN,Taiwan,USA,United States,8542,semiconductors,85000000000,0,USD
+2023,KOR,Korea Rep.,USA,United States,8542,semiconductors,21000000000,0,USD
+2023,JPN,Japan,USA,United States,8542,semiconductors,12000000000,0,USD
+2023,CHN,China,USA,United States,8542,semiconductors,10000000000,0,USD
+2023,DEU,Germany,USA,United States,8542,semiconductors,9000000000,0,USD
+2023,TWN,Taiwan,JPN,Japan,8542,semiconductors,32000000000,0,USD
+2023,KOR,Korea Rep.,JPN,Japan,8542,semiconductors,8000000000,0,USD
+2023,CHN,China,USA,United States,8507,lithium batteries,19000000000,0,USD
+2023,KOR,Korea Rep.,USA,United States,8507,lithium batteries,7000000000,0,USD
+2023,JPN,Japan,USA,United States,8507,lithium batteries,5000000000,0,USD
+2023,CHN,China,DEU,Germany,8507,lithium batteries,11000000000,0,USD
+2023,COD,DRC,CHN,China,2605,cobalt ores,6200000000,0,USD
+2023,COD,DRC,DEU,Germany,2605,cobalt ores,1800000000,0,USD
+2023,SAU,Saudi Arabia,DEU,Germany,2709,crude oil,14000000000,0,USD
+2023,USA,United States,DEU,Germany,2709,crude oil,4000000000,0,USD
+2023,SAU,Saudi Arabia,IND,India,2709,crude oil,22000000000,0,USD
+2023,CHN,China,JPN,Japan,2805,rare earths,4000000000,0,USD
+2023,USA,United States,JPN,Japan,2805,rare earths,1000000000,0,USD
+2023,CHN,China,USA,United States,2805,rare earths,3000000000,0,USD

@@ -553,6 +553,94 @@ explicit limitation note, then exits without needing ingested data.
 
 ---
 
+## Trade Dependency Ingestion
+
+This milestone introduces **trade-flow data ingestion** from local CSV files,
+the foundation for measuring country-to-country commodity dependency and
+supplier concentration. It deliberately reads **local CSV** (no external APIs)
+so real datasets — e.g. UN Comtrade exports — can later be dropped in unchanged.
+It is implemented in [`internal/ingest/trade`](internal/ingest/trade).
+
+From the ingested flows it computes **supplier dependency** (how an importer's
+purchases of a commodity split across exporters) and **concentration risk** (the
+Herfindahl-Hirschman Index over those supplier shares). These signals are meant
+to later feed the graph shock-propagation engine's baseline edge weights.
+
+### Input CSV format
+
+```
+year,exporter_code,exporter_name,importer_code,importer_name,commodity_code,commodity_name,trade_value_usd,quantity,unit
+2023,TWN,Taiwan,USA,United States,8542,semiconductors,85000000000,0,USD
+```
+
+The loader validates that all required columns are present (order-independent,
+case-insensitive), parses numbers safely (tolerating thousands separators), and
+**skips malformed rows with a clear, line-numbered reason** rather than aborting
+the whole file. Normalised records are written to
+`data/processed/trade/trade_flows.json`.
+
+### Commands
+
+```bash
+go run ./cmd/atlas ingest trade --file data/examples/trade_flows_sample.csv --out data/processed/trade
+go run ./cmd/atlas trade summary --data data/processed/trade
+go run ./cmd/atlas trade dependency --importer USA --commodity semiconductors --data data/processed/trade
+go run ./cmd/atlas trade concentration --importer USA --commodity semiconductors --data data/processed/trade
+```
+
+Ingestion reports total / valid / skipped rows and the countries, commodities
+and total trade value detected:
+
+```
+TRADE INGESTION
+----------------------------------------------------------------
+  Source file       : data/examples/trade_flows_sample.csv
+  Output            : data/processed/trade/trade_flows.json
+  Total rows        : 19
+  Valid rows        : 19
+  Skipped rows      : 0
+  Countries detected: 9
+  Commodities       : 5
+  Total trade value : US$ 275.0B
+```
+
+`trade dependency` ranks supplier countries by value, with each supplier's share
+and a per-supplier dependency band (Low <10% | Medium 10–40% | High ≥40%):
+
+```
+SUPPLIER DEPENDENCY
+----------------------------------------------------------------
+  Importer     : United States
+  Commodity    : semiconductors
+  Total imports: US$ 137.0B
+
+  SUPPLIER     VALUE       SHARE  DEPENDENCY
+  Taiwan       US$ 85.0B   62.0%  High
+  Korea Rep.   US$ 21.0B   15.3%  Medium
+  Japan        US$ 12.0B   8.8%   Low
+  China        US$ 10.0B   7.3%   Low
+  Germany      US$ 9.0B    6.6%   Low
+```
+
+`trade concentration` reduces the supplier shares to a single HHI and risk band
+(HHI < 0.15 Low | 0.15–0.25 Medium | > 0.25 High):
+
+```
+SUPPLIER CONCENTRATION
+----------------------------------------------------------------
+  Importer          : United States
+  Commodity         : semiconductors
+  HHI               : 0.43
+  Concentration risk: High
+  Top supplier      : Taiwan, 62.0%
+```
+
+Both `trade dependency` and `trade concentration` accept `--output json` for
+programmatic use. The importer can be given as an ISO code or country name, and
+the commodity as a name or HS code.
+
+---
+
 ## Testing
 
 The engine is covered by unit tests across the core packages:
@@ -578,10 +666,14 @@ The engine is covered by unit tests across the core packages:
 - `internal/scoring/macro` — component normalisation and clamping, the weighted
   blend, risk-band assignment, missing-indicator fallback + weight
   renormalisation, year-lens selection and score ordering.
+- `internal/ingest/trade` — CSV parsing (reordered/mixed-case headers), required
+  column validation, malformed-row skipping with reasons, safe numeric parsing,
+  save/load round-trips, summary aggregation, supplier-share and HHI
+  concentration maths, and dependency/concentration risk bands.
 - `internal/cli` — command dispatch, scenario list/run, graph summary/paths,
   risk leaderboard, JSON output shape (incl. profile/rules/blocked edges),
-  labelled paths, `--explain` output, the `ingest`/`indicators` commands and
-  save-to-file behaviour.
+  labelled paths, `--explain` output, the `ingest`/`indicators`/`trade` commands
+  and save-to-file behaviour.
 
 ```bash
 go test ./...

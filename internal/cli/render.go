@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
@@ -324,6 +325,125 @@ func renderMacroFormula(out io.Writer, w macro.Weights) {
 	fmt.Fprintln(out, "    crisis, default, or stock-market performance. Full AtlasGraph fragility")
 	fmt.Fprintln(out, "    scoring will later combine macro exposure with graph dependency, trade")
 	fmt.Fprintln(out, "    concentration, event risk, and commodity volatility.")
+}
+
+// --- trade flows -----------------------------------------------------------
+
+func renderTradeIngestReport(out io.Writer, srcFile, outPath string, res trade.LoadResult, s trade.Summary) {
+	section(out, "TRADE INGESTION")
+	fmt.Fprintf(out, "  Source file       : %s\n", srcFile)
+	fmt.Fprintf(out, "  Output            : %s\n", outPath)
+	fmt.Fprintf(out, "  Total rows        : %d\n", res.TotalRows)
+	fmt.Fprintf(out, "  Valid rows        : %d\n", res.ValidRows())
+	fmt.Fprintf(out, "  Skipped rows      : %d\n", len(res.Skipped))
+	for _, sk := range res.Skipped {
+		fmt.Fprintf(out, "    - line %d: %s\n", sk.Line, sk.Reason)
+	}
+	fmt.Fprintf(out, "  Countries detected: %d\n", s.Countries)
+	fmt.Fprintf(out, "  Commodities       : %d\n", s.Commodities)
+	fmt.Fprintf(out, "  Total trade value : %s\n", usdShort(s.TotalValueUSD))
+}
+
+func renderTradeSummary(out io.Writer, s trade.Summary) {
+	section(out, "TRADE FLOW SUMMARY")
+	fmt.Fprintf(out, "  Records          : %d\n", s.Records)
+	fmt.Fprintf(out, "  Years            : %s\n", yearsLabel(s.Years))
+	fmt.Fprintf(out, "  Countries        : %d\n", s.Countries)
+	fmt.Fprintf(out, "  Commodities      : %d\n", s.Commodities)
+	fmt.Fprintf(out, "  Total trade value: %s\n", usdShort(s.TotalValueUSD))
+
+	renderTradeLeaderboard(out, "Top exporters", s.TopExporters)
+	renderTradeLeaderboard(out, "Top importers", s.TopImporters)
+	renderTradeLeaderboard(out, "Top commodities", s.TopCommodities)
+}
+
+func renderTradeLeaderboard(out io.Writer, label string, items []trade.NamedValue) {
+	fmt.Fprintf(out, "\n  %s:\n", label)
+	if len(items) == 0 {
+		fmt.Fprintln(out, "    (none)")
+		return
+	}
+	for i, nv := range items {
+		name := nv.Name
+		if name == "" {
+			name = nv.Code
+		}
+		fmt.Fprintf(out, "    %d. %-22s %s\n", i+1, name, usdShort(nv.Value))
+	}
+}
+
+func renderTradeDependency(out io.Writer, d trade.Dependency) {
+	section(out, "SUPPLIER DEPENDENCY")
+	fmt.Fprintf(out, "  Importer     : %s\n", labelOrCode(d.ImporterName, d.ImporterCode))
+	fmt.Fprintf(out, "  Commodity    : %s\n", d.Commodity)
+	fmt.Fprintf(out, "  Total imports: %s\n\n", usdShort(d.TotalImportsUSD))
+
+	tw := newTable(out)
+	fmt.Fprintln(tw, "  SUPPLIER\tVALUE\tSHARE\tDEPENDENCY")
+	for _, sup := range d.Suppliers {
+		fmt.Fprintf(tw, "  %s\t%s\t%.1f%%\t%s\n",
+			labelOrCode(sup.ExporterName, sup.ExporterCode), usdShort(sup.ValueUSD), sup.Share*100, sup.Dependency)
+	}
+	flush(tw)
+	fmt.Fprint(out, "\n  Dependency bands: Low <10% | Medium 10-40% | High >=40% (single-supplier share)\n")
+}
+
+func renderTradeConcentration(out io.Writer, c trade.Concentration) {
+	section(out, "SUPPLIER CONCENTRATION")
+	fmt.Fprintf(out, "  Importer          : %s\n", labelOrCode(c.ImporterName, c.ImporterCode))
+	fmt.Fprintf(out, "  Commodity         : %s\n", c.Commodity)
+	fmt.Fprintf(out, "  HHI               : %.2f\n", c.HHI)
+	fmt.Fprintf(out, "  Concentration risk: %s\n", c.RiskLevel)
+	fmt.Fprintf(out, "  Top supplier      : %s, %.1f%%\n",
+		labelOrCode(c.TopSupplier.ExporterName, c.TopSupplier.ExporterCode), c.TopSupplier.Share*100)
+	fmt.Fprint(out, "\n  Risk bands: HHI < 0.15 Low | 0.15-0.25 Medium | > 0.25 High\n")
+}
+
+// usdShort renders a dollar amount compactly, e.g. 85000000000 -> "US$ 85.0B".
+func usdShort(v float64) string {
+	abs := v
+	if abs < 0 {
+		abs = -abs
+	}
+	switch {
+	case abs >= 1e12:
+		return fmt.Sprintf("US$ %.1fT", v/1e12)
+	case abs >= 1e9:
+		return fmt.Sprintf("US$ %.1fB", v/1e9)
+	case abs >= 1e6:
+		return fmt.Sprintf("US$ %.1fM", v/1e6)
+	case abs >= 1e3:
+		return fmt.Sprintf("US$ %.1fK", v/1e3)
+	default:
+		return fmt.Sprintf("US$ %.0f", v)
+	}
+}
+
+// yearsLabel renders a sorted year set as a single year, a contiguous range, or
+// a comma-separated list.
+func yearsLabel(years []int) string {
+	if len(years) == 0 {
+		return "-"
+	}
+	if len(years) == 1 {
+		return fmt.Sprintf("%d", years[0])
+	}
+	lo, hi := years[0], years[len(years)-1]
+	if hi-lo+1 == len(years) {
+		return fmt.Sprintf("%d-%d", lo, hi)
+	}
+	parts := make([]string, len(years))
+	for i, y := range years {
+		parts[i] = fmt.Sprintf("%d", y)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func labelOrCode(name, code string) string {
+	if strings.TrimSpace(name) != "" {
+		return name
+	}
+	return code
 }
 
 // --- small formatting helpers ---------------------------------------------

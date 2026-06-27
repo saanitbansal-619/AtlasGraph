@@ -8,21 +8,69 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 )
 
 func runIngest(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank> [flags]")
+		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade> [flags]")
 		return 2
 	}
 	switch args[0] {
 	case "worldbank":
 		return ingestWorldBank(args[1:], out, errOut)
+	case "trade":
+		return ingestTrade(args[1:], out, errOut)
 	default:
-		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank)\n", args[0])
+		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank or trade)\n", args[0])
 		return 2
 	}
+}
+
+func ingestTrade(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("ingest trade", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	file := fs.String("file", "", "path to a trade-flow CSV to ingest")
+	outDir := fs.String("out", "data/processed/trade", "directory to write normalized output to")
+	fs.Usage = func() {
+		fmt.Fprintln(errOut, "Usage: atlas ingest trade --file <csv> [--out dir]")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if strings.TrimSpace(*file) == "" {
+		fmt.Fprintln(errOut, "error: --file is required (path to a trade-flow CSV)")
+		fs.Usage()
+		return 2
+	}
+
+	res, err := trade.LoadFile(*file)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+	if res.ValidRows() == 0 {
+		fmt.Fprintf(errOut, "error: no valid trade rows in %s\n", *file)
+		return 1
+	}
+
+	trade.SortRecords(res.Records)
+	tf := trade.TradeFile{
+		Source:     trade.SourceName,
+		IngestedAt: time.Now().UTC(),
+		SourceFile: *file,
+		Records:    res.Records,
+	}
+	path, err := trade.Save(*outDir, tf)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+
+	renderTradeIngestReport(out, *file, path, res, trade.BuildSummary(tf, 0))
+	return 0
 }
 
 func ingestWorldBank(args []string, out, errOut io.Writer) int {

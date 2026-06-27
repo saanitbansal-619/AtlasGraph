@@ -31,6 +31,10 @@ Thumbs.db
 data/raw/
 !data/raw/.gitkeep
 
+# Processed trade outputs (can be large); keep the directory, not its contents
+data/processed/
+!data/processed/.gitkeep
+
 # Environment / local
 *.local
 .env

@@ -487,6 +487,172 @@ func TestShockInvalidOutput(t *testing.T) {
 	}
 }
 
+// --- trade ingestion & analysis -------------------------------------------
+
+const tradeSampleCSV = `year,exporter_code,exporter_name,importer_code,importer_name,commodity_code,commodity_name,trade_value_usd,quantity,unit
+2023,TWN,Taiwan,USA,United States,8542,semiconductors,60000000000,0,USD
+2023,KOR,Korea Rep.,USA,United States,8542,semiconductors,30000000000,0,USD
+2023,JPN,Japan,USA,United States,8542,semiconductors,10000000000,0,USD
+2023,SAU,Saudi Arabia,DEU,Germany,2709,crude oil,14000000000,0,USD
+`
+
+// seedProcessedTrade writes a CSV and ingests it, returning the processed dir.
+func seedProcessedTrade(t *testing.T, csv string) string {
+	t.Helper()
+	srcDir := t.TempDir()
+	csvPath := filepath.Join(srcDir, "trade.csv")
+	if err := os.WriteFile(csvPath, []byte(csv), 0o644); err != nil {
+		t.Fatalf("writing csv: %v", err)
+	}
+	outDir := filepath.Join(t.TempDir(), "trade")
+	_, _, code := run("ingest", "trade", "--file", csvPath, "--out", outDir)
+	if code != 0 {
+		t.Fatalf("ingest trade exit = %d, want 0", code)
+	}
+	return outDir
+}
+
+func TestIngestTradeReport(t *testing.T) {
+	srcDir := t.TempDir()
+	csvPath := filepath.Join(srcDir, "trade.csv")
+	if err := os.WriteFile(csvPath, []byte(tradeSampleCSV), 0o644); err != nil {
+		t.Fatalf("writing csv: %v", err)
+	}
+	outDir := filepath.Join(t.TempDir(), "trade")
+	out, _, code := run("ingest", "trade", "--file", csvPath, "--out", outDir)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	for _, want := range []string{"TRADE INGESTION", "Total rows        : 4", "Valid rows        : 4", "Countries detected", "Total trade value"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("ingest output missing %q\n---\n%s", want, out)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "trade_flows.json")); err != nil {
+		t.Errorf("expected trade_flows.json to be written: %v", err)
+	}
+}
+
+func TestIngestTradeRequiresFile(t *testing.T) {
+	_, errOut, code := run("ingest", "trade")
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, "required") {
+		t.Errorf("expected required-file error, got %q", errOut)
+	}
+}
+
+func TestIngestTradeSkipsMalformed(t *testing.T) {
+	csv := tradeSampleCSV + "notayear,TWN,Taiwan,USA,United States,8542,semiconductors,1,0,USD\n"
+	srcDir := t.TempDir()
+	csvPath := filepath.Join(srcDir, "trade.csv")
+	if err := os.WriteFile(csvPath, []byte(csv), 0o644); err != nil {
+		t.Fatalf("writing csv: %v", err)
+	}
+	out, _, code := run("ingest", "trade", "--file", csvPath, "--out", filepath.Join(t.TempDir(), "trade"))
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	if !strings.Contains(out, "Skipped rows      : 1") || !strings.Contains(out, "invalid year") {
+		t.Errorf("expected a skipped-row report, got %q", out)
+	}
+}
+
+func TestTradeSummary(t *testing.T) {
+	dir := seedProcessedTrade(t, tradeSampleCSV)
+	out, _, code := run("trade", "summary", "--data", dir)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	for _, want := range []string{"TRADE FLOW SUMMARY", "Records", "Commodities", "Total trade value", "Top exporters", "Taiwan"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("summary missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+func TestTradeDependency(t *testing.T) {
+	dir := seedProcessedTrade(t, tradeSampleCSV)
+	out, _, code := run("trade", "dependency", "--importer", "USA", "--commodity", "semiconductors", "--data", dir)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	for _, want := range []string{"SUPPLIER DEPENDENCY", "United States", "semiconductors", "Taiwan", "60.0%", "High"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("dependency missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+func TestTradeDependencyJSON(t *testing.T) {
+	dir := seedProcessedTrade(t, tradeSampleCSV)
+	out, _, code := run("trade", "dependency", "--importer", "USA", "--commodity", "semiconductors", "--data", dir, "--output", "json")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	for _, key := range []string{"importer", "commodity", "total_imports_usd", "suppliers"} {
+		if _, ok := parsed[key]; !ok {
+			t.Errorf("dependency JSON missing %q", key)
+		}
+	}
+}
+
+func TestTradeConcentration(t *testing.T) {
+	dir := seedProcessedTrade(t, tradeSampleCSV)
+	out, _, code := run("trade", "concentration", "--importer", "USA", "--commodity", "semiconductors", "--data", dir)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	for _, want := range []string{"SUPPLIER CONCENTRATION", "HHI", "Concentration risk", "Top supplier", "Taiwan"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("concentration missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+func TestTradeConcentrationJSON(t *testing.T) {
+	dir := seedProcessedTrade(t, tradeSampleCSV)
+	out, _, code := run("trade", "concentration", "--importer", "USA", "--commodity", "semiconductors", "--data", dir, "--output", "json")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	for _, key := range []string{"importer", "commodity", "hhi", "concentration_risk", "top_supplier"} {
+		if _, ok := parsed[key]; !ok {
+			t.Errorf("concentration JSON missing %q", key)
+		}
+	}
+}
+
+func TestTradeDependencyUnknown(t *testing.T) {
+	dir := seedProcessedTrade(t, tradeSampleCSV)
+	_, errOut, code := run("trade", "dependency", "--importer", "BRA", "--commodity", "semiconductors", "--data", dir)
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "no trade flows") {
+		t.Errorf("expected no-flows error, got %q", errOut)
+	}
+}
+
+func TestTradeSummaryMissingData(t *testing.T) {
+	_, errOut, code := run("trade", "summary", "--data", t.TempDir())
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "reading") {
+		t.Errorf("expected read error, got %q", errOut)
+	}
+}
+
 func TestShockSaveWritesFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "result.json")
 	out, _, code := run("shock", "--source", "Taiwan", "--commodity", "semiconductors", "--save", path)

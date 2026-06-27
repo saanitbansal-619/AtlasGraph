@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/atlasgraph/atlas/internal/data"
+	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
@@ -355,4 +356,75 @@ func round(v float64, places int) float64 {
 	}
 	scale := math.Pow(10, float64(places))
 	return math.Round(v*scale) / scale
+}
+
+// writeJSON encodes any value as pretty-printed JSON to w.
+func writeJSON(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
+
+// --- trade dependency & concentration -------------------------------------
+
+type jsonTradeSupplier struct {
+	ExporterCode string  `json:"exporter_code"`
+	ExporterName string  `json:"exporter_name"`
+	ValueUSD     float64 `json:"value_usd"`
+	Share        float64 `json:"share"`
+	SharePct     float64 `json:"share_pct"`
+	Dependency   string  `json:"dependency"`
+}
+
+type jsonTradeDependency struct {
+	Importer        string              `json:"importer"`
+	ImporterCode    string              `json:"importer_code"`
+	Commodity       string              `json:"commodity"`
+	TotalImportsUSD float64             `json:"total_imports_usd"`
+	Suppliers       []jsonTradeSupplier `json:"suppliers"`
+}
+
+type jsonTradeConcentration struct {
+	Importer          string            `json:"importer"`
+	ImporterCode      string            `json:"importer_code"`
+	Commodity         string            `json:"commodity"`
+	HHI               float64           `json:"hhi"`
+	ConcentrationRisk string            `json:"concentration_risk"`
+	TopSupplier       jsonTradeSupplier `json:"top_supplier"`
+}
+
+func tradeSupplierToJSON(s trade.Supplier) jsonTradeSupplier {
+	return jsonTradeSupplier{
+		ExporterCode: s.ExporterCode,
+		ExporterName: s.ExporterName,
+		ValueUSD:     s.ValueUSD,
+		Share:        round(s.Share, 4),
+		SharePct:     round(s.Share*100, 1),
+		Dependency:   s.Dependency,
+	}
+}
+
+func buildTradeDependencyJSON(d trade.Dependency) jsonTradeDependency {
+	out := jsonTradeDependency{
+		Importer:        d.ImporterName,
+		ImporterCode:    d.ImporterCode,
+		Commodity:       d.Commodity,
+		TotalImportsUSD: d.TotalImportsUSD,
+		Suppliers:       make([]jsonTradeSupplier, 0, len(d.Suppliers)),
+	}
+	for _, s := range d.Suppliers {
+		out.Suppliers = append(out.Suppliers, tradeSupplierToJSON(s))
+	}
+	return out
+}
+
+func buildTradeConcentrationJSON(c trade.Concentration) jsonTradeConcentration {
+	return jsonTradeConcentration{
+		Importer:          c.ImporterName,
+		ImporterCode:      c.ImporterCode,
+		Commodity:         c.Commodity,
+		HHI:               round(c.HHI, 4),
+		ConcentrationRisk: c.RiskLevel,
+		TopSupplier:       tradeSupplierToJSON(c.TopSupplier),
+	}
 }
