@@ -517,6 +517,26 @@ func joinLabeledPath(p simulation.Path) string {
 	return b.String()
 }
 
+// joinLabeledEdgePath renders a graph.EdgePath with the relationship (and
+// commodity, when present) on each hop, e.g.
+//
+//	Taiwan --exports/semiconductors--> semiconductors --imports/semiconductors--> United States
+func joinLabeledEdgePath(p graph.EdgePath) string {
+	if len(p.Nodes) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(p.Nodes[0].Name)
+	for i, e := range p.Edges {
+		label := string(e.Type)
+		if e.Commodity != "" {
+			label += "/" + e.Commodity
+		}
+		fmt.Fprintf(&b, " --%s--> %s", label, p.Nodes[i+1].Name)
+	}
+	return b.String()
+}
+
 func newTable(out io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 }
@@ -608,6 +628,72 @@ func renderGraphPaths(out io.Writer, g *graph.Graph, from, to models.Node, depth
 		fmt.Fprintf(out, "  %s   [%d hops, path weight %.2f]\n", joinPath(nodes), len(p)-1, weight)
 	}
 	fmt.Fprintf(out, "\n  %d path(s) found.\n", len(paths))
+}
+
+// renderGraphPathsFiltered renders shock- and commodity-aware dependency paths.
+// Every hop is labelled with its relationship (and commodity), and when explain
+// is set it shows the filtering logic and the branches the rules pruned —
+// mirroring the shock command's PROPAGATION LOGIC view so the two stay
+// consistent.
+func renderGraphPathsFiltered(out io.Writer, from, to models.Node, depth int, profile simulation.ShockProfile, commodity string, paths []graph.EdgePath, blocked []simulation.BlockedEdge, blockedPaths int, explain bool) {
+	section(out, "DEPENDENCY PATHS")
+	fmt.Fprintf(out, "  From       : %s (%s)\n", from.Name, from.Type)
+	fmt.Fprintf(out, "  To         : %s (%s)\n", to.Name, to.Type)
+	fmt.Fprintf(out, "  Depth      : up to %d hops\n", depth)
+	fmt.Fprintf(out, "  Commodity  : %s\n", commodity)
+	fmt.Fprintf(out, "  Shock type : %s (%s)\n", profile.Type, profile.Name)
+
+	if explain {
+		section(out, "PATH FILTERING")
+		fmt.Fprintf(out, "  Shock type                 : %s\n", profile.Type)
+		fmt.Fprintf(out, "  Commodity filter           : %s\n", commodity)
+		fmt.Fprintf(out, "  Allowed relationships      : %s\n", strings.Join(profile.AllowedRelationshipStrings(), ", "))
+		fmt.Fprintf(out, "  Cross-commodity propagation: %s\n", enabledDisabled(profile.CrossCommodity))
+		fmt.Fprintf(out, "  Blocked edges              : %d\n", len(blocked))
+		fmt.Fprintf(out, "  Blocked paths              : %d\n", blockedPaths)
+		if branches := blockedCommodityBranches(blocked); len(branches) > 0 {
+			fmt.Fprintf(out, "  Blocked unrelated branches : %s\n", strings.Join(branches, ", "))
+		} else {
+			fmt.Fprintln(out, "  Blocked unrelated branches : (none)")
+		}
+		if len(blocked) > 0 {
+			fmt.Fprintln(out, "  Blocked edges:")
+			for _, b := range blocked {
+				fmt.Fprintf(out, "    %s --%s--> %s   [%s]\n", b.From.Name, b.Relationship, b.To.Name, b.Reason)
+			}
+		}
+	}
+
+	section(out, "MATCHING PATHS")
+	if len(paths) == 0 {
+		fmt.Fprintf(out, "  No %s paths found from %s to %s within %d hops.\n", commodity, from.Name, to.Name, depth)
+		return
+	}
+	for _, p := range paths {
+		fmt.Fprintf(out, "  %s   [%d hops, path weight %.2f]\n", joinLabeledEdgePath(p), len(p.Edges), p.Weight())
+	}
+	fmt.Fprintf(out, "\n  %d path(s) found.\n", len(paths))
+}
+
+// blockedCommodityBranches returns the distinct commodities whose branches were
+// pruned specifically because they were unrelated to the active commodity
+// (cross-commodity blocks), not merely because of a relationship mismatch. It
+// mirrors simulation.Result.BlockedCommodities for the path-filtering view.
+func blockedCommodityBranches(blocked []simulation.BlockedEdge) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, b := range blocked {
+		if b.Commodity == "" || !b.CrossCommodity {
+			continue
+		}
+		if _, ok := seen[b.Commodity]; ok {
+			continue
+		}
+		seen[b.Commodity] = struct{}{}
+		out = append(out, b.Commodity)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // --- risk leaderboard ------------------------------------------------------

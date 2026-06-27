@@ -131,6 +131,115 @@ func TestGraphPathsUnknownEntity(t *testing.T) {
 	}
 }
 
+// TestGraphPathsGenericNoFilters confirms the original, unfiltered traversal is
+// unchanged: plain `A -> B` arrows and no filtering section.
+func TestGraphPathsGenericNoFilters(t *testing.T) {
+	out, _, code := run("graph", "paths", "--from", "Taiwan", "--to", "cloud infrastructure")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !strings.Contains(out, "Taiwan -> semiconductors -> United States -> cloud infrastructure") {
+		t.Errorf("expected an unlabeled dependency path, got %q", out)
+	}
+	for _, unwanted := range []string{"PATH FILTERING", "--exports/semiconductors-->"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("generic paths should not contain %q\n---\n%s", unwanted, out)
+		}
+	}
+}
+
+// TestGraphPathsCommodityAware checks that a semiconductor export_collapse path
+// query returns only labelled semiconductor chains and never leaks into the
+// unrelated lithium/cobalt/crude-oil branches.
+func TestGraphPathsCommodityAware(t *testing.T) {
+	out, _, code := run("graph", "paths", "--from", "Taiwan", "--to", "cloud infrastructure",
+		"--commodity", "semiconductors", "--shock-type", "export_collapse")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !strings.Contains(out, "Taiwan --exports/semiconductors--> semiconductors --imports/semiconductors--> United States --industry_dependency/semiconductors--> cloud infrastructure") {
+		t.Errorf("expected a labelled semiconductor path, got %q", out)
+	}
+	// No cross-commodity leakage into the matching paths.
+	for _, leak := range []string{"lithium", "cobalt", "crude oil", "EV batteries"} {
+		if strings.Contains(out, leak) {
+			t.Errorf("commodity-aware paths should not mention unrelated branch %q\n---\n%s", leak, out)
+		}
+	}
+}
+
+// TestGraphPathsShockTypeBlocksRelationship checks that a shock type whose
+// profile disallows the trade relationships (price_spike does not propagate
+// along `exports`) prunes the path entirely.
+func TestGraphPathsShockTypeBlocksRelationship(t *testing.T) {
+	out, _, code := run("graph", "paths", "--from", "Taiwan", "--to", "cloud infrastructure",
+		"--commodity", "semiconductors", "--shock-type", "price_spike", "--explain")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !strings.Contains(out, "No semiconductors paths found") {
+		t.Errorf("expected no paths under price_spike, got %q", out)
+	}
+	if !strings.Contains(out, "relationship not propagated by this shock type") {
+		t.Errorf("expected a relationship-block reason, got %q", out)
+	}
+}
+
+// TestGraphPathsExplain checks the --explain view surfaces the full filtering
+// logic and names the blocked unrelated commodity branches.
+func TestGraphPathsExplain(t *testing.T) {
+	out, _, code := run("graph", "paths", "--from", "Taiwan", "--to", "cloud infrastructure",
+		"--commodity", "semiconductors", "--shock-type", "export_collapse", "--explain")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	for _, want := range []string{
+		"PATH FILTERING", "Shock type", "Commodity filter", "Allowed relationships",
+		"Cross-commodity propagation", "Blocked edges", "Blocked paths", "export_collapse",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("explain output missing %q\n---\n%s", want, out)
+		}
+	}
+	for _, branch := range []string{"crude oil", "lithium", "cobalt"} {
+		if !strings.Contains(out, branch) {
+			t.Errorf("explain output should name blocked branch %q\n---\n%s", branch, out)
+		}
+	}
+}
+
+func TestGraphPathsFilterFlagsMustPair(t *testing.T) {
+	_, errOut, code := run("graph", "paths", "--from", "Taiwan", "--to", "cloud infrastructure",
+		"--commodity", "semiconductors")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, "must be used together") {
+		t.Errorf("expected a pairing error, got %q", errOut)
+	}
+}
+
+func TestGraphPathsExplainRequiresFilters(t *testing.T) {
+	_, errOut, code := run("graph", "paths", "--from", "Taiwan", "--to", "cloud infrastructure", "--explain")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, "--explain requires") {
+		t.Errorf("expected an explain-requires error, got %q", errOut)
+	}
+}
+
+func TestGraphPathsUnknownShockType(t *testing.T) {
+	_, errOut, code := run("graph", "paths", "--from", "Taiwan", "--to", "cloud infrastructure",
+		"--commodity", "semiconductors", "--shock-type", "meteor")
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "unknown shock type") {
+		t.Errorf("expected unknown shock type error, got %q", errOut)
+	}
+}
+
 func TestRiskLeaderboard(t *testing.T) {
 	out, _, code := run("risk", "leaderboard")
 	if code != 0 {
@@ -709,6 +818,27 @@ func TestGeneratedGraphSummaryCommand(t *testing.T) {
 	for _, want := range []string{"GRAPH SUMMARY", "Countries", "Commodities", "semiconductors", "United States"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("generated graph summary missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+// TestGeneratedGraphPathsCommodityAware runs the documented end-to-end example
+// against a freshly generated trade graph: commodity- and shock-aware paths
+// from Taiwan to cloud infrastructure should return only the semiconductor
+// chain, fully labelled.
+func TestGeneratedGraphPathsCommodityAware(t *testing.T) {
+	outDir := buildTradeGraphDir(t)
+	out, _, code := run("graph", "paths", "--from", "Taiwan", "--to", "cloud infrastructure",
+		"--data", outDir, "--commodity", "semiconductors", "--shock-type", "export_collapse", "--explain")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	if !strings.Contains(out, "Taiwan --exports/semiconductors--> semiconductors --imports/semiconductors--> United States --industry_dependency/semiconductors--> cloud infrastructure") {
+		t.Errorf("expected the labelled semiconductor path, got %q", out)
+	}
+	for _, want := range []string{"PATH FILTERING", "Commodity filter", "1 path(s) found."} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generated graph filtered paths missing %q\n---\n%s", want, out)
 		}
 	}
 }

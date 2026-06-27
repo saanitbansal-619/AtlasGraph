@@ -222,3 +222,99 @@ func (g *Graph) PathsBetween(from, to models.NodeID, maxDepth int) [][]models.No
 	sort.SliceStable(out, func(i, j int) bool { return len(out[i]) < len(out[j]) })
 	return out
 }
+
+// EdgePath is a simple path expressed as alternating nodes and the concrete
+// edges that connect them: Edges[i] runs from Nodes[i] to Nodes[i+1]. Unlike a
+// bare []NodeID path it preserves edge identity (relationship type, commodity,
+// weight), which callers need to label hops and to apply per-edge propagation
+// rules.
+type EdgePath struct {
+	Nodes []models.Node
+	Edges []models.Edge
+}
+
+// Weight returns the product of the path's edge weights, mirroring how the
+// simulation engine scores a dependency chain.
+func (p EdgePath) Weight() float64 {
+	w := 1.0
+	for _, e := range p.Edges {
+		w *= e.Weight
+	}
+	return w
+}
+
+// PathsBetweenFunc enumerates every simple path from `from` to `to` traversing
+// at most maxDepth edges, following only edges for which allow returns true. A
+// nil allow permits all edges. Each edge that allow rejects is passed to
+// onBlock (when non-nil) so callers can report which branches were pruned;
+// onBlock may be invoked more than once for the same edge across branches, so
+// callers that need uniqueness should de-duplicate.
+//
+// Because it walks concrete edges rather than collapsing to neighbours,
+// parallel edges of different relationship types between the same pair yield
+// distinct paths. Paths are returned shortest-first, then by descending path
+// weight, so the most direct, strongest dependency chains lead.
+func (g *Graph) PathsBetweenFunc(from, to models.NodeID, maxDepth int, allow func(models.Edge) bool, onBlock func(models.Edge)) []EdgePath {
+	var paths []EdgePath
+	if maxDepth < 1 {
+		return paths
+	}
+	fromNode, ok := g.Node(from)
+	if !ok {
+		return paths
+	}
+
+	visited := map[models.NodeID]bool{from: true}
+	nodes := []models.Node{fromNode}
+	var edges []models.Edge
+
+	var walk func()
+	walk = func() {
+		last := nodes[len(nodes)-1]
+		if last.ID == to && len(edges) > 0 {
+			paths = append(paths, snapshotEdgePath(nodes, edges))
+			return // a simple path: do not extend through the target
+		}
+		if len(edges) >= maxDepth {
+			return
+		}
+		for _, e := range g.OutEdges(last.ID) {
+			if visited[e.To] {
+				continue // keep paths simple to avoid cycles
+			}
+			if allow != nil && !allow(e) {
+				if onBlock != nil {
+					onBlock(e)
+				}
+				continue
+			}
+			toNode, _ := g.Node(e.To)
+			visited[e.To] = true
+			nodes = append(nodes, toNode)
+			edges = append(edges, e)
+
+			walk()
+
+			nodes = nodes[:len(nodes)-1]
+			edges = edges[:len(edges)-1]
+			delete(visited, e.To)
+		}
+	}
+	walk()
+
+	sort.SliceStable(paths, func(i, j int) bool {
+		if len(paths[i].Nodes) != len(paths[j].Nodes) {
+			return len(paths[i].Nodes) < len(paths[j].Nodes)
+		}
+		return paths[i].Weight() > paths[j].Weight()
+	})
+	return paths
+}
+
+func snapshotEdgePath(nodes []models.Node, edges []models.Edge) EdgePath {
+	n := make([]models.Node, len(nodes))
+	copy(n, nodes)
+	e := make([]models.Edge, len(edges))
+	copy(e, edges)
+	return EdgePath{Nodes: n, Edges: e}
+}

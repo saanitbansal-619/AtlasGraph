@@ -7,6 +7,8 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/config"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
+	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/simulation"
 	"github.com/atlasgraph/atlas/internal/tradegraph"
 )
 
@@ -92,11 +94,27 @@ func graphPaths(args []string, out, errOut io.Writer) int {
 	to := fs.String("to", "", "target entity name")
 	depth := fs.Int("depth", cfg.MaxPathDepth, "maximum path length in edges")
 	dataDir := fs.String("data", "", "dataset directory (default: embedded sample)")
+	commodity := fs.String("commodity", "", "restrict paths to a commodity's branches (requires --shock-type)")
+	shockType := fs.String("shock-type", "", "apply a shock type's propagation rules: export_collapse, supply_cut, price_spike or route_disruption (requires --commodity)")
+	explain := fs.Bool("explain", false, "explain the shock/commodity path filtering (requires --commodity and --shock-type)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if *from == "" || *to == "" {
 		fmt.Fprintln(errOut, "error: --from and --to are required")
+		return 2
+	}
+
+	// Shock-aware filtering is opt-in and needs both the commodity and the
+	// shock type so the rule engine has a complete picture; --explain only
+	// makes sense once filtering is active.
+	filtered := *commodity != "" || *shockType != ""
+	if filtered && (*commodity == "" || *shockType == "") {
+		fmt.Fprintln(errOut, "error: --commodity and --shock-type must be used together")
+		return 2
+	}
+	if *explain && !filtered {
+		fmt.Fprintln(errOut, "error: --explain requires --commodity and --shock-type")
 		return 2
 	}
 
@@ -116,8 +134,51 @@ func graphPaths(args []string, out, errOut io.Writer) int {
 		return 1
 	}
 
-	paths := ds.Graph.PathsBetween(fromNode.ID, toNode.ID, *depth)
-	renderGraphPaths(out, ds.Graph, fromNode, toNode, *depth, paths)
+	if !filtered {
+		paths := ds.Graph.PathsBetween(fromNode.ID, toNode.ID, *depth)
+		renderGraphPaths(out, ds.Graph, fromNode, toNode, *depth, paths)
+		return 0
+	}
+
+	profile, ok := simulation.ProfileFor(*shockType)
+	if !ok {
+		fmt.Fprintf(errOut, "error: unknown shock type %q (valid: %v)\n", *shockType, simulation.ProfileTypes())
+		return 1
+	}
+
+	// Reuse the exact rule logic the shock engine applies, so a commodity- and
+	// shock-aware path query and a shock simulation agree on which branches are
+	// economically meaningful: only allowed relationships are followed, and
+	// cross-commodity branches are pruned unless the profile permits them.
+	var blocked []simulation.BlockedEdge
+	blockedSeen := map[string]bool{}
+	allow := func(e models.Edge) bool {
+		return simulation.Evaluate(profile, e, *commodity).Allowed
+	}
+	onBlock := func(e models.Edge) {
+		key := string(e.From) + "|" + string(e.To) + "|" + string(e.Type)
+		if blockedSeen[key] {
+			return
+		}
+		blockedSeen[key] = true
+		dec := simulation.Evaluate(profile, e, *commodity)
+		ef, _ := ds.Graph.Node(e.From)
+		et, _ := ds.Graph.Node(e.To)
+		blocked = append(blocked, simulation.BlockedEdge{
+			From: ef, To: et, Relationship: string(e.Type),
+			Commodity: e.Commodity, Reason: dec.Reason, CrossCommodity: dec.CrossCommodity,
+		})
+	}
+
+	paths := ds.Graph.PathsBetweenFunc(fromNode.ID, toNode.ID, *depth, allow, onBlock)
+
+	// How many structurally-possible paths the rules removed, for --explain.
+	blockedPaths := len(ds.Graph.PathsBetweenFunc(fromNode.ID, toNode.ID, *depth, nil, nil)) - len(paths)
+	if blockedPaths < 0 {
+		blockedPaths = 0
+	}
+
+	renderGraphPathsFiltered(out, fromNode, toNode, *depth, profile, *commodity, paths, blocked, blockedPaths, *explain)
 	return 0
 }
 
