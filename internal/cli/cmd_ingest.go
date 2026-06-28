@@ -8,13 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 )
 
 func runIngest(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade|trade-comtrade> [flags]")
+		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade|trade-comtrade|gdelt> [flags]")
 		return 2
 	}
 	switch args[0] {
@@ -24,10 +25,74 @@ func runIngest(args []string, out, errOut io.Writer) int {
 		return ingestTrade(args[1:], out, errOut)
 	case "trade-comtrade":
 		return ingestTradeComtrade(args[1:], out, errOut)
+	case "gdelt":
+		return ingestGDELT(args[1:], out, errOut)
 	default:
-		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, trade or trade-comtrade)\n", args[0])
+		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, trade, trade-comtrade or gdelt)\n", args[0])
 		return 2
 	}
+}
+
+// ingestGDELT fetches recent risk-relevant news/event documents for the
+// requested countries from the live GDELT DOC 2.0 API and normalises them to
+// data/raw/gdelt/gdelt_events.json. --base-url is provided so the importer can
+// be pointed at a local/fixture server; it defaults to the live API.
+func ingestGDELT(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("ingest gdelt", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	countries := fs.String("countries", "", "comma-separated ISO3 country codes (e.g. TWN,CHN,USA)")
+	days := fs.Int("days", gdelt.DefaultDays, "look-back window in days")
+	outDir := fs.String("out", "data/raw/gdelt", "directory to write normalized output to")
+	baseURL := fs.String("base-url", gdelt.DefaultBaseURL, "GDELT DOC 2.0 endpoint (override for testing)")
+	timeout := fs.Duration("timeout", 2*time.Minute, "overall timeout for the fetch")
+	fs.Usage = func() {
+		fmt.Fprintln(errOut, "Usage: atlas ingest gdelt --countries TWN,CHN,USA [--days 7] [--out dir]")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	codes := splitCodes(*countries)
+	if len(codes) == 0 {
+		fmt.Fprintln(errOut, "error: --countries is required (comma-separated ISO3 codes)")
+		fs.Usage()
+		return 2
+	}
+	if *days < 1 {
+		fmt.Fprintf(errOut, "error: --days must be >= 1, got %d\n", *days)
+		return 2
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+
+	client := gdelt.NewClient(60 * time.Second)
+	client.BaseURL = *baseURL
+	fmt.Fprintf(out, "Fetching GDELT events for %s (last %d days)…\n", strings.Join(codes, ", "), *days)
+
+	records, err := client.Fetch(ctx, codes, *days)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+	gdelt.SortRecords(records)
+
+	file := gdelt.EventFile{
+		Source:    gdelt.SourceName,
+		FetchedAt: time.Now().UTC(),
+		Days:      *days,
+		Countries: codes,
+		Records:   records,
+	}
+	path, err := gdelt.Save(*outDir, file)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+
+	renderGDELTIngestReport(out, codes, *days, path, gdelt.BuildSummary(file, 5))
+	return 0
 }
 
 func ingestTrade(args []string, out, errOut io.Writer) int {

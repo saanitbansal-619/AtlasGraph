@@ -10,6 +10,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
 )
@@ -339,6 +340,93 @@ func writeMacroJSON(w io.Writer, scores []macro.CountryScore, yearLens int) erro
 
 func saveMacroJSON(path string, scores []macro.CountryScore, yearLens int) error {
 	b, err := json.MarshalIndent(buildMacroJSON(scores, yearLens), "", "  ")
+	if err != nil {
+		return err
+	}
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+// --- event risk scores -----------------------------------------------------
+
+type jsonEventFile struct {
+	Weights   events.Weights     `json:"weights"`
+	RiskBands map[string]string  `json:"risk_bands"`
+	Scores    []jsonEventCountry `json:"scores"`
+}
+
+type jsonEventCountry struct {
+	CountryCode    string               `json:"country_code"`
+	CountryName    string               `json:"country_name"`
+	Events         int                  `json:"events"`
+	AvgTone        float64              `json:"avg_tone"`
+	EventRiskScore float64              `json:"event_risk_score"`
+	RiskLevel      string               `json:"risk_level"`
+	TopDrivers     []string             `json:"top_drivers"`
+	TopTerms       []string             `json:"top_terms"`
+	Components     []jsonEventComponent `json:"components"`
+}
+
+type jsonEventComponent struct {
+	Key          string  `json:"key"`
+	Name         string  `json:"name"`
+	Score        float64 `json:"score"`
+	Weight       float64 `json:"weight"`
+	Contribution float64 `json:"contribution"`
+}
+
+func buildEventRiskJSON(scores []events.CountryScore) jsonEventFile {
+	out := jsonEventFile{
+		Weights: events.DefaultWeights(),
+		RiskBands: map[string]string{
+			"low": "0-30", "medium": "30-60", "high": "60-80", "critical": "80-100",
+		},
+		Scores: make([]jsonEventCountry, 0, len(scores)),
+	}
+	for _, s := range scores {
+		jc := jsonEventCountry{
+			CountryCode:    s.CountryCode,
+			CountryName:    s.CountryName,
+			Events:         s.Events,
+			AvgTone:        round(s.AvgTone, 2),
+			EventRiskScore: round(s.Score, 1),
+			RiskLevel:      s.RiskLevel,
+			TopDrivers:     s.TopDrivers,
+			TopTerms:       s.TopTerms,
+			Components:     make([]jsonEventComponent, 0, len(s.Components)),
+		}
+		if jc.TopDrivers == nil {
+			jc.TopDrivers = []string{}
+		}
+		if jc.TopTerms == nil {
+			jc.TopTerms = []string{}
+		}
+		for _, c := range s.Components {
+			jc.Components = append(jc.Components, jsonEventComponent{
+				Key:          c.Key,
+				Name:         c.Name,
+				Score:        round(c.Score, 1),
+				Weight:       c.Weight,
+				Contribution: round(c.Contribution, 2),
+			})
+		}
+		out.Scores = append(out.Scores, jc)
+	}
+	return out
+}
+
+func writeEventRiskJSON(w io.Writer, scores []events.CountryScore) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(buildEventRiskJSON(scores))
+}
+
+func saveEventRiskJSON(path string, scores []events.CountryScore) error {
+	b, err := json.MarshalIndent(buildEventRiskJSON(scores), "", "  ")
 	if err != nil {
 		return err
 	}

@@ -64,6 +64,9 @@ store and ML forecasting are planned on top of the same core (see Roadmap).
   optional save-to-file.
 - **Graph tooling** — `graph summary`, `graph paths` and a baseline
   `risk leaderboard`.
+- **External signals** — World Bank macro indicators, Comtrade-style trade
+  flows, and a live **GDELT event-risk** layer (`ingest gdelt` / `events risk`)
+  for geopolitical and supply-chain disruption signals from global news.
 - **Strong validation** — helpful errors for malformed data, unknown entity
   references, out-of-range weights, **invalid relationship types** and
   **unknown shock types**.
@@ -283,8 +286,10 @@ atlas graph paths  --from <e> --to <e>   [--data dir] [--depth N]
 atlas graph dump                         [--data dir]
 atlas risk leaderboard                   [--data dir] [--top N]
 atlas ingest worldbank --countries <ISO3,…> [--start Y] [--end Y] [--out dir]
+atlas ingest gdelt     --countries <ISO3,…> [--days N] [--out dir]
 atlas indicators country <ISO3>          [--data dir]
 atlas score macro                        [--data dir] [--year Y] [--output text|json] [--save file] [--verbose]
+atlas events risk                        [--data dir] [--output text|json] [--save file]
 atlas version
 ```
 
@@ -705,6 +710,125 @@ COMTRADE TRADE INGESTION
 
 This supports downloaded Comtrade-style CSVs without requiring API credentials
 yet. (Live Comtrade API ingestion is intentionally out of scope for now.)
+
+---
+
+## GDELT Event Risk Ingestion
+
+AtlasGraph's third external signal is a **live event-risk layer** drawn from
+global news/event data via the [GDELT DOC 2.0 API](https://api.gdeltproject.org/api/v2/doc/doc).
+It complements the two structural signals already in the engine:
+
+- **macro exposure** from World Bank indicators,
+- **trade dependency** from Comtrade-style data, and now
+- **event risk** from GDELT.
+
+This is **not treated as ground truth** — it is a noisy public signal for
+geopolitical and disruption-related risk (sanctions, conflict, export controls,
+shipping disruption, semiconductor/energy/commodity stress, …). It is useful as
+a near-real-time nudge on top of the slower-moving structural fundamentals.
+
+### How it works
+
+For each requested country, the importer issues one GDELT query combining the
+country name with a fixed set of risk keywords:
+
+```
+sanctions, conflict, military, protest, strike, supply chain,
+export controls, trade restrictions, shipping disruption,
+semiconductor, energy, commodity
+```
+
+Countries are supplied as ISO3 codes and mapped to GDELT-friendly names:
+
+| Code | Country                          | Code | Country        |
+|------|----------------------------------|------|----------------|
+| TWN  | Taiwan                           | USA  | United States  |
+| CHN  | China                            | DEU  | Germany        |
+| JPN  | Japan                            | SAU  | Saudi Arabia   |
+| KOR  | South Korea                      | COD  | DR Congo       |
+| IND  | India                            |      |                |
+
+Each returned document is normalised into a stable `GDELTEventRecord`
+(`country_code`, `country_name`, `title`, `url`, `source_country`, `domain`,
+`published_at`, `tone`, `language`, `themes`, `risk_terms_matched`, `source`,
+`fetched_at`). Fields the API does not provide in a given mode are left empty so
+the schema never changes. Records are written to
+`data/raw/gdelt/gdelt_events.json`.
+
+The GDELT client lives behind a small `Fetcher` interface and an overridable
+base URL, so it is fully testable from saved JSON fixtures (via `httptest`) —
+the test suite never calls the live GDELT service. The CLI makes real HTTP calls
+for actual use.
+
+### Commands
+
+```bash
+go run ./cmd/atlas ingest gdelt --countries TWN,CHN,JPN,KOR,USA,DEU --days 7 --out data/raw/gdelt
+go run ./cmd/atlas events risk --data data/raw/gdelt
+go run ./cmd/atlas events risk --data data/raw/gdelt --output json
+```
+
+Ingestion reports how many documents were fetched, how many matched risk terms,
+and the leading countries and risk terms:
+
+```
+GDELT EVENT INGESTION
+----------------------------------------------------------------
+  Countries              : TWN, CHN, JPN, KOR, USA, DEU
+  Days                   : 7
+  Records fetched        : 312
+  Records with risk terms: 198
+  Output                 : data/raw/gdelt/gdelt_events.json
+
+  Top countries by event count:
+    1. China                            74
+    2. United States                    68
+    3. Taiwan                           …
+
+  Top matched risk terms:
+    1. sanctions                        86
+    2. semiconductor                    61
+    3. conflict                        …
+```
+
+### Event risk scoring
+
+`events risk` scores each country on a 0–100 scale from three components,
+combined with calibrated weights (`internal/scoring/events`):
+
+```
+event_risk_score =
+    0.45 * event_count_score        // volume of risk-relevant coverage
+  + 0.35 * negative_tone_score      // how negative that coverage is
+  + 0.20 * risk_term_density_score  // distinct risk themes per article
+```
+
+Each component is mapped onto 0–100 with absolute reference bands (so a
+country's score does not depend on which other countries are in the panel), and
+the final score falls into a qualitative band:
+
+| Score   | Risk     |
+|---------|----------|
+| 0–30    | Low      |
+| 30–60   | Medium   |
+| 60–80   | High     |
+| 80–100  | Critical |
+
+```
+EVENT RISK SCORES
+----------------------------------------------------------------
+  COUNTRY         EVENTS  AVG TONE  SCORE  RISK      TOP TERMS
+  Taiwan          74      -6.8      71.4   High      sanctions, semiconductor, conflict
+  China           68      -5.1      63.2   High      sanctions, export controls, conflict
+  Japan           21      -1.2      28.7   Low       energy, supply chain
+
+  Risk bands: Low 0-30 | Medium 30-60 | High 60-80 | Critical 80-100
+  Note: a public event-risk signal from global news, not ground truth.
+```
+
+`--output json` emits the same scores (with per-component breakdowns, weights
+and risk bands) as structured JSON, and `--save <file>` writes that JSON to disk.
 
 ---
 

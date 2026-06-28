@@ -9,9 +9,11 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
 	"github.com/atlasgraph/atlas/internal/tradegraph"
@@ -360,6 +362,48 @@ func renderComtradeIngestReport(out io.Writer, srcFile, outPath string, res trad
 	fmt.Fprintf(out, "  Countries detected: %d\n", s.Countries)
 	fmt.Fprintf(out, "  Commodities       : %d\n", s.Commodities)
 	fmt.Fprintf(out, "  Total trade value : %s\n", usdShort(s.TotalValueUSD))
+}
+
+// --- GDELT event risk ------------------------------------------------------
+
+func renderGDELTIngestReport(out io.Writer, countries []string, days int, outPath string, s gdelt.Summary) {
+	section(out, "GDELT EVENT INGESTION")
+	fmt.Fprintf(out, "  Countries              : %s\n", strings.Join(countries, ", "))
+	fmt.Fprintf(out, "  Days                   : %d\n", days)
+	fmt.Fprintf(out, "  Records fetched        : %d\n", s.Records)
+	fmt.Fprintf(out, "  Records with risk terms: %d\n", s.WithRiskTerms)
+	fmt.Fprintf(out, "  Output                 : %s\n", outPath)
+
+	fmt.Fprintln(out, "\n  Top countries by event count:")
+	if len(s.TopCountries) == 0 {
+		fmt.Fprintln(out, "    (none)")
+	} else {
+		for i, nc := range s.TopCountries {
+			fmt.Fprintf(out, "    %d. %-32s %d\n", i+1, nc.Name, nc.Count)
+		}
+	}
+
+	fmt.Fprintln(out, "\n  Top matched risk terms:")
+	if len(s.TopRiskTerms) == 0 {
+		fmt.Fprintln(out, "    (none)")
+	} else {
+		for i, nc := range s.TopRiskTerms {
+			fmt.Fprintf(out, "    %d. %-32s %d\n", i+1, nc.Name, nc.Count)
+		}
+	}
+}
+
+func renderEventRiskScores(out io.Writer, scores []events.CountryScore) {
+	section(out, "EVENT RISK SCORES")
+	tw := newTable(out)
+	fmt.Fprintln(tw, "  COUNTRY\tEVENTS\tAVG TONE\tSCORE\tRISK\tTOP TERMS")
+	for _, s := range scores {
+		fmt.Fprintf(tw, "  %s\t%d\t%.1f\t%.1f\t%s\t%s\n",
+			s.CountryName, s.Events, s.AvgTone, s.Score, s.RiskLevel, strings.Join(s.TopTerms, ", "))
+	}
+	flush(tw)
+	fmt.Fprint(out, "\n  Risk bands: Low 0-30 | Medium 30-60 | High 60-80 | Critical 80-100\n")
+	fmt.Fprint(out, "  Note: a public event-risk signal from global news, not ground truth.\n")
 }
 
 func renderTradeSummary(out io.Writer, s trade.Summary) {

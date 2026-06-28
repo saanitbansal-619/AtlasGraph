@@ -37,6 +37,8 @@ func Run(args []string, out, errOut io.Writer) int {
 		return runTrade(args[1:], out, errOut)
 	case "score":
 		return runScore(args[1:], out, errOut)
+	case "events":
+		return runEvents(args[1:], out, errOut)
 	case "version", "--version", "-v":
 		fmt.Fprintf(out, "atlas %s (commit %s, built %s)\n", config.Version, config.Commit, config.BuildDate)
 		return 0
@@ -77,11 +79,13 @@ Commands:
   risk leaderboard      Rank entities by baseline fragility
   ingest worldbank      Fetch real macro indicators from the World Bank API
   ingest trade          Ingest country-to-country trade flows from a local CSV
+  ingest gdelt          Fetch real-world event/news risk from the GDELT API
   indicators country    Show ingested macro indicators for a country
   trade summary         Summarise an ingested trade-flow panel
   trade dependency      Show supplier dependency for an importer + commodity
   trade concentration   Show supplier concentration (HHI) for an importer + commodity
   score macro           Score macro exposure per country from macro indicators
+  events risk           Score country event risk from ingested GDELT data
   version               Print version information
   help                  Show this help
 
@@ -111,5 +115,7 @@ Examples:
   atlas trade concentration --importer USA --commodity semiconductors --data data/processed/trade
   atlas graph build-trade --trade-data data/processed/trade --out data/generated/trade_graph
   atlas graph summary --data data/generated/trade_graph
+  atlas ingest gdelt --countries TWN,CHN,JPN,KOR,USA,DEU --days 7 --out data/raw/gdelt
+  atlas events risk --data data/raw/gdelt
 `, "\n"))
 }
