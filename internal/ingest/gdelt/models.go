@@ -16,6 +16,10 @@ import "time"
 // SourceName identifies the provenance recorded on every normalised record.
 const SourceName = "GDELT DOC 2.0 API"
 
+// FixtureSourceName is the provenance stamped on records loaded from a local
+// fixture file, so offline/demo data is never mistaken for a live API pull.
+const FixtureSourceName = "GDELT fixture (synthetic demo data)"
+
 // OutputFileName is the canonical file the ingest command writes within its
 // output directory and the events command reads back.
 const OutputFileName = "gdelt_events.json"
@@ -27,6 +31,19 @@ const DefaultBaseURL = "https://api.gdeltproject.org/api/v2/doc/doc"
 const (
 	DefaultDays       = 7  // look-back window in days
 	DefaultMaxRecords = 75 // articles requested per country (GDELT caps at 250)
+
+	// DefaultLimit is the small, demo-safe per-country result cap used by the
+	// CLI. It is deliberately well below DefaultMaxRecords/the GDELT 250 cap so
+	// queries stay light and are less likely to be rate-limited.
+	DefaultLimit = 25
+
+	// Rate-limit / retry behaviour for the live API. GDELT asks for no more
+	// than one request every 5 seconds, so we space requests and back off on
+	// HTTP 429.
+	DefaultDelaySeconds = 6  // pause between per-country requests
+	MinDelaySeconds     = 5  // GDELT's documented floor: 1 request / 5s
+	DefaultMaxRetries   = 2  // extra attempts after a 429 (3 total)
+	DefaultRetryWaitSec = 10 // seconds to wait before retrying after a 429
 )
 
 // RiskTerms are the geopolitical / supply-chain keywords AtlasGraph searches

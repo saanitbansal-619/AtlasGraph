@@ -366,14 +366,40 @@ func renderComtradeIngestReport(out io.Writer, srcFile, outPath string, res trad
 
 // --- GDELT event risk ------------------------------------------------------
 
-func renderGDELTIngestReport(out io.Writer, countries []string, days int, outPath string, s gdelt.Summary) {
+// renderGDELTLiveReport prints the live-ingestion report: what was requested,
+// the per-country success/failure split, how many records were fetched, and the
+// leading countries and risk terms.
+func renderGDELTLiveReport(out io.Writer, requested []string, days, limit, delay int, res gdelt.FetchResult, outPath string, s gdelt.Summary) {
 	section(out, "GDELT EVENT INGESTION")
-	fmt.Fprintf(out, "  Countries              : %s\n", strings.Join(countries, ", "))
+	fmt.Fprintf(out, "  Countries requested    : %s\n", strings.Join(requested, ", "))
 	fmt.Fprintf(out, "  Days                   : %d\n", days)
+	fmt.Fprintf(out, "  Limit per country      : %d\n", limit)
+	fmt.Fprintf(out, "  Delay seconds          : %d\n", delay)
+	fmt.Fprintf(out, "  Countries succeeded    : %s\n", joinOrNone(res.Succeeded))
+	fmt.Fprintf(out, "  Countries failed       : %s\n", joinFailed(res.Failed))
 	fmt.Fprintf(out, "  Records fetched        : %d\n", s.Records)
 	fmt.Fprintf(out, "  Records with risk terms: %d\n", s.WithRiskTerms)
 	fmt.Fprintf(out, "  Output                 : %s\n", outPath)
 
+	renderGDELTLeaderboards(out, s)
+}
+
+// renderGDELTFixtureReport prints the offline fixture-ingestion report. It is
+// clearly labelled FIXTURE MODE so synthetic demo data is never confused with a
+// live API pull.
+func renderGDELTFixtureReport(out io.Writer, fixturePath, outPath string, countries []string, s gdelt.Summary) {
+	section(out, "GDELT EVENT INGESTION — FIXTURE MODE")
+	fmt.Fprintf(out, "  Source fixture         : %s\n", fixturePath)
+	fmt.Fprintf(out, "  Output                 : %s\n", outPath)
+	fmt.Fprintf(out, "  Records loaded         : %d\n", s.Records)
+	fmt.Fprintf(out, "  Countries              : %s\n", joinOrNone(countries))
+	fmt.Fprintf(out, "  Records with risk terms: %d\n", s.WithRiskTerms)
+
+	renderGDELTLeaderboards(out, s)
+	fmt.Fprint(out, "\n  Note: synthetic, reproducible demo data — not real GDELT output.\n")
+}
+
+func renderGDELTLeaderboards(out io.Writer, s gdelt.Summary) {
 	fmt.Fprintln(out, "\n  Top countries by event count:")
 	if len(s.TopCountries) == 0 {
 		fmt.Fprintln(out, "    (none)")
@@ -391,6 +417,24 @@ func renderGDELTIngestReport(out io.Writer, countries []string, days int, outPat
 			fmt.Fprintf(out, "    %d. %-32s %d\n", i+1, nc.Name, nc.Count)
 		}
 	}
+}
+
+func joinOrNone(items []string) string {
+	if len(items) == 0 {
+		return "(none)"
+	}
+	return strings.Join(items, ", ")
+}
+
+func joinFailed(failed []gdelt.FailedCountry) string {
+	if len(failed) == 0 {
+		return "(none)"
+	}
+	codes := make([]string, len(failed))
+	for i, f := range failed {
+		codes[i] = f.Code
+	}
+	return strings.Join(codes, ", ")
 }
 
 func renderEventRiskScores(out io.Writer, scores []events.CountryScore) {

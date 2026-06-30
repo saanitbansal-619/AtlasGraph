@@ -191,3 +191,181 @@ func TestIngestGDELTRequiresCountries(t *testing.T) {
 		t.Errorf("expected required error, got %q", errOut)
 	}
 }
+
+const cliFixtureJSON = `[
+  {"country_code":"TWN","country_name":"Taiwan","title":"semiconductor export controls amid military tension","url":"https://example.com/twn/1","domain":"example.com","published_at":"2026-06-24T08:30:00Z","tone":-6.8,"language":"English","themes":["TECH"],"risk_terms_matched":["semiconductor","export controls","military"],"source":"GDELT fixture (synthetic demo data)"},
+  {"country_code":"JPN","country_name":"Japan","title":"calm trade talks continue","url":"https://example.com/jpn/1","domain":"example.com","published_at":"2026-06-19T09:30:00Z","tone":2.5,"language":"English","themes":[],"risk_terms_matched":[],"source":"GDELT fixture (synthetic demo data)"}
+]`
+
+func writeFixture(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "fixture.json")
+	if err := os.WriteFile(path, []byte(cliFixtureJSON), 0o644); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+	return path
+}
+
+// TestIngestGDELTFixtureMode exercises offline fixture ingestion end-to-end: it
+// must save the normalised file, print a FIXTURE MODE report, and feed the
+// events risk command.
+func TestIngestGDELTFixtureMode(t *testing.T) {
+	fixture := writeFixture(t)
+	outDir := t.TempDir()
+
+	out, _, code := run("ingest", "gdelt", "--fixture", fixture, "--out", outDir)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	for _, want := range []string{
+		"GDELT EVENT INGESTION — FIXTURE MODE", "Source fixture", "Output",
+		"Records loaded", "Countries", "Records with risk terms",
+		"Top countries by event count", "Top matched risk terms", "synthetic",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("fixture report missing %q\n---\n%s", want, out)
+		}
+	}
+	// Must NOT look like a live pull.
+	if strings.Contains(out, "Records fetched") {
+		t.Errorf("fixture report should not claim live ingestion\n---\n%s", out)
+	}
+
+	// The saved file must load with the same schema and feed events risk.
+	file, err := gdelt.Load(outDir)
+	if err != nil {
+		t.Fatalf("loading fixture output: %v", err)
+	}
+	if len(file.Records) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(file.Records))
+	}
+
+	riskOut, _, riskCode := run("events", "risk", "--data", outDir)
+	if riskCode != 0 {
+		t.Fatalf("events risk exit = %d, want 0", riskCode)
+	}
+	if !strings.Contains(riskOut, "EVENT RISK SCORES") || !strings.Contains(riskOut, "Taiwan") {
+		t.Errorf("events risk did not render from fixture data\n---\n%s", riskOut)
+	}
+
+	// JSON form must also work on fixture output.
+	jsonOut, _, jsonCode := run("events", "risk", "--data", outDir, "--output", "json")
+	if jsonCode != 0 {
+		t.Fatalf("events risk json exit = %d, want 0", jsonCode)
+	}
+	if !strings.Contains(jsonOut, "\"scores\"") {
+		t.Errorf("events risk json missing scores\n---\n%s", jsonOut)
+	}
+}
+
+// TestIngestGDELTAllLiveFail confirms a permanently rate-limited host yields the
+// helpful all-countries-failed message and a non-zero exit.
+func TestIngestGDELTAllLiveFail(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Please limit requests to one every 5 seconds", http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	_, errOut, code := run("ingest", "gdelt", "--countries", "TWN,CHN", "--out", t.TempDir(), "--base-url", srv.URL)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "Live GDELT ingestion failed for all countries") {
+		t.Errorf("expected all-fail helpful message, got %q", errOut)
+	}
+	if !strings.Contains(errOut, "--fixture data/examples/gdelt_events_sample.json") {
+		t.Errorf("expected fixture hint in failure message, got %q", errOut)
+	}
+}
+
+// TestIngestGDELTPartialSuccess confirms that when some countries succeed and
+// others fail, records are saved and the command still exits 0.
+func TestIngestGDELTPartialSuccess(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Query().Get("query"), "Taiwan") {
+			w.Write([]byte(`{"articles":[{"url":"https://example.com/a","title":"semiconductor sanctions","seendate":"20240115T103000Z","domain":"example.com","language":"English","sourcecountry":"United States"}]}`))
+			return
+		}
+		http.Error(w, "Please limit requests to one every 5 seconds", http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	outDir := t.TempDir()
+	out, _, code := run("ingest", "gdelt", "--countries", "TWN,CHN", "--out", outDir, "--base-url", srv.URL)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (partial success)", code)
+	}
+	if !strings.Contains(out, "Countries succeeded    : TWN") {
+		t.Errorf("expected TWN reported as succeeded\n---\n%s", out)
+	}
+	if !strings.Contains(out, "Countries failed       : CHN") {
+		t.Errorf("expected CHN reported as failed\n---\n%s", out)
+	}
+	file, err := gdelt.Load(outDir)
+	if err != nil {
+		t.Fatalf("loading partial output: %v", err)
+	}
+	if len(file.Records) == 0 {
+		t.Errorf("expected partial records to be saved")
+	}
+}
+
+// TestIngestGDELTLimitFlag confirms --limit is forwarded as the GDELT
+// maxrecords parameter.
+func TestIngestGDELTLimitFlag(t *testing.T) {
+	var gotMax string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMax = r.URL.Query().Get("maxrecords")
+		w.Write([]byte(`{"articles":[]}`))
+	}))
+	defer srv.Close()
+
+	_, _, code := run("ingest", "gdelt", "--countries", "TWN", "--limit", "25", "--out", t.TempDir(), "--base-url", srv.URL)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if gotMax != "25" {
+		t.Errorf("expected maxrecords=25, got %q", gotMax)
+	}
+}
+
+// TestIngestGDELTLiveReportFields confirms the live report prints all the
+// documented fields.
+func TestIngestGDELTLiveReportFields(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"articles":[{"url":"https://example.com/a","title":"semiconductor sanctions","seendate":"20240115T103000Z","domain":"example.com","language":"English","sourcecountry":"United States"}]}`))
+	}))
+	defer srv.Close()
+
+	out, _, code := run("ingest", "gdelt", "--countries", "TWN", "--days", "7", "--limit", "25", "--delay-seconds", "6", "--out", t.TempDir(), "--base-url", srv.URL)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	for _, want := range []string{
+		"Countries requested", "Days", "Limit per country", "Delay seconds",
+		"Countries succeeded", "Countries failed", "Records fetched",
+		"Records with risk terms", "Output",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("live report missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+// TestIngestGDELTDelayClamped confirms a sub-5 --delay-seconds is clamped up to
+// the 5s minimum in the live report.
+func TestIngestGDELTDelayClamped(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"articles":[]}`))
+	}))
+	defer srv.Close()
+
+	out, _, code := run("ingest", "gdelt", "--countries", "TWN", "--delay-seconds", "1", "--out", t.TempDir(), "--base-url", srv.URL)
+	// A single country with zero records still succeeds (the country responded).
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !strings.Contains(out, "Delay seconds          : 5") {
+		t.Errorf("expected delay clamped to 5, got\n---\n%s", out)
+	}
+}

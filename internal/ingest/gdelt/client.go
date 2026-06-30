@@ -3,6 +3,7 @@ package gdelt
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,16 +27,151 @@ type Client struct {
 	BaseURL    string
 	HTTP       *http.Client
 	MaxRecords int
+
+	// DelaySeconds spaces consecutive per-country requests apart to respect
+	// GDELT's rate limit. MaxRetries / RetryWait control 429 back-off.
+	DelaySeconds int
+	MaxRetries   int
+	RetryWait    time.Duration
+
+	// Sleep is the pause function used for inter-request spacing and 429
+	// back-off. It defaults to time.Sleep; tests override it with a no-op so
+	// rate-limit behaviour can be exercised without real waits.
+	Sleep func(time.Duration)
 }
 
 // NewClient returns a client pointed at the live API. A non-positive timeout
 // disables the client-level timeout (callers should still pass a context).
 func NewClient(timeout time.Duration) *Client {
 	return &Client{
-		BaseURL:    DefaultBaseURL,
-		HTTP:       &http.Client{Timeout: timeout},
-		MaxRecords: DefaultMaxRecords,
+		BaseURL:      DefaultBaseURL,
+		HTTP:         &http.Client{Timeout: timeout},
+		MaxRecords:   DefaultMaxRecords,
+		DelaySeconds: DefaultDelaySeconds,
+		MaxRetries:   DefaultMaxRetries,
+		RetryWait:    DefaultRetryWaitSec * time.Second,
+		Sleep:        time.Sleep,
 	}
+}
+
+// FailedCountry records a country whose fetch could not be completed, with the
+// reason, so the caller can report partial failures without aborting.
+type FailedCountry struct {
+	Code   string `json:"code"`
+	Reason string `json:"reason"`
+}
+
+// FetchResult is the outcome of a resilient, per-country fetch: the records that
+// were retrieved plus which countries succeeded and which failed.
+type FetchResult struct {
+	Records   []GDELTEventRecord
+	Succeeded []string
+	Failed    []FailedCountry
+}
+
+// ClampDelaySeconds enforces GDELT's documented minimum spacing of one request
+// every 5 seconds: any value below MinDelaySeconds is raised to MinDelaySeconds.
+func ClampDelaySeconds(d int) int {
+	if d < MinDelaySeconds {
+		return MinDelaySeconds
+	}
+	return d
+}
+
+// statusError carries the HTTP status of a non-200 GDELT response so the retry
+// logic can single out 429 (Too Many Requests) for back-off.
+type statusError struct {
+	Code    int
+	Status  string
+	Snippet string
+}
+
+func (e *statusError) Error() string {
+	return fmt.Sprintf("unexpected status %s: %s", e.Status, e.Snippet)
+}
+
+func isRateLimited(err error) bool {
+	var se *statusError
+	return errors.As(err, &se) && se.Code == http.StatusTooManyRequests
+}
+
+// sleepFor pauses using the client's Sleep hook (default time.Sleep), ignoring
+// non-positive durations.
+func (c *Client) sleepFor(d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	if c.Sleep != nil {
+		c.Sleep(d)
+		return
+	}
+	time.Sleep(d)
+}
+
+// FetchPartial fetches each country independently and never aborts the whole run
+// on a single country's failure. It spaces requests apart (DelaySeconds), backs
+// off and retries on HTTP 429 (up to MaxRetries), and records any country that
+// still fails so the caller can save partial results and report the failures.
+func (c *Client) FetchPartial(ctx context.Context, countries []string, days int) (FetchResult, error) {
+	if len(countries) == 0 {
+		return FetchResult{}, fmt.Errorf("no countries requested")
+	}
+	if days < 1 {
+		return FetchResult{}, fmt.Errorf("days must be >= 1, got %d", days)
+	}
+
+	delay := time.Duration(ClampDelaySeconds(c.DelaySeconds)) * time.Second
+	fetchedAt := time.Now().UTC()
+
+	var res FetchResult
+	first := true
+	for _, code := range countries {
+		code = strings.ToUpper(strings.TrimSpace(code))
+		if code == "" {
+			continue
+		}
+		if !first {
+			c.sleepFor(delay) // space requests to respect the rate limit
+		}
+		first = false
+
+		name := resolveCountryName(code)
+		articles, err := c.fetchCountryWithRetry(ctx, name, days)
+		if err != nil {
+			res.Failed = append(res.Failed, FailedCountry{Code: code, Reason: err.Error()})
+			continue
+		}
+		res.Records = append(res.Records, normalizeArticles(articles, code, name, fetchedAt)...)
+		res.Succeeded = append(res.Succeeded, code)
+	}
+	return res, nil
+}
+
+// fetchCountryWithRetry performs one country's query, retrying only on HTTP 429
+// (waiting RetryWait between attempts). Any other error fails immediately.
+func (c *Client) fetchCountryWithRetry(ctx context.Context, countryName string, days int) ([]docArticle, error) {
+	retries := c.MaxRetries
+	if retries < 0 {
+		retries = 0
+	}
+	var lastErr error
+	for attempt := 0; attempt <= retries; attempt++ {
+		articles, err := c.fetchCountry(ctx, countryName, days)
+		if err == nil {
+			return articles, nil
+		}
+		lastErr = err
+		if isRateLimited(err) && attempt < retries {
+			wait := c.RetryWait
+			if wait <= 0 {
+				wait = DefaultRetryWaitSec * time.Second
+			}
+			c.sleepFor(wait)
+			continue
+		}
+		return nil, err
+	}
+	return nil, lastErr
 }
 
 // Fetch issues one GDELT query per country (country name + risk terms) over the
@@ -98,7 +234,7 @@ func (c *Client) fetchCountry(ctx context.Context, countryName string, days int)
 		return nil, fmt.Errorf("reading response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %s: %s", resp.Status, snippet(body))
+		return nil, &statusError{Code: resp.StatusCode, Status: resp.Status, Snippet: snippet(body)}
 	}
 
 	trimmed := strings.TrimSpace(string(body))

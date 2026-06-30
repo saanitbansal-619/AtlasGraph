@@ -286,7 +286,8 @@ atlas graph paths  --from <e> --to <e>   [--data dir] [--depth N]
 atlas graph dump                         [--data dir]
 atlas risk leaderboard                   [--data dir] [--top N]
 atlas ingest worldbank --countries <ISO3,…> [--start Y] [--end Y] [--out dir]
-atlas ingest gdelt     --countries <ISO3,…> [--days N] [--out dir]
+atlas ingest gdelt     --countries <ISO3,…> [--days N] [--limit N] [--delay-seconds N] [--out dir]
+atlas ingest gdelt     --fixture <file>     [--out dir]
 atlas indicators country <ISO3>          [--data dir]
 atlas score macro                        [--data dir] [--year Y] [--output text|json] [--save file] [--verbose]
 atlas events risk                        [--data dir] [--output text|json] [--save file]
@@ -761,35 +762,99 @@ base URL, so it is fully testable from saved JSON fixtures (via `httptest`) —
 the test suite never calls the live GDELT service. The CLI makes real HTTP calls
 for actual use.
 
+### Rate limiting and resilience
+
+GDELT asks for **no more than one request every 5 seconds** and will otherwise
+return `429 Too Many Requests`. Live ingestion can therefore be temporarily
+rate-limited (especially from shared IPs or for heavy queries), so the importer
+is built to be demo-safe and production-style:
+
+- `--limit` caps results per country (default `25`) to keep queries light.
+- `--delay-seconds` spaces per-country requests apart (default `6`, clamped up
+  to a `5` second minimum).
+- On `429`, the importer waits 10 seconds and retries up to **2** times per
+  country.
+- If a country still fails it is **skipped**, not fatal: successful countries are
+  saved and the failed ones are reported (the command only fails when **every**
+  country fails).
+
+If every country fails, the importer points you at offline mode:
+
+```
+Live GDELT ingestion failed for all countries. Try again later or use --fixture data/examples/gdelt_events_sample.json for offline demo mode.
+```
+
+### Offline / reproducible demo mode
+
+`--fixture` loads a **local synthetic fixture** instead of calling the API,
+normalises it into the exact same `GDELTEventRecord` schema, and writes the same
+`data/raw/gdelt/gdelt_events.json` — so every downstream command (`events risk`)
+works identically offline.
+
+> ⚠️ `data/examples/gdelt_events_sample.json` is **synthetic, reproducible demo
+> data — not real GDELT output**. The titles are plausible but invented and the
+> URLs are `https://example.com/...` placeholders. Use it for offline demos and
+> deterministic tests, never as a real-world event source.
+
 ### Commands
 
 ```bash
-go run ./cmd/atlas ingest gdelt --countries TWN,CHN,JPN,KOR,USA,DEU --days 7 --out data/raw/gdelt
+# Live ingestion (rate-limit aware): small per-country limit + 6s spacing.
+go run ./cmd/atlas ingest gdelt --countries TWN,CHN,JPN,KOR,USA,DEU --days 7 --limit 25 --delay-seconds 6 --out data/raw/gdelt
+
+# Offline reproducible demo (no network): load the synthetic fixture.
+go run ./cmd/atlas ingest gdelt --fixture data/examples/gdelt_events_sample.json --out data/raw/gdelt
+
+# Score event risk from whichever mode populated data/raw/gdelt.
 go run ./cmd/atlas events risk --data data/raw/gdelt
 go run ./cmd/atlas events risk --data data/raw/gdelt --output json
 ```
 
-Ingestion reports how many documents were fetched, how many matched risk terms,
-and the leading countries and risk terms:
+Live ingestion reports what was requested, the per-country success/failure
+split, how many documents were fetched and matched risk terms, and the leading
+countries and risk terms:
 
 ```
 GDELT EVENT INGESTION
 ----------------------------------------------------------------
-  Countries              : TWN, CHN, JPN, KOR, USA, DEU
+  Countries requested    : TWN, CHN, JPN, KOR, USA, DEU
   Days                   : 7
-  Records fetched        : 312
-  Records with risk terms: 198
+  Limit per country      : 25
+  Delay seconds          : 6
+  Countries succeeded    : TWN, CHN, JPN, KOR, USA, DEU
+  Countries failed       : (none)
+  Records fetched        : 132
+  Records with risk terms: 98
   Output                 : data/raw/gdelt/gdelt_events.json
 
   Top countries by event count:
-    1. China                            74
-    2. United States                    68
+    1. China                            24
+    2. United States                    23
     3. Taiwan                           …
 
   Top matched risk terms:
-    1. sanctions                        86
-    2. semiconductor                    61
+    1. sanctions                        41
+    2. semiconductor                    29
     3. conflict                        …
+```
+
+Fixture ingestion prints the same leaderboards under a clearly labelled
+**FIXTURE MODE** header so synthetic data is never mistaken for a live pull:
+
+```
+GDELT EVENT INGESTION — FIXTURE MODE
+----------------------------------------------------------------
+  Source fixture         : data/examples/gdelt_events_sample.json
+  Output                 : data/raw/gdelt/gdelt_events.json
+  Records loaded         : 16
+  Countries              : TWN, CHN, USA, DEU, KOR, JPN, SAU, COD
+  Records with risk terms: 16
+
+  Top countries by event count:
+    1. China                            2
+    …
+
+  Note: synthetic, reproducible demo data — not real GDELT output.
 ```
 
 ### Event risk scoring

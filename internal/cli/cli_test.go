@@ -18,6 +18,14 @@ func run(args ...string) (string, string, int) {
 	return out.String(), errOut.String(), code
 }
 
+// TestMain disables the live GDELT client's rate-limit / 429 back-off sleeps so
+// the CLI tests that exercise that path run instantly instead of waiting for
+// real spacing and retry delays.
+func TestMain(m *testing.M) {
+	gdeltSleepOverride = func(time.Duration) {}
+	os.Exit(m.Run())
+}
+
 func TestShockCommandRendersReport(t *testing.T) {
 	out, _, code := run("shock", "--source", "Taiwan", "--commodity", "semiconductors", "--drop", "30", "--depth", "3")
 	if code != 0 {

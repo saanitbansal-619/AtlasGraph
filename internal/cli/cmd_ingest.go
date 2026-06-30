@@ -33,29 +33,50 @@ func runIngest(args []string, out, errOut io.Writer) int {
 	}
 }
 
-// ingestGDELT fetches recent risk-relevant news/event documents for the
-// requested countries from the live GDELT DOC 2.0 API and normalises them to
-// data/raw/gdelt/gdelt_events.json. --base-url is provided so the importer can
-// be pointed at a local/fixture server; it defaults to the live API.
+// gdeltSleepOverride lets tests replace the live client's rate-limit/back-off
+// sleeps with a no-op so 429 retry and inter-country spacing can be exercised
+// without real waits. It is nil in normal use (the client sleeps for real).
+var gdeltSleepOverride func(time.Duration)
+
+// ingestGDELT fetches recent risk-relevant news/event documents and normalises
+// them to data/raw/gdelt/gdelt_events.json. It has two modes:
+//
+//   - live mode (default): query the GDELT DOC 2.0 API per country, with
+//     rate-limit spacing and 429 retry/back-off, saving partial results when
+//     some countries fail.
+//   - fixture mode (--fixture <file>): load a local synthetic fixture for a
+//     fully offline, reproducible demo.
+//
+// --base-url is provided so the importer can be pointed at a local/fixture
+// server; it defaults to the live API.
 func ingestGDELT(args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("ingest gdelt", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	countries := fs.String("countries", "", "comma-separated ISO3 country codes (e.g. TWN,CHN,USA)")
 	days := fs.Int("days", gdelt.DefaultDays, "look-back window in days")
+	limit := fs.Int("limit", gdelt.DefaultLimit, "max results per country (live mode)")
+	delaySeconds := fs.Int("delay-seconds", gdelt.DefaultDelaySeconds, "seconds between per-country requests (clamped to a 5s minimum)")
+	fixture := fs.String("fixture", "", "path to a local GDELT fixture JSON for offline demo mode")
 	outDir := fs.String("out", "data/raw/gdelt", "directory to write normalized output to")
 	baseURL := fs.String("base-url", gdelt.DefaultBaseURL, "GDELT DOC 2.0 endpoint (override for testing)")
-	timeout := fs.Duration("timeout", 2*time.Minute, "overall timeout for the fetch")
+	timeout := fs.Duration("timeout", 5*time.Minute, "overall timeout for the fetch")
 	fs.Usage = func() {
-		fmt.Fprintln(errOut, "Usage: atlas ingest gdelt --countries TWN,CHN,USA [--days 7] [--out dir]")
+		fmt.Fprintln(errOut, "Usage: atlas ingest gdelt --countries TWN,CHN,USA [--days 7] [--limit 25] [--delay-seconds 6] [--out dir]")
+		fmt.Fprintln(errOut, "       atlas ingest gdelt --fixture data/examples/gdelt_events_sample.json [--out dir]")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
+	// Fixture mode: fully offline, no countries/limit/delay required.
+	if strings.TrimSpace(*fixture) != "" {
+		return ingestGDELTFixture(*fixture, *outDir, out, errOut)
+	}
+
 	codes := splitCodes(*countries)
 	if len(codes) == 0 {
-		fmt.Fprintln(errOut, "error: --countries is required (comma-separated ISO3 codes)")
+		fmt.Fprintln(errOut, "error: --countries is required (comma-separated ISO3 codes), or use --fixture for offline mode")
 		fs.Usage()
 		return 2
 	}
@@ -63,27 +84,47 @@ func ingestGDELT(args []string, out, errOut io.Writer) int {
 		fmt.Fprintf(errOut, "error: --days must be >= 1, got %d\n", *days)
 		return 2
 	}
+	if *limit < 1 {
+		fmt.Fprintf(errOut, "error: --limit must be >= 1, got %d\n", *limit)
+		return 2
+	}
+	delay := gdelt.ClampDelaySeconds(*delaySeconds)
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
 	client := gdelt.NewClient(60 * time.Second)
 	client.BaseURL = *baseURL
-	fmt.Fprintf(out, "Fetching GDELT events for %s (last %d days)…\n", strings.Join(codes, ", "), *days)
+	client.MaxRecords = *limit
+	client.DelaySeconds = delay
+	if gdeltSleepOverride != nil {
+		client.Sleep = gdeltSleepOverride
+	}
+	fmt.Fprintf(out, "Fetching GDELT events for %s (last %d days, limit %d/country, %ds spacing)…\n",
+		strings.Join(codes, ", "), *days, *limit, delay)
 
-	records, err := client.Fetch(ctx, codes, *days)
+	res, err := client.FetchPartial(ctx, codes, *days)
 	if err != nil {
 		fmt.Fprintf(errOut, "error: %v\n", err)
 		return 1
 	}
-	gdelt.SortRecords(records)
 
+	// Every country failed: nothing to save, point the user at offline mode.
+	if len(res.Succeeded) == 0 {
+		for _, f := range res.Failed {
+			fmt.Fprintf(errOut, "  failed %s: %s\n", f.Code, f.Reason)
+		}
+		fmt.Fprintln(errOut, "Live GDELT ingestion failed for all countries. Try again later or use --fixture data/examples/gdelt_events_sample.json for offline demo mode.")
+		return 1
+	}
+
+	gdelt.SortRecords(res.Records)
 	file := gdelt.EventFile{
 		Source:    gdelt.SourceName,
 		FetchedAt: time.Now().UTC(),
 		Days:      *days,
-		Countries: codes,
-		Records:   records,
+		Countries: res.Succeeded,
+		Records:   res.Records,
 	}
 	path, err := gdelt.Save(*outDir, file)
 	if err != nil {
@@ -91,8 +132,59 @@ func ingestGDELT(args []string, out, errOut io.Writer) int {
 		return 1
 	}
 
-	renderGDELTIngestReport(out, codes, *days, path, gdelt.BuildSummary(file, 5))
+	renderGDELTLiveReport(out, codes, *days, *limit, delay, res, path, gdelt.BuildSummary(file, 5))
 	return 0
+}
+
+// ingestGDELTFixture loads a local synthetic fixture, normalises it into the
+// same schema as a live pull, saves it to outDir and prints a fixture-mode
+// report. It never touches the network.
+func ingestGDELTFixture(fixturePath, outDir string, out, errOut io.Writer) int {
+	records, err := gdelt.LoadFixture(fixturePath)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+	if len(records) == 0 {
+		fmt.Fprintf(errOut, "error: no events found in fixture %s\n", fixturePath)
+		return 1
+	}
+
+	gdelt.SortRecords(records)
+	countries := distinctCountryCodes(records)
+	file := gdelt.EventFile{
+		Source:    gdelt.FixtureSourceName,
+		FetchedAt: time.Now().UTC(),
+		Days:      0,
+		Countries: countries,
+		Records:   records,
+	}
+	path, err := gdelt.Save(outDir, file)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+
+	renderGDELTFixtureReport(out, fixturePath, path, countries, gdelt.BuildSummary(file, 5))
+	return 0
+}
+
+// distinctCountryCodes returns the unique country codes present in records, in
+// first-seen order.
+func distinctCountryCodes(records []gdelt.GDELTEventRecord) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, r := range records {
+		if r.CountryCode == "" {
+			continue
+		}
+		if _, ok := seen[r.CountryCode]; ok {
+			continue
+		}
+		seen[r.CountryCode] = struct{}{}
+		out = append(out, r.CountryCode)
+	}
+	return out
 }
 
 func ingestTrade(args []string, out, errOut io.Writer) int {

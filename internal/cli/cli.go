@@ -115,7 +115,8 @@ Examples:
   atlas trade concentration --importer USA --commodity semiconductors --data data/processed/trade
   atlas graph build-trade --trade-data data/processed/trade --out data/generated/trade_graph
   atlas graph summary --data data/generated/trade_graph
-  atlas ingest gdelt --countries TWN,CHN,JPN,KOR,USA,DEU --days 7 --out data/raw/gdelt
+  atlas ingest gdelt --countries TWN,CHN,JPN,KOR,USA,DEU --days 7 --limit 25 --delay-seconds 6 --out data/raw/gdelt
+  atlas ingest gdelt --fixture data/examples/gdelt_events_sample.json --out data/raw/gdelt
   atlas events risk --data data/raw/gdelt
 `, "\n"))
 }
