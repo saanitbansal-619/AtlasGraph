@@ -1079,9 +1079,87 @@ curl http://localhost:8080/api/events/risk
 
 ### CORS
 
-`http://localhost:5173` and `http://127.0.0.1:5173` are pre-approved so a future
-Vite dev frontend can call the API directly; preflight `OPTIONS` requests are
-answered with `204 No Content`. No React/frontend is included in this milestone.
+`http://localhost:5173` and `http://127.0.0.1:5173` are pre-approved so the Vite
+dev frontend (see below) can call the API directly; preflight `OPTIONS` requests
+are answered with `204 No Content`.
+
+---
+
+## Web Frontend (control room)
+
+A **React + TypeScript + Vite + Tailwind** frontend lives in [`frontend/`](frontend).
+It is a dark, Bloomberg/Palantir-style **control-room UI** for the platform —
+**Global Fragility Intelligence Platform**, *Powered by AtlasGraph* — and talks
+to the Go API over HTTP. It is intentionally dependency-light (no Next.js, no
+state library, no UI kit) so it stays easy to read and demo.
+
+This milestone's screen includes:
+
+- a header with a **live API status badge** (polls `GET /health`),
+- **overview cards** (nodes / countries / commodities / sectors / dependencies)
+  from `GET /api/graph/summary`,
+- a **scenario preset** dropdown from `GET /api/scenarios` (defaults to
+  `taiwan_semiconductor_shock` when present),
+- a **Shock Simulator** panel that `POST`s to `/api/shock`, pre-filled from the
+  selected scenario, and
+- **shock results**: impact metrics, direct & second-order exposure tables, the
+  affected dependency paths, and (with *Explain* on) the blocked edges.
+
+### Run it
+
+The frontend needs the API running first. **In one terminal, start the backend:**
+
+```bash
+go run ./cmd/atlas serve \
+  --data data/generated/trade_graph \
+  --trade-data data/processed/trade \
+  --macro-data data/raw/worldbank \
+  --event-data data/raw/gdelt \
+  --port 8080
+```
+
+> First time? Generate a graph and (optionally) ingest data first, e.g.
+> `atlas ingest trade --file data/examples/comtrade_sample.csv --out data/processed/trade`
+> then `atlas graph build-trade --trade-data data/processed/trade --out data/generated/trade_graph`,
+> and `atlas ingest gdelt --fixture data/examples/gdelt_events_sample.json --out data/raw/gdelt`.
+> Any missing path only disables the matching endpoint — the server still starts.
+
+**In a second terminal, start the frontend:**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Then open the printed URL (http://localhost:5173). If the API is down, the UI
+shows an "API unavailable" notice with the exact backend command to run.
+
+### Configuration
+
+The API base URL defaults to `http://localhost:8080` and can be overridden with
+an env var (see [`frontend/.env.example`](frontend/.env.example)):
+
+```bash
+# frontend/.env
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+### Frontend layout
+
+```
+frontend/
+├── index.html
+├── package.json
+├── vite.config.ts          # dev server on :5173
+├── tailwind.config.js
+└── src/
+    ├── App.tsx             # data fetching + layout
+    ├── lib/api.ts          # typed API client (VITE_API_BASE_URL)
+    ├── types/api.ts        # response/request types
+    └── components/         # Header, OverviewCards, ScenarioSelect,
+                            # ShockSimulator, ShockResults, …
+```
 
 ---
 
