@@ -6,9 +6,15 @@ import type {
   Scenario,
   ShockResponse,
 } from './types/api'
+import {
+  DEFAULT_META,
+  DEFAULT_SCENARIO_NAME,
+  type ScenarioMeta,
+  type ShockMode,
+  type SubmittedScenario,
+} from './types/scenario'
 import { Header } from './components/Header'
 import { OverviewCards } from './components/OverviewCards'
-import { ScenarioSelect } from './components/ScenarioSelect'
 import { ShockSimulator, toRequest, type ShockForm } from './components/ShockSimulator'
 import { ShockResults } from './components/ShockResults'
 import { BackendDownNotice } from './components/States'
@@ -34,6 +40,22 @@ const INITIAL_FORM: ShockForm = {
   explain: true,
 }
 
+// True when the form still matches the preset exactly on the fields that drive
+// propagation (source, commodity, shock type, drop, depth).
+function presetMatches(form: ShockForm, p: Scenario): boolean {
+  return (
+    form.source.trim() === p.source &&
+    form.commodity.trim() === p.commodity &&
+    form.shock_type === p.shock_type &&
+    form.drop === p.shock_percent &&
+    form.depth === p.depth
+  )
+}
+
+function titleCase(s: string): string {
+  return s.trim().replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export default function App() {
   // Health
   const [health, setHealth] = useState<HealthResponse | null>(null)
@@ -49,9 +71,14 @@ export default function App() {
   const [scenariosLoading, setScenariosLoading] = useState(true)
   const [selectedId, setSelectedId] = useState('')
 
-  // Shock form + result
+  // Shock form + scenario metadata (metadata is frontend-only).
+  const [mode, setMode] = useState<ShockMode>('preset')
   const [form, setForm] = useState<ShockForm>(INITIAL_FORM)
+  const [meta, setMeta] = useState<ScenarioMeta>(DEFAULT_META)
+
+  // Shock result + the scenario snapshot captured when it was run.
   const [result, setResult] = useState<ShockResponse | null>(null)
+  const [submitted, setSubmitted] = useState<SubmittedScenario | null>(null)
   const [running, setRunning] = useState(false)
   const [runErr, setRunErr] = useState<UiError | null>(null)
 
@@ -64,6 +91,8 @@ export default function App() {
       depth: sc.depth || 3,
       explain: true,
     })
+    // Carry the preset's name into the metadata; keep the analyst's assumptions.
+    setMeta((m) => ({ ...m, name: sc.name || sc.id, notes: '' }))
   }, [])
 
   const checkHealth = useCallback(async () => {
@@ -134,20 +163,45 @@ export default function App() {
     [scenarios, applyScenario],
   )
 
+  const onReset = useCallback(() => {
+    setForm(INITIAL_FORM)
+    setMeta({ ...DEFAULT_META, assumptions: { ...DEFAULT_META.assumptions } })
+  }, [])
+
   const runShock = useCallback(async () => {
     setRunning(true)
     setRunErr(null)
+
+    // Build a snapshot of exactly what is being submitted, and resolve the title
+    // from the current form/preset relationship so it never goes stale.
+    const preset = scenarios.find((s) => s.id === selectedId)
+    const modifiedPreset = mode === 'preset' && !!preset && !presetMatches(form, preset)
+    let title: string
+    if (mode === 'custom') {
+      title = meta.name.trim() || DEFAULT_SCENARIO_NAME
+    } else if (preset && !modifiedPreset) {
+      title = preset.name || preset.id
+    } else {
+      title = `${titleCase(form.source)} ${titleCase(form.commodity)} Shock`
+    }
+    const snapshot: SubmittedScenario = {
+      title,
+      mode,
+      modifiedPreset,
+      meta: { ...meta, assumptions: { ...meta.assumptions } },
+    }
+
     try {
       const res = await api.runShock(toRequest(form))
       setResult(res)
-      // A successful shock implies the API is up — refresh the badge.
+      setSubmitted(snapshot)
       void checkHealth()
     } catch (e) {
       setRunErr(toUiError(e))
     } finally {
       setRunning(false)
     }
-  }, [form, checkHealth])
+  }, [form, meta, mode, scenarios, selectedId, checkHealth])
 
   const backendDown = useMemo(
     () => !!healthErr && healthErr.unreachable && health === null,
@@ -166,18 +220,26 @@ export default function App() {
         <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-1">
-            <ScenarioSelect
+          <div className="lg:col-span-1">
+            <ShockSimulator
+              mode={mode}
+              setMode={setMode}
+              form={form}
+              setForm={setForm}
+              meta={meta}
+              setMeta={setMeta}
               scenarios={scenarios}
               selectedId={selectedId}
-              onSelect={onSelectScenario}
-              loading={scenariosLoading}
+              onSelectScenario={onSelectScenario}
+              scenariosLoading={scenariosLoading}
+              onRun={runShock}
+              onReset={onReset}
+              running={running}
             />
-            <ShockSimulator form={form} setForm={setForm} onRun={runShock} running={running} />
           </div>
 
           <div className="lg:col-span-2">
-            <ShockResults result={result} running={running} error={runErr} />
+            <ShockResults result={result} submitted={submitted} running={running} error={runErr} />
           </div>
         </div>
 

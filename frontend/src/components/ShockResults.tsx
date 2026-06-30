@@ -1,14 +1,17 @@
 import type { ExposureItem, ShockResponse } from '../types/api'
+import { ASSUMPTION_NOTE, type SubmittedScenario } from '../types/scenario'
 import { deltaClass, fixed, pct, prettyPath, signed } from '../lib/format'
 import { EmptyHint, Panel, Spinner, TypeBadge } from './ui'
 import { InlineError } from './States'
 
 export function ShockResults({
   result,
+  submitted,
   running,
   error,
 }: {
   result: ShockResponse | null
+  submitted?: SubmittedScenario | null
   running: boolean
   error?: { message: string; hint?: string } | null
 }) {
@@ -46,7 +49,7 @@ export function ShockResults({
 
   return (
     <div className={`space-y-4 ${running ? 'opacity-60' : ''}`}>
-      <ResultBanner result={result} />
+      <ResultBanner result={result} submitted={submitted} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <MetricCard label="Affected nodes" value={String(s.affected_nodes)} />
@@ -93,33 +96,85 @@ export function ShockResults({
   )
 }
 
-function ResultBanner({ result }: { result: ShockResponse }) {
+function ResultBanner({
+  result,
+  submitted,
+}: {
+  result: ShockResponse
+  submitted?: SubmittedScenario | null
+}) {
+  // The header LINE always reflects the actual submitted shock (backend echo).
   const sc = result.scenario
+  // The TITLE reflects the resolved scenario name captured at submit time.
+  const meta = submitted?.meta
+  const title =
+    submitted?.title?.trim() || sc.name || `${sc.source} · ${result.shock_profile.type}`
+
   return (
-    <div className="panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-      <div className="flex items-center gap-2 text-sm">
-        <span className="font-semibold text-slate-100">{sc.source}</span>
-        <span className="text-slate-600">→</span>
-        <span className="font-semibold text-amber-300">{sc.commodity}</span>
-        <span className="badge ml-2 border-cyan-500/40 bg-cyan-500/10 text-cyan-300">
-          {result.shock_profile.type}
+    <div className="panel space-y-2.5 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold text-slate-50">{title}</h3>
+          {submitted?.modifiedPreset && (
+            <span className="badge border-amber-500/40 bg-amber-500/10 text-amber-300">
+              Modified preset
+            </span>
+          )}
+        </div>
+        <span className="badge border-cyan-500/40 bg-cyan-500/10 text-cyan-300">
+          {sc.shock_type || result.shock_profile.type}
         </span>
       </div>
-      <div className="flex flex-wrap gap-4 font-mono text-xs text-slate-400">
-        <span>
-          drop <span className="text-slate-200">{fixed(sc.shock_percent, 0)}%</span>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <span className="flex items-center gap-2">
+          <span className="font-semibold text-slate-100">{sc.source}</span>
+          <span className="text-slate-600">→</span>
+          <span className="font-semibold text-amber-300">{sc.commodity}</span>
         </span>
-        <span>
-          depth <span className="text-slate-200">{sc.depth}</span>
-        </span>
-        <span>
-          initial impact <span className="text-slate-200">{pct(sc.initial_impact)}</span>
-        </span>
-        <span>
-          attenuation <span className="text-slate-200">{fixed(result.shock_profile.attenuation, 2)}</span>
+        <span className="flex flex-wrap gap-x-4 font-mono text-xs text-slate-400">
+          <span>
+            drop <span className="text-slate-200">{fixed(sc.shock_percent, 0)}%</span>
+          </span>
+          <span>
+            depth <span className="text-slate-200">{sc.depth}</span>
+          </span>
+          <span>
+            initial impact <span className="text-slate-200">{pct(sc.initial_impact)}</span>
+          </span>
+          <span>
+            attenuation <span className="text-slate-200">{fixed(result.shock_profile.attenuation, 2)}</span>
+          </span>
         </span>
       </div>
+
+      {meta && (
+        <div className="flex flex-wrap gap-1.5">
+          <AssumptionChip label="duration" value={meta.assumptions.duration} />
+          <AssumptionChip label="recovery" value={meta.assumptions.recovery} />
+          <AssumptionChip label="substitute" value={meta.assumptions.substitute} />
+          <AssumptionChip label="inventory" value={meta.assumptions.inventory} />
+        </div>
+      )}
+
+      {meta?.notes?.trim() && (
+        <div className="rounded border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs leading-relaxed text-slate-300">
+          <span className="text-slate-500">Hypothesis: </span>
+          {meta.notes.trim()}
+        </div>
+      )}
+
+      <p className="text-[11px] italic text-slate-500">{ASSUMPTION_NOTE}</p>
     </div>
+  )
+}
+
+function AssumptionChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded border border-slate-700/70 bg-slate-800/40 px-2 py-0.5 font-mono text-[11px] text-slate-300">
+      <span className="text-slate-500">{label} </span>
+      {value}
+    </span>
   )
 }
 
