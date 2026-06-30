@@ -109,6 +109,7 @@ function ResultBanner({
   const meta = submitted?.meta
   const title =
     submitted?.title?.trim() || sc.name || `${sc.source} · ${result.shock_profile.type}`
+  const warnings = result.warnings ?? []
 
   return (
     <div className="panel space-y-2.5 px-4 py-3">
@@ -147,6 +148,22 @@ function ResultBanner({
           </span>
         </span>
       </div>
+
+      {warnings.length > 0 && (
+        <div className="space-y-1.5">
+          {warnings.map((w, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200/90"
+            >
+              <span aria-hidden className="mt-0.5 text-amber-400">
+                ⚠
+              </span>
+              <span>{w}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {meta && (
         <div className="flex flex-wrap gap-1.5">

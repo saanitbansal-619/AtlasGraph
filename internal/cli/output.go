@@ -30,6 +30,9 @@ type jsonResult struct {
 	HighestRiskEntities     jsonTopEntities   `json:"highest_risk_entities"`
 	GraphImpactSummary      jsonSummary       `json:"graph_impact_summary"`
 	BlockedEdges            []jsonBlockedEdge `json:"blocked_edges,omitempty"`
+	// Warnings are non-fatal, graph-aware advisories for suboptimal but still
+	// valid shock combinations. Omitted (and never set) for the CLI path.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type jsonShockProfile struct {

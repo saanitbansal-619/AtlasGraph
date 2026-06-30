@@ -66,7 +66,9 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 	for _, e := range []string{
 		"GET  /health",
 		"GET  /api/graph/summary",
+		"GET  /api/graph/entities",
 		"GET  /api/scenarios",
+		"GET  /api/shock/options",
 		"POST /api/shock",
 		"GET  /api/trade/summary",
 		"GET  /api/trade/dependency?importer=USA&commodity=semiconductors",

@@ -1,5 +1,11 @@
-import type { ReactNode } from 'react'
-import type { Scenario, ShockRequest } from '../types/api'
+import { useMemo, type ReactNode } from 'react'
+import type {
+  GraphEntitiesResponse,
+  RecommendedScenario,
+  Scenario,
+  ShockOptionsResponse,
+  ShockRequest,
+} from '../types/api'
 import {
   ASSUMPTION_NOTE,
   DURATION_OPTIONS,
@@ -30,6 +36,8 @@ const COMMODITY_EXAMPLES = [
   'rare earths',
 ]
 
+const eq = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
 export interface ShockForm {
   source: string
   commodity: string
@@ -50,6 +58,9 @@ export function ShockSimulator({
   selectedId,
   onSelectScenario,
   scenariosLoading,
+  entities,
+  options,
+  onApplyRecommended,
   onRun,
   onReset,
   running,
@@ -64,6 +75,9 @@ export function ShockSimulator({
   selectedId: string
   onSelectScenario: (id: string) => void
   scenariosLoading: boolean
+  entities: GraphEntitiesResponse | null
+  options: ShockOptionsResponse | null
+  onApplyRecommended: (rs: RecommendedScenario) => void
   onRun: () => void
   onReset: () => void
   running: boolean
@@ -78,6 +92,50 @@ export function ShockSimulator({
 
   const canRun = form.source.trim() !== '' && form.commodity.trim() !== '' && !running
   const selected = scenarios.find((s) => s.id === selectedId)
+
+  // Suggestions come from the live graph when available, else static examples.
+  const sourceSuggestions = useMemo(() => {
+    if (options?.sources?.length) return options.sources
+    const fromGraph = [...(entities?.countries ?? []), ...(entities?.routes ?? [])]
+    return fromGraph.length ? fromGraph : SOURCE_EXAMPLES
+  }, [options, entities])
+
+  const commoditySuggestions = useMemo(() => {
+    if (options?.commodities?.length) return options.commodities
+    return entities?.commodities?.length ? entities.commodities : COMMODITY_EXAMPLES
+  }, [options, entities])
+
+  const shockTypeList = options?.shock_types?.length
+    ? options.shock_types.map((s) => s.type)
+    : SHOCK_TYPES
+
+  const shockDescription = useMemo(() => {
+    const opt = options?.shock_types?.find((s) => s.type === form.shock_type)
+    return opt?.description || SHOCK_TYPE_DESC[form.shock_type] || ''
+  }, [options, form.shock_type])
+
+  const shockTypeName = (type: string) =>
+    options?.shock_types?.find((s) => s.type === type)?.name || type
+
+  // Lightweight, graph-aware pre-run advisories. The backend returns the
+  // authoritative warnings; these just guide the analyst before they run.
+  const preRunWarnings = useMemo(() => {
+    const out: string[] = []
+    const src = form.source.trim()
+    const com = form.commodity.trim()
+    if (src && sourceSuggestions.length && !sourceSuggestions.some((s) => eq(s, src))) {
+      out.push(`"${src}" is not a known source in the current graph — results may be empty.`)
+    }
+    if (com && commoditySuggestions.length && !commoditySuggestions.some((c) => eq(c, com))) {
+      out.push(`"${com}" is not a known commodity in the current graph — results may be empty.`)
+    }
+    if (form.shock_type === 'route_disruption' && entities && entities.routes.length === 0) {
+      out.push('route_disruption works best with route nodes, but this graph has none.')
+    }
+    return out
+  }, [form.source, form.commodity, form.shock_type, sourceSuggestions, commoditySuggestions, entities])
+
+  const recommended = options?.recommended_scenarios ?? []
 
   return (
     <Panel title="Shock Simulator" right={<ModeToggle mode={mode} setMode={setMode} />}>
@@ -132,39 +190,43 @@ export function ShockSimulator({
           </div>
         )}
 
+        {recommended.length > 0 && (
+          <RecommendedScenarios items={recommended} onPick={onApplyRecommended} disabled={running} />
+        )}
+
         <Divider label="Shock parameters" />
 
-        <div className="space-y-1.5">
-          <Field label="Source">
-            <input
-              className="field"
-              value={form.source}
-              onChange={(e) => update('source', e.target.value)}
-              placeholder="Taiwan"
-            />
-          </Field>
-          <ExampleChips
-            examples={SOURCE_EXAMPLES}
-            active={form.source}
-            onPick={(v) => update('source', v)}
+        <Field label="Source">
+          <input
+            className="field"
+            list="gfip-source-options"
+            value={form.source}
+            onChange={(e) => update('source', e.target.value)}
+            placeholder="Search countries / routes…"
+            autoComplete="off"
           />
-        </div>
+          <datalist id="gfip-source-options">
+            {sourceSuggestions.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        </Field>
 
-        <div className="space-y-1.5">
-          <Field label="Commodity">
-            <input
-              className="field"
-              value={form.commodity}
-              onChange={(e) => update('commodity', e.target.value)}
-              placeholder="semiconductors"
-            />
-          </Field>
-          <ExampleChips
-            examples={COMMODITY_EXAMPLES}
-            active={form.commodity}
-            onPick={(v) => update('commodity', v)}
+        <Field label="Commodity">
+          <input
+            className="field"
+            list="gfip-commodity-options"
+            value={form.commodity}
+            onChange={(e) => update('commodity', e.target.value)}
+            placeholder="Search commodities…"
+            autoComplete="off"
           />
-        </div>
+          <datalist id="gfip-commodity-options">
+            {commoditySuggestions.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+        </Field>
 
         <Field label="Shock type">
           <select
@@ -172,15 +234,13 @@ export function ShockSimulator({
             value={form.shock_type}
             onChange={(e) => update('shock_type', e.target.value)}
           >
-            {SHOCK_TYPES.map((t) => (
+            {shockTypeList.map((t) => (
               <option key={t} value={t}>
-                {t}
+                {shockTypeName(t)}
               </option>
             ))}
           </select>
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
-            {SHOCK_TYPE_DESC[form.shock_type]}
-          </p>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{shockDescription}</p>
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -253,6 +313,20 @@ export function ShockSimulator({
         </div>
         <p className="text-[11px] italic leading-relaxed text-slate-500">{ASSUMPTION_NOTE}</p>
 
+        {preRunWarnings.length > 0 && (
+          <div className="space-y-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-300">
+              <span aria-hidden>⚠</span> Combination may be weak
+            </div>
+            {preRunWarnings.map((w, i) => (
+              <p key={i} className="text-xs leading-relaxed text-amber-200/90">
+                {w}
+              </p>
+            ))}
+            <p className="text-[11px] text-amber-200/60">You can still run this simulation.</p>
+          </div>
+        )}
+
         <div className="flex gap-2 pt-1">
           <button type="submit" className="btn-primary flex-1" disabled={!canRun}>
             {running ? (
@@ -312,35 +386,32 @@ function ModeToggle({ mode, setMode }: { mode: ShockMode; setMode: (m: ShockMode
   )
 }
 
-function ExampleChips({
-  examples,
-  active,
+function RecommendedScenarios({
+  items,
   onPick,
+  disabled,
 }: {
-  examples: string[]
-  active: string
-  onPick: (v: string) => void
+  items: RecommendedScenario[]
+  onPick: (rs: RecommendedScenario) => void
+  disabled: boolean
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      <span className="text-[10px] uppercase tracking-wider text-slate-600">e.g.</span>
-      {examples.map((x) => {
-        const on = active.trim().toLowerCase() === x.toLowerCase()
-        return (
+    <div className="space-y-1.5">
+      <div className="label">Recommended scenarios</div>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((rs) => (
           <button
-            key={x}
+            key={rs.label}
             type="button"
-            onClick={() => onPick(x)}
-            className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
-              on
-                ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-200'
-                : 'border-slate-700/70 bg-slate-800/40 text-slate-400 hover:border-cyan-500/50 hover:text-cyan-200'
-            }`}
+            disabled={disabled}
+            onClick={() => onPick(rs)}
+            title={`${rs.source} → ${rs.commodity} · ${rs.shock_type} · drop ${rs.drop}% · depth ${rs.depth}`}
+            className="rounded border border-slate-700/70 bg-slate-800/40 px-2 py-1 text-[11px] text-slate-300 transition hover:border-cyan-500/50 hover:text-cyan-200 disabled:opacity-50"
           >
-            {x}
+            {rs.label}
           </button>
-        )
-      })}
+        ))}
+      </div>
     </div>
   )
 }

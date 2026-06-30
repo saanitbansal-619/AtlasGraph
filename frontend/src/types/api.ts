@@ -141,6 +141,43 @@ export interface ShockResponse {
   highest_risk_entities: HighestRiskEntities
   graph_impact_summary: GraphImpactSummary
   blocked_edges?: BlockedEdge[]
+  // Non-fatal, graph-aware advisories for suboptimal but still-valid combos.
+  warnings?: string[]
+}
+
+// GET /api/graph/entities — graph nodes grouped by type.
+export interface GraphEntitiesResponse {
+  countries: string[]
+  commodities: string[]
+  sectors: string[]
+  routes: string[]
+  companies: string[]
+}
+
+// One shock type as described by GET /api/shock/options.
+export interface ShockTypeOption {
+  type: string
+  name: string
+  description: string
+  recommended_for: string[]
+  requires: string[]
+}
+
+// A graph-validated recommended scenario from GET /api/shock/options.
+export interface RecommendedScenario {
+  label: string
+  source: string
+  commodity: string
+  shock_type: string
+  drop: number
+  depth: number
+}
+
+export interface ShockOptionsResponse {
+  sources: string[]
+  commodities: string[]
+  shock_types: ShockTypeOption[]
+  recommended_scenarios: RecommendedScenario[]
 }
 
 // JSON error envelope returned by the API on failure.

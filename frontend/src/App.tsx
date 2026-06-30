@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, ApiRequestError } from './lib/api'
 import type {
+  GraphEntitiesResponse,
   GraphSummaryResponse,
   HealthResponse,
+  RecommendedScenario,
   Scenario,
+  ShockOptionsResponse,
   ShockResponse,
 } from './types/api'
 import {
@@ -71,6 +74,10 @@ export default function App() {
   const [scenariosLoading, setScenariosLoading] = useState(true)
   const [selectedId, setSelectedId] = useState('')
 
+  // Graph-aware guidance: entity catalog + shock options.
+  const [entities, setEntities] = useState<GraphEntitiesResponse | null>(null)
+  const [options, setOptions] = useState<ShockOptionsResponse | null>(null)
+
   // Shock form + scenario metadata (metadata is frontend-only).
   const [mode, setMode] = useState<ShockMode>('preset')
   const [form, setForm] = useState<ShockForm>(INITIAL_FORM)
@@ -136,12 +143,26 @@ export default function App() {
     }
   }, [applyScenario])
 
+  const loadGuidance = useCallback(async () => {
+    try {
+      setEntities(await api.graphEntities())
+    } catch {
+      setEntities(null)
+    }
+    try {
+      setOptions(await api.shockOptions())
+    } catch {
+      setOptions(null)
+    }
+  }, [])
+
   const loadAll = useCallback(() => {
     setHealthLoading(true)
     void checkHealth()
     void loadSummary()
     void loadScenarios()
-  }, [checkHealth, loadSummary, loadScenarios])
+    void loadGuidance()
+  }, [checkHealth, loadSummary, loadScenarios, loadGuidance])
 
   // Initial load.
   useEffect(() => {
@@ -166,6 +187,21 @@ export default function App() {
   const onReset = useCallback(() => {
     setForm(INITIAL_FORM)
     setMeta({ ...DEFAULT_META, assumptions: { ...DEFAULT_META.assumptions } })
+  }, [])
+
+  // Clicking a recommended scenario drops into custom mode pre-filled with a
+  // combination known to make sense for the current graph.
+  const onApplyRecommended = useCallback((rs: RecommendedScenario) => {
+    setMode('custom')
+    setForm({
+      source: rs.source,
+      commodity: rs.commodity,
+      shock_type: rs.shock_type,
+      drop: rs.drop,
+      depth: rs.depth || 3,
+      explain: true,
+    })
+    setMeta((m) => ({ ...m, name: rs.label, notes: '' }))
   }, [])
 
   const runShock = useCallback(async () => {
@@ -232,6 +268,9 @@ export default function App() {
               selectedId={selectedId}
               onSelectScenario={onSelectScenario}
               scenariosLoading={scenariosLoading}
+              entities={entities}
+              options={options}
+              onApplyRecommended={onApplyRecommended}
               onRun={runShock}
               onReset={onReset}
               running={running}

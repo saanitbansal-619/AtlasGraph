@@ -1,7 +1,9 @@
 import type {
   GraphSummaryResponse,
+  GraphEntitiesResponse,
   HealthResponse,
   ScenariosResponse,
+  ShockOptionsResponse,
   ShockRequest,
   ShockResponse,
   ApiError,
@@ -71,7 +73,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<HealthResponse>('/health'),
   graphSummary: () => request<GraphSummaryResponse>('/api/graph/summary'),
+  graphEntities: () => request<GraphEntitiesResponse>('/api/graph/entities'),
   scenarios: () => request<ScenariosResponse>('/api/scenarios'),
+  shockOptions: () => request<ShockOptionsResponse>('/api/shock/options'),
   runShock: (body: ShockRequest) =>
     request<ShockResponse>('/api/shock', {
       method: 'POST',

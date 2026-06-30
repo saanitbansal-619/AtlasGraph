@@ -1113,7 +1113,9 @@ ATLASGRAPH API SERVER
   Endpoints:
     GET  /health
     GET  /api/graph/summary
+    GET  /api/graph/entities
     GET  /api/scenarios
+    GET  /api/shock/options
     POST /api/shock
     GET  /api/trade/summary
     GET  /api/trade/dependency?importer=USA&commodity=semiconductors
@@ -1131,7 +1133,9 @@ ATLASGRAPH API SERVER
 |---------------|-------------|
 | `GET  /health` | Liveness probe (`{"status":"ok",...}`) |
 | `GET  /api/graph/summary` | Entity counts and highest-degree nodes |
+| `GET  /api/graph/entities` | Graph entities grouped by type (countries, commodities, sectors, routes, companies) |
 | `GET  /api/scenarios` | Saved shock scenario presets |
+| `GET  /api/shock/options` | Graph-aware shock guidance: valid sources/commodities, shock-type descriptions, and recommended scenarios |
 | `POST /api/shock` | Run a shock simulation (body below) |
 | `GET  /api/trade/summary` | Ingested trade-panel digest |
 | `GET  /api/trade/dependency?importer=&commodity=` | Supplier dependency breakdown |
@@ -1159,6 +1163,25 @@ The response matches `atlas shock --output json` (scenario, exposures, affected
 paths, highest-risk entities, graph impact summary). Add `"explain": true` to
 include the `blocked_edges` breakdown.
 
+Valid-looking but suboptimal combinations are **not** rejected. Instead the
+response may include a non-fatal `warnings` array, e.g. a `route_disruption` on a
+graph with no route nodes, or a shock type that does not travel along the
+relationship linking the chosen source to the commodity:
+
+```json
+{
+  "warnings": [
+    "route_disruption works best with route nodes, but the current graph has no routes.",
+    "No direct exports edge found from China to crude oil in this graph."
+  ]
+}
+```
+
+`GET /api/shock/options` exposes the same guidance up front: graph-validated
+`sources`/`commodities` for dropdowns, per-shock-type descriptions, and
+`recommended_scenarios` that only include combinations that make sense for the
+loaded graph.
+
 ### Error shape
 
 Every failure returns a consistent JSON envelope (the `hint` is optional):
@@ -1178,7 +1201,11 @@ curl http://localhost:8080/health
 
 # Graph + scenarios
 curl http://localhost:8080/api/graph/summary
+curl http://localhost:8080/api/graph/entities
 curl http://localhost:8080/api/scenarios
+
+# Graph-aware shock guidance (valid sources/commodities, recommended scenarios)
+curl http://localhost:8080/api/shock/options
 
 # Run a shock
 curl -X POST http://localhost:8080/api/shock \
@@ -1219,10 +1246,15 @@ This milestone's screen includes:
   from `GET /api/graph/summary`,
 - a **scenario preset** dropdown from `GET /api/scenarios` (defaults to
   `taiwan_semiconductor_shock` when present),
+- a **graph-aware Shock Simulator**: source/commodity inputs are searchable
+  dropdowns backed by `GET /api/graph/entities`, shock-type descriptions and
+  **recommended-scenario** quick-buttons come from `GET /api/shock/options`, and
+  weak combinations raise an amber advisory before you run (you can still run),
 - a **Shock Simulator** panel that `POST`s to `/api/shock`, pre-filled from the
   selected scenario, and
 - **shock results**: impact metrics, direct & second-order exposure tables, the
-  affected dependency paths, and (with *Explain* on) the blocked edges.
+  affected dependency paths, any backend `warnings`, and (with *Explain* on) the
+  blocked edges.
 
 ### Run it
 
