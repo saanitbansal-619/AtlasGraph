@@ -70,6 +70,9 @@ store and ML forecasting are planned on top of the same core (see Roadmap).
 - **Strong validation** — helpful errors for malformed data, unknown entity
   references, out-of-range weights, **invalid relationship types** and
   **unknown shock types**.
+- **HTTP API server** — a pure–`net/http` JSON API (`atlas serve`) exposing the
+  engine over `/health`, `/api/graph/summary`, `/api/scenarios`, `/api/shock`,
+  trade/macro/event endpoints, with CORS ready for a future frontend.
 
 ---
 
@@ -291,6 +294,7 @@ atlas ingest gdelt     --fixture <file>     [--out dir]
 atlas indicators country <ISO3>          [--data dir]
 atlas score macro                        [--data dir] [--year Y] [--output text|json] [--save file] [--verbose]
 atlas events risk                        [--data dir] [--output text|json] [--save file]
+atlas serve            [--data dir] [--trade-data dir] [--macro-data dir] [--event-data dir] [--port 8080]
 atlas version
 ```
 
@@ -952,6 +956,132 @@ TRADE GRAPH BUILD
 The generated `entities.json`, `dependencies.json` and `scenarios.json` use
 exactly the wire format the loader validates, so the standard `graph summary`,
 `graph paths`, `graph dump` and `shock` commands all work against the output.
+
+---
+
+## HTTP API Server
+
+AtlasGraph ships a lightweight, pure–`net/http` JSON API so the same engine that
+powers the CLI can back a future web frontend (a Vite app on `:5173` is already
+allowed via CORS). It adds **no new dependencies** and reuses the exact internal
+logic and JSON shapes the CLI uses — `/api/shock`, for example, returns the same
+structure as `atlas shock --output json`.
+
+### Start the server
+
+```bash
+go run ./cmd/atlas serve \
+  --data data/generated/trade_graph \
+  --trade-data data/processed/trade \
+  --macro-data data/raw/worldbank \
+  --event-data data/raw/gdelt \
+  --port 8080
+```
+
+All data flags are optional and loaded **lazily, per request**, so the server
+always starts. If a data path is missing or empty, only the affected endpoint
+returns a helpful JSON error — every other endpoint keeps working. Pass
+`--data ""` (empty) to serve the **embedded sample** graph with no files on disk.
+
+Startup prints the port, each data path, and the available endpoints:
+
+```
+ATLASGRAPH API SERVER
+----------------------------------------------------------------
+  Port        : 8080
+  Graph data  : data/generated/trade_graph
+  Trade data  : data/processed/trade
+  Macro data  : data/raw/worldbank
+  Event data  : data/raw/gdelt
+
+  Endpoints:
+    GET  /health
+    GET  /api/graph/summary
+    GET  /api/scenarios
+    POST /api/shock
+    GET  /api/trade/summary
+    GET  /api/trade/dependency?importer=USA&commodity=semiconductors
+    GET  /api/trade/concentration?importer=USA&commodity=semiconductors
+    GET  /api/macro/scores
+    GET  /api/events/risk
+
+  Listening on http://localhost:8080
+```
+
+### Endpoints
+
+| Method & path | Description |
+|---------------|-------------|
+| `GET  /health` | Liveness probe (`{"status":"ok",...}`) |
+| `GET  /api/graph/summary` | Entity counts and highest-degree nodes |
+| `GET  /api/scenarios` | Saved shock scenario presets |
+| `POST /api/shock` | Run a shock simulation (body below) |
+| `GET  /api/trade/summary` | Ingested trade-panel digest |
+| `GET  /api/trade/dependency?importer=&commodity=` | Supplier dependency breakdown |
+| `GET  /api/trade/concentration?importer=&commodity=` | Supplier HHI concentration |
+| `GET  /api/macro/scores` | Macro exposure scores |
+| `GET  /api/events/risk` | GDELT event-risk scores |
+
+### `POST /api/shock`
+
+Request body (`drop`, `depth` and `shock_type` are optional and fall back to
+engine defaults — `30`, `3`, `export_collapse`):
+
+```json
+{
+  "source": "Taiwan",
+  "commodity": "semiconductors",
+  "drop": 30,
+  "depth": 3,
+  "shock_type": "export_collapse"
+}
+```
+
+The response matches `atlas shock --output json` (scenario, exposures, affected
+paths, highest-risk entities, graph impact summary). Add `"explain": true` to
+include the `blocked_edges` breakdown.
+
+### Error shape
+
+Every failure returns a consistent JSON envelope (the `hint` is optional):
+
+```json
+{
+  "error": "importer and commodity query parameters are required",
+  "hint": "example: /api/trade/dependency?importer=USA&commodity=semiconductors"
+}
+```
+
+### curl examples
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Graph + scenarios
+curl http://localhost:8080/api/graph/summary
+curl http://localhost:8080/api/scenarios
+
+# Run a shock
+curl -X POST http://localhost:8080/api/shock \
+  -H "Content-Type: application/json" \
+  -d '{"source":"Taiwan","commodity":"semiconductors","drop":30,"depth":3,"shock_type":"export_collapse"}'
+
+# Trade analysis
+curl http://localhost:8080/api/trade/summary
+curl "http://localhost:8080/api/trade/dependency?importer=USA&commodity=semiconductors"
+curl "http://localhost:8080/api/trade/concentration?importer=USA&commodity=semiconductors"
+
+# Scores
+curl http://localhost:8080/api/macro/scores
+curl http://localhost:8080/api/events/risk
+```
+
+### CORS
+
+`http://localhost:5173` and `http://127.0.0.1:5173` are pre-approved so a future
+Vite dev frontend can call the API directly; preflight `OPTIONS` requests are
+answered with `204 No Content`. No React/frontend is included in this milestone.
 
 ---
 

@@ -39,6 +39,8 @@ func Run(args []string, out, errOut io.Writer) int {
 		return runScore(args[1:], out, errOut)
 	case "events":
 		return runEvents(args[1:], out, errOut)
+	case "serve":
+		return runServe(args[1:], out, errOut)
 	case "version", "--version", "-v":
 		fmt.Fprintf(out, "atlas %s (commit %s, built %s)\n", config.Version, config.Commit, config.BuildDate)
 		return 0
@@ -86,6 +88,7 @@ Commands:
   trade concentration   Show supplier concentration (HHI) for an importer + commodity
   score macro           Score macro exposure per country from macro indicators
   events risk           Score country event risk from ingested GDELT data
+  serve                 Start the HTTP API server (JSON endpoints)
   version               Print version information
   help                  Show this help
 
@@ -118,5 +121,6 @@ Examples:
   atlas ingest gdelt --countries TWN,CHN,JPN,KOR,USA,DEU --days 7 --limit 25 --delay-seconds 6 --out data/raw/gdelt
   atlas ingest gdelt --fixture data/examples/gdelt_events_sample.json --out data/raw/gdelt
   atlas events risk --data data/raw/gdelt
+  atlas serve --data data/generated/trade_graph --trade-data data/processed/trade --macro-data data/raw/worldbank --event-data data/raw/gdelt --port 8080
 `, "\n"))
 }
