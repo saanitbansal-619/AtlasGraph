@@ -17,9 +17,10 @@ func runServe(args []string, out, errOut io.Writer) int {
 	tradeData := fs.String("trade-data", "data/processed/trade", "ingested trade data directory")
 	macroData := fs.String("macro-data", "data/raw/worldbank", "ingested World Bank macro data directory")
 	eventData := fs.String("event-data", "data/raw/gdelt", "ingested GDELT event data directory")
+	commodityData := fs.String("commodity-data", "data/processed/commodity_prices", "ingested commodity price data directory")
 	port := fs.Int("port", 8080, "TCP port to listen on")
 	fs.Usage = func() {
-		fmt.Fprintln(errOut, "Usage: atlas serve [--data dir] [--trade-data dir] [--macro-data dir] [--event-data dir] [--port 8080]")
+		fmt.Fprintln(errOut, "Usage: atlas serve [--data dir] [--trade-data dir] [--macro-data dir] [--event-data dir] [--commodity-data dir] [--port 8080]")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -31,10 +32,11 @@ func runServe(args []string, out, errOut io.Writer) int {
 	}
 
 	cfg := serverConfig{
-		GraphData: *graphData,
-		TradeData: *tradeData,
-		MacroData: *macroData,
-		EventData: *eventData,
+		GraphData:     *graphData,
+		TradeData:     *tradeData,
+		MacroData:     *macroData,
+		EventData:     *eventData,
+		CommodityData: *commodityData,
 	}
 	handler := newAPIServer(cfg)
 	addr := fmt.Sprintf(":%d", *port)
@@ -58,6 +60,7 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 	fmt.Fprintf(out, "  Trade data  : %s\n", cfg.TradeData)
 	fmt.Fprintf(out, "  Macro data  : %s\n", cfg.MacroData)
 	fmt.Fprintf(out, "  Event data  : %s\n", cfg.EventData)
+	fmt.Fprintf(out, "  Commodity data: %s\n", cfg.CommodityData)
 
 	fmt.Fprintln(out, "\n  Endpoints:")
 	for _, e := range []string{
@@ -70,6 +73,7 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 		"GET  /api/trade/concentration?importer=USA&commodity=semiconductors",
 		"GET  /api/macro/scores",
 		"GET  /api/events/risk",
+		"GET  /api/commodities/stress",
 	} {
 		fmt.Fprintf(out, "    %s\n", e)
 	}

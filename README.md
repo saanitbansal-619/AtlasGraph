@@ -65,14 +65,16 @@ store and ML forecasting are planned on top of the same core (see Roadmap).
 - **Graph tooling** — `graph summary`, `graph paths` and a baseline
   `risk leaderboard`.
 - **External signals** — World Bank macro indicators, Comtrade-style trade
-  flows, and a live **GDELT event-risk** layer (`ingest gdelt` / `events risk`)
-  for geopolitical and supply-chain disruption signals from global news.
+  flows, a live **GDELT event-risk** layer (`ingest gdelt` / `events risk`)
+  for geopolitical and supply-chain disruption signals from global news, and a
+  **commodity price-stress** layer (`ingest commodity-prices` / `score
+  commodities`) measuring recent price change and volatility.
 - **Strong validation** — helpful errors for malformed data, unknown entity
   references, out-of-range weights, **invalid relationship types** and
   **unknown shock types**.
 - **HTTP API server** — a pure–`net/http` JSON API (`atlas serve`) exposing the
   engine over `/health`, `/api/graph/summary`, `/api/scenarios`, `/api/shock`,
-  trade/macro/event endpoints, with CORS ready for a future frontend.
+  trade/macro/event/commodity endpoints, with CORS ready for a future frontend.
 
 ---
 
@@ -291,10 +293,12 @@ atlas risk leaderboard                   [--data dir] [--top N]
 atlas ingest worldbank --countries <ISO3,…> [--start Y] [--end Y] [--out dir]
 atlas ingest gdelt     --countries <ISO3,…> [--days N] [--limit N] [--delay-seconds N] [--out dir]
 atlas ingest gdelt     --fixture <file>     [--out dir]
+atlas ingest commodity-prices --file <csv>  [--out dir]
 atlas indicators country <ISO3>          [--data dir]
 atlas score macro                        [--data dir] [--year Y] [--output text|json] [--save file] [--verbose]
+atlas score commodities                  [--data dir] [--output text|json] [--save file] [--explain-formula]
 atlas events risk                        [--data dir] [--output text|json] [--save file]
-atlas serve            [--data dir] [--trade-data dir] [--macro-data dir] [--event-data dir] [--port 8080]
+atlas serve            [--data dir] [--trade-data dir] [--macro-data dir] [--event-data dir] [--commodity-data dir] [--port 8080]
 atlas version
 ```
 
@@ -959,6 +963,116 @@ exactly the wire format the loader validates, so the standard `graph summary`,
 
 ---
 
+## Commodity Price Stress
+
+Knowing that a country *depends* on a commodity is only half the picture —
+AtlasGraph also tracks whether that commodity is under recent **price stress or
+volatility**. A local CSV importer ingests commodity price time series modelled
+on **World Bank "Pink Sheet" style** monthly prices, and a separate scorer turns
+each series into an explainable 0–100 stress score. The importer lives in
+[`internal/ingest/commodityprices`](internal/ingest/commodityprices) and the
+scorer in [`internal/scoring/commodities`](internal/scoring/commodities). No
+external APIs are called.
+
+> ⚠️ **The bundled `data/examples/commodity_prices_sample.csv` is synthetic,
+> reproducible demo data — not real World Bank prices.** It contains plausible
+> monthly prices for 10 commodities (crude oil, natural gas, copper, aluminum,
+> lithium carbonate, cobalt, nickel, wheat, corn, rice) across 24 months
+> (2023-01 → 2024-12) so the demo is fully offline and deterministic.
+
+### Input CSV format
+
+```
+date,commodity_code,commodity_name,price_usd,unit,source
+2024-01,crude_oil,crude oil,82.4,USD/barrel,synthetic_world_bank_pink_sheet_style
+```
+
+Dates may be `YYYY-MM` or `YYYY-MM-DD` (normalised to `YYYY-MM`); commodity codes
+are lower-cased with spaces/hyphens collapsed to underscores; prices tolerate
+thousands separators and a leading `$`. Malformed rows (bad date, non-positive
+price, missing code/name) are skipped with a reason rather than aborting the
+file. Each record is normalised to:
+
+```json
+{
+  "date": "2024-01",
+  "commodity_code": "crude_oil",
+  "commodity_name": "crude oil",
+  "price_usd": 82.4,
+  "unit": "USD/barrel",
+  "source": "synthetic_world_bank_pink_sheet_style"
+}
+```
+
+### Commodity Stress Score
+
+Each commodity is scored on three transparent, individually-weighted components:
+
+- `recent_change_score` — magnitude of the **% change over the last 3 months**
+- `volatility_score` — **standard deviation of monthly returns** over the last 12 months
+- `momentum_score` — magnitude of the **% change over the last 12 months**
+
+```
+Commodity Stress Score = 0.40 * recent_change_score
+                       + 0.40 * volatility_score
+                       + 0.20 * momentum_score
+```
+
+Risk bands: **Low 0–30 | Medium 30–60 | High 60–80 | Critical 80–100**.
+
+> This is a commodity price **stress** score, **not a prediction of future
+> prices**. It summarises recent movement and volatility from historical monthly
+> data only.
+
+### Commands
+
+```bash
+# Ingest (synthetic demo data) → data/processed/commodity_prices/commodity_prices.json
+go run ./cmd/atlas ingest commodity-prices --file data/examples/commodity_prices_sample.csv --out data/processed/commodity_prices
+
+# Score price stress per commodity
+go run ./cmd/atlas score commodities --data data/processed/commodity_prices
+
+# Document the formula, components, bands and limitations (no data needed)
+go run ./cmd/atlas score commodities --data data/processed/commodity_prices --explain-formula
+
+# Machine-readable output
+go run ./cmd/atlas score commodities --data data/processed/commodity_prices --output json
+```
+
+Ingestion report:
+
+```
+COMMODITY PRICE INGESTION
+----------------------------------------------------------------
+  Source file  : data/examples/commodity_prices_sample.csv
+  Output       : data/processed/commodity_prices/commodity_prices.json
+  Rows         : 240
+  Valid rows   : 240
+  Skipped rows : 0
+  Commodities  : 10
+  Date range   : 2023-01 to 2024-12
+  Latest month : 2024-12
+```
+
+Stress scores:
+
+```
+COMMODITY STRESS SCORES
+----------------------------------------------------------------
+  COMMODITY          LATEST PRICE           3M CHANGE  12M CHANGE  VOLATILITY  SCORE  RISK
+  natural gas        3.40 USD/mmbtu         +47.8%     +36.0%      15.8%       89.0   Critical
+  lithium carbonate  9,800 USD/metric ton   -6.7%      -32.4%      8.7%        37.9   Medium
+  nickel             15,600 USD/metric ton  -1.3%      -5.5%       6.4%        19.8   Low
+  cobalt             24,000 USD/metric ton  -1.2%      -25.0%      3.5%        16.7   Low
+  crude oil          73.00 USD/barrel       -1.4%      -1.4%       4.0%        12.3   Low
+  ...
+```
+
+(`12M CHANGE` shows `n/a` for commodities with fewer than 13 months of data.)
+
+---
+
 ## HTTP API Server
 
 AtlasGraph ships a lightweight, pure–`net/http` JSON API so the same engine that
@@ -975,6 +1089,7 @@ go run ./cmd/atlas serve \
   --trade-data data/processed/trade \
   --macro-data data/raw/worldbank \
   --event-data data/raw/gdelt \
+  --commodity-data data/processed/commodity_prices \
   --port 8080
 ```
 
@@ -993,6 +1108,7 @@ ATLASGRAPH API SERVER
   Trade data  : data/processed/trade
   Macro data  : data/raw/worldbank
   Event data  : data/raw/gdelt
+  Commodity data: data/processed/commodity_prices
 
   Endpoints:
     GET  /health
@@ -1004,6 +1120,7 @@ ATLASGRAPH API SERVER
     GET  /api/trade/concentration?importer=USA&commodity=semiconductors
     GET  /api/macro/scores
     GET  /api/events/risk
+    GET  /api/commodities/stress
 
   Listening on http://localhost:8080
 ```
@@ -1021,6 +1138,7 @@ ATLASGRAPH API SERVER
 | `GET  /api/trade/concentration?importer=&commodity=` | Supplier HHI concentration |
 | `GET  /api/macro/scores` | Macro exposure scores |
 | `GET  /api/events/risk` | GDELT event-risk scores |
+| `GET  /api/commodities/stress` | Commodity price-stress scores |
 
 ### `POST /api/shock`
 
@@ -1075,6 +1193,7 @@ curl "http://localhost:8080/api/trade/concentration?importer=USA&commodity=semic
 # Scores
 curl http://localhost:8080/api/macro/scores
 curl http://localhost:8080/api/events/risk
+curl http://localhost:8080/api/commodities/stress
 ```
 
 ### CORS
@@ -1115,6 +1234,7 @@ go run ./cmd/atlas serve \
   --trade-data data/processed/trade \
   --macro-data data/raw/worldbank \
   --event-data data/raw/gdelt \
+  --commodity-data data/processed/commodity_prices \
   --port 8080
 ```
 

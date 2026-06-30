@@ -9,10 +9,12 @@ import (
 	"github.com/atlasgraph/atlas/internal/config"
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
@@ -22,10 +24,11 @@ import (
 // loaded lazily, per request, so the server starts even when some are missing —
 // only the affected endpoint then returns a helpful error.
 type serverConfig struct {
-	GraphData string // dataset dir (entities/dependencies/scenarios); "" => embedded sample
-	TradeData string // ingested trade panel dir
-	MacroData string // ingested World Bank macro dir
-	EventData string // ingested GDELT event dir
+	GraphData     string // dataset dir (entities/dependencies/scenarios); "" => embedded sample
+	TradeData     string // ingested trade panel dir
+	MacroData     string // ingested World Bank macro dir
+	EventData     string // ingested GDELT event dir
+	CommodityData string // ingested commodity price dir
 }
 
 // corsAllowedOrigins are the dev-frontend origins permitted by CORS, ready for a
@@ -55,6 +58,7 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/trade/concentration", s.handleTradeConcentration)
 	mux.HandleFunc("/api/macro/scores", s.handleMacroScores)
 	mux.HandleFunc("/api/events/risk", s.handleEventsRisk)
+	mux.HandleFunc("/api/commodities/stress", s.handleCommodityStress)
 	mux.HandleFunc("/", s.handleNotFound)
 
 	return withCORS(mux)
@@ -314,6 +318,25 @@ func (s *apiServer) handleEventsRisk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, buildEventRiskJSON(scores))
+}
+
+func (s *apiServer) handleCommodityStress(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	file, err := commodityprices.Load(s.cfg.CommodityData)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, err.Error(),
+			"run `atlas ingest commodity-prices --file <csv>` or pass an existing --commodity-data dir")
+		return
+	}
+	scores := commodities.ScoreCommodities(file, commodities.DefaultWeights())
+	if len(scores) == 0 {
+		writeAPIError(w, http.StatusInternalServerError,
+			"no commodity data found in "+s.cfg.CommodityData, "run `atlas ingest commodity-prices --file <csv>` first")
+		return
+	}
+	writeJSONStatus(w, http.StatusOK, buildCommodityStressJSON(scores))
 }
 
 // loadTrade loads the configured trade panel, writing a JSON error and

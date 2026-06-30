@@ -10,6 +10,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
@@ -427,6 +428,99 @@ func writeEventRiskJSON(w io.Writer, scores []events.CountryScore) error {
 
 func saveEventRiskJSON(path string, scores []events.CountryScore) error {
 	b, err := json.MarshalIndent(buildEventRiskJSON(scores), "", "  ")
+	if err != nil {
+		return err
+	}
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+// --- commodity stress scores -----------------------------------------------
+
+type jsonCommodityFile struct {
+	Weights   commodities.Weights  `json:"weights"`
+	RiskBands map[string]string    `json:"risk_bands"`
+	Scores    []jsonCommodityScore `json:"scores"`
+}
+
+type jsonCommodityScore struct {
+	CommodityCode string                   `json:"commodity_code"`
+	CommodityName string                   `json:"commodity_name"`
+	Unit          string                   `json:"unit"`
+	Months        int                      `json:"months"`
+	LatestDate    string                   `json:"latest_date"`
+	LatestPrice   float64                  `json:"latest_price_usd"`
+	Change3MPct   *float64                 `json:"change_3m_pct"`
+	Change12MPct  *float64                 `json:"change_12m_pct"`
+	VolatilityPct float64                  `json:"volatility_pct"`
+	StressScore   float64                  `json:"commodity_stress_score"`
+	RiskLevel     string                   `json:"risk_level"`
+	Components    []jsonCommodityComponent `json:"components"`
+}
+
+type jsonCommodityComponent struct {
+	Key          string  `json:"key"`
+	Name         string  `json:"name"`
+	Score        float64 `json:"score"`
+	Weight       float64 `json:"weight"`
+	Contribution float64 `json:"contribution"`
+}
+
+func buildCommodityStressJSON(scores []commodities.CommodityScore) jsonCommodityFile {
+	out := jsonCommodityFile{
+		Weights: commodities.DefaultWeights(),
+		RiskBands: map[string]string{
+			"low": "0-30", "medium": "30-60", "high": "60-80", "critical": "80-100",
+		},
+		Scores: make([]jsonCommodityScore, 0, len(scores)),
+	}
+	for _, s := range scores {
+		jc := jsonCommodityScore{
+			CommodityCode: s.CommodityCode,
+			CommodityName: s.CommodityName,
+			Unit:          s.Unit,
+			Months:        s.Months,
+			LatestDate:    s.LatestDate,
+			LatestPrice:   round(s.LatestPrice, 2),
+			VolatilityPct: round(s.Volatility, 2),
+			StressScore:   round(s.Score, 1),
+			RiskLevel:     s.RiskLevel,
+			Components:    make([]jsonCommodityComponent, 0, len(s.Components)),
+		}
+		if s.Change3MAvailable {
+			v := round(s.Change3M, 2)
+			jc.Change3MPct = &v
+		}
+		if s.Change12MAvailable {
+			v := round(s.Change12M, 2)
+			jc.Change12MPct = &v
+		}
+		for _, c := range s.Components {
+			jc.Components = append(jc.Components, jsonCommodityComponent{
+				Key:          c.Key,
+				Name:         c.Name,
+				Score:        round(c.Score, 1),
+				Weight:       c.Weight,
+				Contribution: round(c.Contribution, 2),
+			})
+		}
+		out.Scores = append(out.Scores, jc)
+	}
+	return out
+}
+
+func writeCommodityStressJSON(w io.Writer, scores []commodities.CommodityScore) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(buildCommodityStressJSON(scores))
+}
+
+func saveCommodityStressJSON(path string, scores []commodities.CommodityScore) error {
+	b, err := json.MarshalIndent(buildCommodityStressJSON(scores), "", "  ")
 	if err != nil {
 		return err
 	}

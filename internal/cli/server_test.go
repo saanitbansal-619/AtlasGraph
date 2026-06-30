@@ -14,10 +14,11 @@ import (
 func fullTestServer(t *testing.T) http.Handler {
 	t.Helper()
 	return newAPIServer(serverConfig{
-		GraphData: "", // embedded sample dataset
-		TradeData: seedProcessedTrade(t, tradeSampleCSV),
-		MacroData: seedMacroFile(t),
-		EventData: seedGDELTFile(t),
+		GraphData:     "", // embedded sample dataset
+		TradeData:     seedProcessedTrade(t, tradeSampleCSV),
+		MacroData:     seedMacroFile(t),
+		EventData:     seedGDELTFile(t),
+		CommodityData: seedCommodityPrices(t),
 	})
 }
 
@@ -289,13 +290,14 @@ func TestAPICORSPreflight(t *testing.T) {
 // endpoints still work.
 func TestAPIMissingDataPathDoesNotPanic(t *testing.T) {
 	srv := newAPIServer(serverConfig{
-		GraphData: "", // embedded still works
-		TradeData: filepath.Join(t.TempDir(), "missing-trade"),
-		MacroData: filepath.Join(t.TempDir(), "missing-macro"),
-		EventData: filepath.Join(t.TempDir(), "missing-events"),
+		GraphData:     "", // embedded still works
+		TradeData:     filepath.Join(t.TempDir(), "missing-trade"),
+		MacroData:     filepath.Join(t.TempDir(), "missing-macro"),
+		EventData:     filepath.Join(t.TempDir(), "missing-events"),
+		CommodityData: filepath.Join(t.TempDir(), "missing-commodities"),
 	})
 
-	for _, path := range []string{"/api/trade/summary", "/api/macro/scores", "/api/events/risk"} {
+	for _, path := range []string{"/api/trade/summary", "/api/macro/scores", "/api/events/risk", "/api/commodities/stress"} {
 		rec := do(srv, http.MethodGet, path, "", nil)
 		if rec.Code == http.StatusOK {
 			t.Errorf("%s with missing data should not return 200", path)
@@ -316,6 +318,33 @@ func TestAPIMissingDataPathDoesNotPanic(t *testing.T) {
 	}
 	if rec := do(srv, http.MethodGet, "/api/graph/summary", "", nil); rec.Code != http.StatusOK {
 		t.Errorf("/api/graph/summary should still work with embedded data, got %d", rec.Code)
+	}
+}
+
+func TestAPICommodityStress(t *testing.T) {
+	rec := do(fullTestServer(t), http.MethodGet, "/api/commodities/stress", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	parsed := decodeBody(t, rec)
+	for _, key := range []string{"weights", "risk_bands", "scores"} {
+		if _, ok := parsed[key]; !ok {
+			t.Errorf("commodity stress JSON missing %q", key)
+		}
+	}
+	var scores []map[string]json.RawMessage
+	if err := json.Unmarshal(parsed["scores"], &scores); err != nil {
+		t.Fatalf("scores is not an array: %v", err)
+	}
+	if len(scores) == 0 {
+		t.Fatal("expected at least one commodity score")
+	}
+}
+
+func TestAPICommodityStressRejectsPOST(t *testing.T) {
+	rec := do(fullTestServer(t), http.MethodPost, "/api/commodities/stress", "{}", nil)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want 405", rec.Code)
 	}
 }
 

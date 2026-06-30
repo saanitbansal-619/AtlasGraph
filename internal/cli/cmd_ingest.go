@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
@@ -15,7 +16,7 @@ import (
 
 func runIngest(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade|trade-comtrade|gdelt> [flags]")
+		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade|trade-comtrade|gdelt|commodity-prices> [flags]")
 		return 2
 	}
 	switch args[0] {
@@ -27,10 +28,61 @@ func runIngest(args []string, out, errOut io.Writer) int {
 		return ingestTradeComtrade(args[1:], out, errOut)
 	case "gdelt":
 		return ingestGDELT(args[1:], out, errOut)
+	case "commodity-prices":
+		return ingestCommodityPrices(args[1:], out, errOut)
 	default:
-		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, trade, trade-comtrade or gdelt)\n", args[0])
+		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, trade, trade-comtrade, gdelt or commodity-prices)\n", args[0])
 		return 2
 	}
+}
+
+// ingestCommodityPrices loads a local commodity price time-series CSV (World
+// Bank Pink Sheet style), normalises it into the same commodity_prices.json the
+// scoring command consumes, and prints an ingestion report. It calls no network
+// services; the bundled sample file is synthetic demo data.
+func ingestCommodityPrices(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("ingest commodity-prices", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	file := fs.String("file", "", "path to a commodity price CSV to ingest")
+	outDir := fs.String("out", "data/processed/commodity_prices", "directory to write normalized output to")
+	fs.Usage = func() {
+		fmt.Fprintln(errOut, "Usage: atlas ingest commodity-prices --file <csv> [--out dir]")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if strings.TrimSpace(*file) == "" {
+		fmt.Fprintln(errOut, "error: --file is required (path to a commodity price CSV)")
+		fs.Usage()
+		return 2
+	}
+
+	res, err := commodityprices.LoadFile(*file)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+	if res.ValidRows() == 0 {
+		fmt.Fprintf(errOut, "error: no valid commodity price rows in %s\n", *file)
+		return 1
+	}
+
+	commodityprices.SortRecords(res.Records)
+	pf := commodityprices.PriceFile{
+		Source:     commodityprices.SourceName,
+		IngestedAt: time.Now().UTC(),
+		SourceFile: *file,
+		Records:    res.Records,
+	}
+	path, err := commodityprices.Save(*outDir, pf)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+
+	renderCommodityIngestReport(out, *file, path, res, commodityprices.BuildSummary(pf))
+	return 0
 }
 
 // gdeltSleepOverride lets tests replace the live client's rate-limit/back-off

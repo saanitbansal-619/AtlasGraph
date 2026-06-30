@@ -1,0 +1,241 @@
+date,commodity_code,commodity_name,price_usd,unit,source
+2023-01,crude_oil,crude oil,80.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-02,crude_oil,crude oil,83.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-03,crude_oil,crude oil,79.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-04,crude_oil,crude oil,80.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-05,crude_oil,crude oil,72.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-06,crude_oil,crude oil,70.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-07,crude_oil,crude oil,76.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-08,crude_oil,crude oil,80.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-09,crude_oil,crude oil,89.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-10,crude_oil,crude oil,85.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-11,crude_oil,crude oil,80.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-12,crude_oil,crude oil,74.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-01,crude_oil,crude oil,76.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-02,crude_oil,crude oil,78.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-03,crude_oil,crude oil,83.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-04,crude_oil,crude oil,87.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-05,crude_oil,crude oil,82.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-06,crude_oil,crude oil,80.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-07,crude_oil,crude oil,82.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-08,crude_oil,crude oil,78.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-09,crude_oil,crude oil,74.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-10,crude_oil,crude oil,72.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-11,crude_oil,crude oil,71.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2024-12,crude_oil,crude oil,73.0,USD/barrel,synthetic_world_bank_pink_sheet_style
+2023-01,natural_gas,natural gas,3.30,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-02,natural_gas,natural gas,2.70,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-03,natural_gas,natural gas,2.40,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-04,natural_gas,natural gas,2.20,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-05,natural_gas,natural gas,2.20,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-06,natural_gas,natural gas,2.40,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-07,natural_gas,natural gas,2.60,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-08,natural_gas,natural gas,2.60,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-09,natural_gas,natural gas,2.70,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-10,natural_gas,natural gas,3.00,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-11,natural_gas,natural gas,2.70,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-12,natural_gas,natural gas,2.50,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-01,natural_gas,natural gas,2.10,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-02,natural_gas,natural gas,1.80,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-03,natural_gas,natural gas,1.50,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-04,natural_gas,natural gas,1.80,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-05,natural_gas,natural gas,2.20,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-06,natural_gas,natural gas,2.60,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-07,natural_gas,natural gas,2.10,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-08,natural_gas,natural gas,2.00,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-09,natural_gas,natural gas,2.30,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-10,natural_gas,natural gas,2.60,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-11,natural_gas,natural gas,2.90,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2024-12,natural_gas,natural gas,3.40,USD/mmbtu,synthetic_world_bank_pink_sheet_style
+2023-01,copper,copper,8900.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-02,copper,copper,8950.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-03,copper,copper,8700.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-04,copper,copper,8600.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-05,copper,copper,8200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-06,copper,copper,8300.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-07,copper,copper,8500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-08,copper,copper,8400.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-09,copper,copper,8200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-10,copper,copper,8000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-11,copper,copper,8100.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-12,copper,copper,8300.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-01,copper,copper,8400.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-02,copper,copper,8300.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-03,copper,copper,8800.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-04,copper,copper,9700.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-05,copper,copper,10100.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-06,copper,copper,9700.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-07,copper,copper,9200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-08,copper,copper,9000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-09,copper,copper,9300.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-10,copper,copper,9500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-11,copper,copper,9100.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-12,copper,copper,8900.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-01,aluminum,aluminum,2580.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-02,aluminum,aluminum,2400.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-03,aluminum,aluminum,2350.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-04,aluminum,aluminum,2380.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-05,aluminum,aluminum,2250.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-06,aluminum,aluminum,2150.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-07,aluminum,aluminum,2200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-08,aluminum,aluminum,2150.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-09,aluminum,aluminum,2200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-10,aluminum,aluminum,2230.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-11,aluminum,aluminum,2200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-12,aluminum,aluminum,2150.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-01,aluminum,aluminum,2230.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-02,aluminum,aluminum,2200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-03,aluminum,aluminum,2300.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-04,aluminum,aluminum,2550.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-05,aluminum,aluminum,2600.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-06,aluminum,aluminum,2480.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-07,aluminum,aluminum,2300.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-08,aluminum,aluminum,2380.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-09,aluminum,aluminum,2550.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-10,aluminum,aluminum,2620.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-11,aluminum,aluminum,2580.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-12,aluminum,aluminum,2530.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-01,lithium_carbonate,lithium carbonate,60000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-02,lithium_carbonate,lithium carbonate,52000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-03,lithium_carbonate,lithium carbonate,38000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-04,lithium_carbonate,lithium carbonate,30000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-05,lithium_carbonate,lithium carbonate,32000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-06,lithium_carbonate,lithium carbonate,37000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-07,lithium_carbonate,lithium carbonate,33000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-08,lithium_carbonate,lithium carbonate,28000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-09,lithium_carbonate,lithium carbonate,22000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-10,lithium_carbonate,lithium carbonate,18000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-11,lithium_carbonate,lithium carbonate,16000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-12,lithium_carbonate,lithium carbonate,14500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-01,lithium_carbonate,lithium carbonate,13500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-02,lithium_carbonate,lithium carbonate,12800.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-03,lithium_carbonate,lithium carbonate,11800.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-04,lithium_carbonate,lithium carbonate,13500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-05,lithium_carbonate,lithium carbonate,15000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-06,lithium_carbonate,lithium carbonate,13000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-07,lithium_carbonate,lithium carbonate,11000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-08,lithium_carbonate,lithium carbonate,10200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-09,lithium_carbonate,lithium carbonate,10500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-10,lithium_carbonate,lithium carbonate,10800.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-11,lithium_carbonate,lithium carbonate,10200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-12,lithium_carbonate,lithium carbonate,9800.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-01,cobalt,cobalt,35000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-02,cobalt,cobalt,34000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-03,cobalt,cobalt,33500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-04,cobalt,cobalt,33000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-05,cobalt,cobalt,33500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-06,cobalt,cobalt,33000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-07,cobalt,cobalt,33500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-08,cobalt,cobalt,33000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-09,cobalt,cobalt,32000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-10,cobalt,cobalt,33000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-11,cobalt,cobalt,32500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-12,cobalt,cobalt,32000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-01,cobalt,cobalt,29000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-02,cobalt,cobalt,28500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-03,cobalt,cobalt,28000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-04,cobalt,cobalt,27500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-05,cobalt,cobalt,27000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-06,cobalt,cobalt,27200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-07,cobalt,cobalt,24500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-08,cobalt,cobalt,24000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-09,cobalt,cobalt,24300.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-10,cobalt,cobalt,24500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-11,cobalt,cobalt,24200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-12,cobalt,cobalt,24000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-01,nickel,nickel,28000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-02,nickel,nickel,27000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-03,nickel,nickel,23500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-04,nickel,nickel,24000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-05,nickel,nickel,22000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-06,nickel,nickel,20500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-07,nickel,nickel,21500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-08,nickel,nickel,20500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-09,nickel,nickel,19500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-10,nickel,nickel,18500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-11,nickel,nickel,17500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-12,nickel,nickel,16500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-01,nickel,nickel,16200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-02,nickel,nickel,17500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-03,nickel,nickel,17800.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-04,nickel,nickel,19000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-05,nickel,nickel,21000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-06,nickel,nickel,18500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-07,nickel,nickel,16500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-08,nickel,nickel,16000.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-09,nickel,nickel,15800.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-10,nickel,nickel,15900.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-11,nickel,nickel,15700.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-12,nickel,nickel,15600.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-01,wheat,wheat,290.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-02,wheat,wheat,285.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-03,wheat,wheat,275.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-04,wheat,wheat,270.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-05,wheat,wheat,260.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-06,wheat,wheat,255.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-07,wheat,wheat,265.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-08,wheat,wheat,260.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-09,wheat,wheat,250.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-10,wheat,wheat,245.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-11,wheat,wheat,240.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-12,wheat,wheat,235.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-01,wheat,wheat,230.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-02,wheat,wheat,220.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-03,wheat,wheat,215.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-04,wheat,wheat,210.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-05,wheat,wheat,215.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-06,wheat,wheat,220.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-07,wheat,wheat,210.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-08,wheat,wheat,205.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-09,wheat,wheat,205.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-10,wheat,wheat,210.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-11,wheat,wheat,215.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-12,wheat,wheat,220.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-01,corn,corn,255.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-02,corn,corn,250.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-03,corn,corn,245.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-04,corn,corn,240.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-05,corn,corn,235.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-06,corn,corn,240.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-07,corn,corn,230.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-08,corn,corn,225.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-09,corn,corn,220.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-10,corn,corn,215.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-11,corn,corn,210.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-12,corn,corn,205.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-01,corn,corn,200.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-02,corn,corn,195.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-03,corn,corn,190.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-04,corn,corn,185.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-05,corn,corn,190.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-06,corn,corn,195.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-07,corn,corn,185.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-08,corn,corn,180.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-09,corn,corn,182.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-10,corn,corn,185.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-11,corn,corn,188.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-12,corn,corn,190.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-01,rice,rice,400.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-02,rice,rice,410.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-03,rice,rice,420.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-04,rice,rice,430.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-05,rice,rice,450.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-06,rice,rice,470.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-07,rice,rice,500.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-08,rice,rice,550.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-09,rice,rice,580.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-10,rice,rice,600.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-11,rice,rice,610.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2023-12,rice,rice,605.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-01,rice,rice,600.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-02,rice,rice,610.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-03,rice,rice,615.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-04,rice,rice,620.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-05,rice,rice,640.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-06,rice,rice,650.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-07,rice,rice,640.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-08,rice,rice,630.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-09,rice,rice,620.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-10,rice,rice,615.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-11,rice,rice,610.0,USD/metric ton,synthetic_world_bank_pink_sheet_style
+2024-12,rice,rice,600.0,USD/metric ton,synthetic_world_bank_pink_sheet_style

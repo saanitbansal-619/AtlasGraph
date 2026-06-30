@@ -9,10 +9,12 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
@@ -550,6 +552,114 @@ func labelOrCode(name, code string) string {
 		return name
 	}
 	return code
+}
+
+// --- commodity prices ------------------------------------------------------
+
+func renderCommodityIngestReport(out io.Writer, srcFile, outPath string, res commodityprices.LoadResult, s commodityprices.Summary) {
+	section(out, "COMMODITY PRICE INGESTION")
+	fmt.Fprintf(out, "  Source file  : %s\n", srcFile)
+	fmt.Fprintf(out, "  Output       : %s\n", outPath)
+	fmt.Fprintf(out, "  Rows         : %d\n", res.TotalRows)
+	fmt.Fprintf(out, "  Valid rows   : %d\n", res.ValidRows())
+	fmt.Fprintf(out, "  Skipped rows : %d\n", len(res.Skipped))
+	for _, sk := range res.Skipped {
+		fmt.Fprintf(out, "    - line %d: %s\n", sk.Line, sk.Reason)
+	}
+	fmt.Fprintf(out, "  Commodities  : %d\n", s.Commodities)
+	fmt.Fprintf(out, "  Date range   : %s\n", monthRange(s.FirstMonth, s.LastMonth))
+	fmt.Fprintf(out, "  Latest month : %s\n", monthOrDash(s.LastMonth))
+	fmt.Fprint(out, "\n  Note: the bundled sample is synthetic, reproducible demo data — not real prices.\n")
+}
+
+func renderCommodityStressScores(out io.Writer, scores []commodities.CommodityScore) {
+	section(out, "COMMODITY STRESS SCORES")
+	tw := newTable(out)
+	fmt.Fprintln(tw, "  COMMODITY\tLATEST PRICE\t3M CHANGE\t12M CHANGE\tVOLATILITY\tSCORE\tRISK")
+	for _, s := range scores {
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%.1f%%\t%.1f\t%s\n",
+			s.CommodityName,
+			priceLabel(s.LatestPrice, s.Unit),
+			changeLabel(s.Change3M, s.Change3MAvailable),
+			changeLabel(s.Change12M, s.Change12MAvailable),
+			s.Volatility,
+			s.Score,
+			s.RiskLevel,
+		)
+	}
+	flush(tw)
+	fmt.Fprint(out, "\n  Risk bands: Low 0-30 | Medium 30-60 | High 60-80 | Critical 80-100\n")
+	fmt.Fprint(out, "  Note: this is a commodity price stress score, not a prediction of future prices.\n")
+}
+
+// renderCommodityFormula documents exactly how the Commodity Stress Score is
+// built: its weighted formula, what each component measures, the risk bands, and
+// an explicit statement of what the score is and is not.
+func renderCommodityFormula(out io.Writer, w commodities.Weights) {
+	section(out, "COMMODITY STRESS SCORE — FORMULA")
+	fmt.Fprintf(out, "  Score name: Commodity Stress Score\n\n")
+
+	fmt.Fprintln(out, "  Formula weights:")
+	fmt.Fprintf(out, "      %.2f * recent_change_score\n", w.RecentChange)
+	fmt.Fprintf(out, "    + %.2f * volatility_score\n", w.Volatility)
+	fmt.Fprintf(out, "    + %.2f * momentum_score\n\n", w.Momentum)
+
+	fmt.Fprintln(out, "  Component definitions:")
+	fmt.Fprintln(out, "    recent_change_score = magnitude of the % price change over the last 3 months")
+	fmt.Fprintln(out, "    volatility_score    = standard deviation of monthly returns over the last 12 months")
+	fmt.Fprintln(out, "    momentum_score      = magnitude of the % price change over the last 12 months")
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "  Risk bands:")
+	fmt.Fprintln(out, "    Low      : 0-30")
+	fmt.Fprintln(out, "    Medium   : 30-60")
+	fmt.Fprintln(out, "    High     : 60-80")
+	fmt.Fprintln(out, "    Critical : 80-100")
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "  Note:")
+	fmt.Fprintln(out, "    This is a commodity price stress score, not a prediction of future prices.")
+	fmt.Fprintln(out, "    It summarises recent price movement and volatility from historical monthly")
+	fmt.Fprintln(out, "    data only. Full AtlasGraph fragility scoring will later combine commodity")
+	fmt.Fprintln(out, "    stress with graph dependency, trade concentration, macro exposure and event risk.")
+}
+
+// changeLabel renders a signed percentage change, or "n/a" when unavailable.
+func changeLabel(v float64, ok bool) string {
+	if !ok {
+		return "n/a"
+	}
+	return fmt.Sprintf("%+.1f%%", v)
+}
+
+// priceLabel renders a price with thousands grouping and an optional unit.
+func priceLabel(price float64, unit string) string {
+	s := groupThousands(price)
+	// keep two decimals for sub-thousand prices where cents matter
+	if price < 1000 {
+		s = fmt.Sprintf("%.2f", price)
+	}
+	if unit != "" {
+		return s + " " + unit
+	}
+	return s
+}
+
+func monthOrDash(m string) string {
+	if strings.TrimSpace(m) == "" {
+		return "-"
+	}
+	return m
+}
+
+func monthRange(first, last string) string {
+	if first == "" && last == "" {
+		return "-"
+	}
+	if first == last {
+		return monthOrDash(first)
+	}
+	return fmt.Sprintf("%s to %s", monthOrDash(first), monthOrDash(last))
 }
 
 // --- generated trade graph -------------------------------------------------
