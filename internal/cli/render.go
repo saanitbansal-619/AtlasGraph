@@ -777,6 +777,56 @@ func renderScenarioList(out io.Writer, scenarios []data.Scenario) {
 	fmt.Fprintf(out, "\nRun one with: atlas scenario run <id>\n")
 }
 
+// --- scenario comparison ---------------------------------------------------
+
+func renderCompareResult(out io.Writer, g *graph.Graph, cmp simulation.ComparisonResult) {
+	section(out, "SCENARIO COMPARISON")
+	s := cmp.Summary
+	fmt.Fprintf(out, "  Worst overall              : %s\n", orDash(s.WorstOverallScenario))
+	fmt.Fprintf(out, "  Most countries affected    : %s\n", orDash(s.MostCountriesAffected))
+	fmt.Fprintf(out, "  Most sectors affected      : %s\n", orDash(s.MostSectorsAffected))
+	fmt.Fprintf(out, "  Highest avg fragility Δ    : %s\n", orDash(s.HighestAverageFragilityDelta))
+	fmt.Fprintf(out, "  Highest max fragility Δ    : %s\n", orDash(s.HighestMaxFragilityDelta))
+
+	for i, sc := range cmp.Results {
+		fmt.Fprintf(out, "\n  #%d  %s\n", i+1, sc.Label)
+		fmt.Fprintf(out, "      %s · %s · %s · drop %.0f%% · depth %d\n",
+			sc.Source, sc.Commodity, sc.ShockType, sc.Drop, sc.Depth)
+		if sc.RunError != "" {
+			fmt.Fprintf(out, "      error: %s\n", sc.RunError)
+			continue
+		}
+		fmt.Fprintf(out, "      affected nodes: %d  paths: %d  avg Δ: %.2f  max Δ: %.2f\n",
+			sc.AffectedNodesCount, sc.AffectedPathsCount, sc.AvgFragilityDelta, sc.MaxFragilityDelta)
+		if w := shockWarnings(g, sc.Profile, sc.Source, sc.Commodity); len(w) > 0 {
+			for _, msg := range w {
+				fmt.Fprintf(out, "      warning: %s\n", msg)
+			}
+		}
+		if len(sc.TopAffectedCountries) > 0 {
+			fmt.Fprintf(out, "      top countries:")
+			for _, c := range sc.TopAffectedCountries {
+				fmt.Fprintf(out, " %s (%.2f)", c.Entity, c.Delta)
+			}
+			fmt.Fprintln(out)
+		}
+		if len(sc.TopAffectedSectors) > 0 {
+			fmt.Fprintf(out, "      top sectors:")
+			for _, c := range sc.TopAffectedSectors {
+				fmt.Fprintf(out, " %s (%.2f)", c.Entity, c.Delta)
+			}
+			fmt.Fprintln(out)
+		}
+	}
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}
+
 // --- graph summary ---------------------------------------------------------
 
 func renderGraphSummary(out io.Writer, g *graph.Graph, top int) {

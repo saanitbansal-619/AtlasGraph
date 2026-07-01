@@ -224,6 +224,85 @@ func TestShockWarningsSourceCommodityMismatch(t *testing.T) {
 	}
 }
 
+func TestAPIScenariosCompare(t *testing.T) {
+	body := `{"scenarios":[
+		{"label":"Taiwan semiconductor export collapse","source":"Taiwan","commodity":"semiconductors","shock_type":"export_collapse","drop":30,"depth":3},
+		{"label":"Saudi crude oil supply cut","source":"Saudi Arabia","commodity":"crude oil","shock_type":"supply_cut","drop":25,"depth":3}
+	]}`
+	rec := do(fullTestServer(t), http.MethodPost, "/api/scenarios/compare", body, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Summary struct {
+			WorstOverallScenario string `json:"worst_overall_scenario"`
+		} `json:"summary"`
+		Results []struct {
+			Label                 string  `json:"label"`
+			AffectedNodesCount    int     `json:"affected_nodes_count"`
+			AverageFragilityDelta float64 `json:"average_fragility_delta"`
+			Warnings              []string `json:"warnings"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v\n%s", err, rec.Body.String())
+	}
+	if len(resp.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(resp.Results))
+	}
+	if resp.Summary.WorstOverallScenario == "" {
+		t.Error("expected worst_overall_scenario in summary")
+	}
+	if resp.Results[0].AffectedNodesCount == 0 {
+		t.Errorf("top-ranked scenario %q should have affected nodes", resp.Results[0].Label)
+	}
+}
+
+func TestAPIScenariosCompareWeakScenarioDoesNotCrash(t *testing.T) {
+	body := `{"scenarios":[
+		{"label":"Invalid combo","source":"Atlantis","commodity":"unicorns","shock_type":"export_collapse","drop":30,"depth":3},
+		{"label":"Taiwan semiconductors","source":"Taiwan","commodity":"semiconductors","shock_type":"export_collapse","drop":30,"depth":3}
+	]}`
+	rec := do(fullTestServer(t), http.MethodPost, "/api/scenarios/compare", body, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Results []struct {
+			Label    string   `json:"label"`
+			Warnings []string `json:"warnings"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(resp.Results))
+	}
+	var invalid, valid bool
+	for _, r := range resp.Results {
+		if r.Label == "Invalid combo" {
+			invalid = true
+			if len(r.Warnings) == 0 {
+				t.Error("expected warning for invalid scenario")
+			}
+		}
+		if r.Label == "Taiwan semiconductors" {
+			valid = true
+		}
+	}
+	if !invalid || !valid {
+		t.Fatalf("missing expected scenario rows: %+v", resp.Results)
+	}
+}
+
+func TestAPIScenariosCompareRejectsEmptyBody(t *testing.T) {
+	rec := do(fullTestServer(t), http.MethodPost, "/api/scenarios/compare", `{"scenarios":[]}`, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
 func mustEmbeddedGraph(t *testing.T) *graph.Graph {
 	t.Helper()
 	ds, err := loadDataset("")

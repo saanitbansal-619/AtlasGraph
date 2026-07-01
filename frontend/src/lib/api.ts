@@ -7,6 +7,8 @@ import type {
   ShockOptionsResponse,
   ShockRequest,
   ShockResponse,
+  CompareScenariosRequest,
+  ScenarioCompareResponse,
   ApiError,
 } from '../types/api'
 
@@ -80,6 +82,11 @@ export const api = {
   fragilitySummary: () => request<FragilitySummaryResponse>('/api/fragility/summary'),
   runShock: (body: ShockRequest) =>
     request<ShockResponse>('/api/shock', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  compareScenarios: (body: CompareScenariosRequest) =>
+    request<ScenarioCompareResponse>('/api/scenarios/compare', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

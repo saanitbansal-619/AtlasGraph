@@ -22,6 +22,7 @@ import { OverviewCards } from './components/OverviewCards'
 import { UnifiedFragility } from './components/UnifiedFragility'
 import { ShockSimulator, toRequest, type ShockForm } from './components/ShockSimulator'
 import { ShockResults } from './components/ShockResults'
+import { ScenarioComparison } from './components/ScenarioComparison'
 import { BackendDownNotice } from './components/States'
 
 const DEFAULT_SCENARIO_ID = 'taiwan_semiconductor_shock'
@@ -304,6 +305,8 @@ export default function App() {
             <ShockResults result={result} submitted={submitted} running={running} error={runErr} />
           </div>
         </div>
+
+        <ScenarioComparison options={options} />
 
         <footer className="flex items-center justify-between border-t border-slate-800/80 pt-4 text-[11px] text-slate-600">
           <span>Global Fragility Intelligence Platform · Powered by AtlasGraph</span>

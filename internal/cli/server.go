@@ -57,6 +57,7 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/scenarios", s.handleScenarios)
 	mux.HandleFunc("/api/shock/options", s.handleShockOptions)
 	mux.HandleFunc("/api/shock", s.handleShock)
+	mux.HandleFunc("/api/scenarios/compare", s.handleScenariosCompare)
 	mux.HandleFunc("/api/trade/summary", s.handleTradeSummary)
 	mux.HandleFunc("/api/trade/dependency", s.handleTradeDependency)
 	mux.HandleFunc("/api/trade/concentration", s.handleTradeConcentration)
@@ -256,6 +257,80 @@ func (s *apiServer) handleShock(w http.ResponseWriter, r *http.Request) {
 	out := buildJSONResult(res, nil, body.Explain)
 	// Attach non-fatal, graph-aware warnings (suboptimal but still-valid combos).
 	out.Warnings = shockWarnings(ds.Graph, res.Profile, req.Source, req.Commodity)
+	writeJSONStatus(w, http.StatusOK, out)
+}
+
+// compareScenarioBody is one shock in POST /api/scenarios/compare.
+type compareScenarioBody struct {
+	Label     string   `json:"label"`
+	Source    string   `json:"source"`
+	Commodity string   `json:"commodity"`
+	ShockType string   `json:"shock_type"`
+	Drop      *float64 `json:"drop"`
+	Depth     *int     `json:"depth"`
+	Explain   bool     `json:"explain"`
+}
+
+type compareRequestBody struct {
+	Scenarios []compareScenarioBody `json:"scenarios"`
+}
+
+func (s *apiServer) handleScenariosCompare(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+
+	var body compareRequestBody
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error(),
+			`expected {"scenarios":[{"label":"...","source":"Taiwan","commodity":"semiconductors","shock_type":"export_collapse","drop":30,"depth":3}]}`)
+		return
+	}
+	if len(body.Scenarios) == 0 {
+		writeAPIError(w, http.StatusBadRequest, "at least one scenario is required",
+			`example: {"scenarios":[{"label":"Taiwan semiconductor export collapse","source":"Taiwan","commodity":"semiconductors","shock_type":"export_collapse","drop":30,"depth":3}]}`)
+		return
+	}
+
+	cfg := config.Default()
+	inputs := make([]simulation.CompareScenario, 0, len(body.Scenarios))
+	for _, sc := range body.Scenarios {
+		if strings.TrimSpace(sc.Source) == "" || strings.TrimSpace(sc.Commodity) == "" {
+			writeAPIError(w, http.StatusBadRequest, "each scenario requires source and commodity", "")
+			return
+		}
+		req := simulation.ShockRequest{
+			Source:    sc.Source,
+			Commodity: sc.Commodity,
+			ShockType: cfg.DefaultShockType,
+			DropPct:   cfg.DefaultDrop,
+			Depth:     cfg.DefaultDepth,
+		}
+		if strings.TrimSpace(sc.ShockType) != "" {
+			req.ShockType = sc.ShockType
+		}
+		if sc.Drop != nil {
+			req.DropPct = *sc.Drop
+		}
+		if sc.Depth != nil {
+			req.Depth = *sc.Depth
+		}
+		inputs = append(inputs, simulation.CompareScenario{Label: sc.Label, Request: req})
+	}
+
+	ds, err := loadDataset(s.cfg.GraphData)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, err.Error(),
+			"build a graph with `atlas graph build-trade` or pass an existing --data dir")
+		return
+	}
+
+	cmp := simulation.CompareScenarios(ds.Graph, cfg, inputs)
+	out := buildCompareJSON(cmp, func(p simulation.ShockProfile, source, commodity string) []string {
+		return shockWarnings(ds.Graph, p, source, commodity)
+	})
 	writeJSONStatus(w, http.StatusOK, out)
 }
 

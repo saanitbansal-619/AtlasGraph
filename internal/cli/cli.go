@@ -74,6 +74,7 @@ Commands:
   shock                 Simulate an economic shock and trace its propagation
   scenario list         List saved scenario presets
   scenario run <id>     Run a saved scenario preset
+  scenario compare      Compare recommended shock scenarios side-by-side
   graph summary         Show high-level graph statistics
   graph paths           Show dependency paths between two entities
   graph dump            Print every dependency edge
@@ -109,6 +110,8 @@ Examples:
   atlas shock --source Taiwan --commodity semiconductors --save results/taiwan_shock.json
   atlas scenario list --data data/sample
   atlas scenario run taiwan_semiconductor_shock --data data/sample --explain
+  atlas scenario compare --data data/generated/trade_graph
+  atlas scenario compare --data data/generated/trade_graph --output json
   atlas graph summary --data data/sample
   atlas graph paths --from Taiwan --to "cloud infrastructure" --data data/sample
   atlas risk leaderboard --data data/sample

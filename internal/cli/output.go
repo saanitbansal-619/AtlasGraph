@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/atlasgraph/atlas/internal/data"
+	"github.com/atlasgraph/atlas/internal/graph"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
@@ -264,6 +265,102 @@ func saveResultJSON(path string, res simulation.Result, scen *data.Scenario, exp
 		}
 	}
 	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+// --- scenario comparison ---------------------------------------------------
+
+type jsonCompareEntity struct {
+	Entity string  `json:"entity"`
+	Type   string  `json:"type"`
+	Delta  float64 `json:"delta"`
+}
+
+type jsonScenarioCompareItem struct {
+	Label                  string              `json:"label"`
+	Source                 string              `json:"source"`
+	Commodity              string              `json:"commodity"`
+	ShockType              string              `json:"shock_type"`
+	Drop                   float64             `json:"drop"`
+	Depth                  int                 `json:"depth"`
+	AffectedNodesCount     int                 `json:"affected_nodes_count"`
+	AffectedPathsCount     int                 `json:"affected_paths_count"`
+	AverageFragilityDelta  float64             `json:"average_fragility_delta"`
+	MaxFragilityDelta      float64             `json:"max_fragility_delta"`
+	TopAffectedEntities    []jsonCompareEntity `json:"top_affected_entities"`
+	TopAffectedCountries   []jsonCompareEntity `json:"top_affected_countries"`
+	TopAffectedSectors     []jsonCompareEntity `json:"top_affected_sectors"`
+	Warnings               []string            `json:"warnings,omitempty"`
+}
+
+type jsonCompareSummary struct {
+	WorstOverallScenario         string `json:"worst_overall_scenario"`
+	MostCountriesAffected        string `json:"most_countries_affected"`
+	MostSectorsAffected          string `json:"most_sectors_affected"`
+	HighestAverageFragilityDelta string `json:"highest_average_fragility_delta"`
+	HighestMaxFragilityDelta     string `json:"highest_max_fragility_delta"`
+}
+
+type jsonCompareResponse struct {
+	Summary jsonCompareSummary        `json:"summary"`
+	Results []jsonScenarioCompareItem `json:"results"`
+}
+
+func compareEntities(items []simulation.CompareEntity) []jsonCompareEntity {
+	out := make([]jsonCompareEntity, len(items))
+	for i, e := range items {
+		out[i] = jsonCompareEntity{
+			Entity: e.Entity,
+			Type:   e.Type,
+			Delta:  round(e.Delta, 2),
+		}
+	}
+	return out
+}
+
+func buildCompareJSON(cmp simulation.ComparisonResult, warn func(simulation.ShockProfile, string, string) []string) jsonCompareResponse {
+	results := make([]jsonScenarioCompareItem, 0, len(cmp.Results))
+	for _, sc := range cmp.Results {
+		item := jsonScenarioCompareItem{
+			Label:                 sc.Label,
+			Source:                sc.Source,
+			Commodity:             sc.Commodity,
+			ShockType:             sc.ShockType,
+			Drop:                  sc.Drop,
+			Depth:                 sc.Depth,
+			AffectedNodesCount:    sc.AffectedNodesCount,
+			AffectedPathsCount:    sc.AffectedPathsCount,
+			AverageFragilityDelta: round(sc.AvgFragilityDelta, 2),
+			MaxFragilityDelta:     round(sc.MaxFragilityDelta, 2),
+			TopAffectedEntities:   compareEntities(sc.TopAffectedEntities),
+			TopAffectedCountries:  compareEntities(sc.TopAffectedCountries),
+			TopAffectedSectors:    compareEntities(sc.TopAffectedSectors),
+		}
+		if sc.RunError != "" {
+			item.Warnings = []string{sc.RunError}
+		} else if warn != nil {
+			item.Warnings = warn(sc.Profile, sc.Source, sc.Commodity)
+		}
+		results = append(results, item)
+	}
+	return jsonCompareResponse{
+		Summary: jsonCompareSummary{
+			WorstOverallScenario:         cmp.Summary.WorstOverallScenario,
+			MostCountriesAffected:        cmp.Summary.MostCountriesAffected,
+			MostSectorsAffected:          cmp.Summary.MostSectorsAffected,
+			HighestAverageFragilityDelta: cmp.Summary.HighestAverageFragilityDelta,
+			HighestMaxFragilityDelta:     cmp.Summary.HighestMaxFragilityDelta,
+		},
+		Results: results,
+	}
+}
+
+func writeCompareJSON(w io.Writer, g *graph.Graph, cmp simulation.ComparisonResult) error {
+	out := buildCompareJSON(cmp, func(p simulation.ShockProfile, source, commodity string) []string {
+		return shockWarnings(g, p, source, commodity)
+	})
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
 }
 
 // --- macro exposure scores -------------------------------------------------

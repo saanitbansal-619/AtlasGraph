@@ -289,6 +289,7 @@ atlas shock        --source <entity> --commodity <name> [--type kind] [--drop N]
                    [--data dir] [--output text|json] [--save file] [--explain]
 atlas scenario list                      [--data dir]
 atlas scenario run <id>                  [--data dir] [--output text|json] [--save file] [--explain]
+atlas scenario compare                   [--data dir] [--output text|json]
 atlas graph summary                      [--data dir] [--top N]
 atlas graph paths  --from <e> --to <e>   [--data dir] [--depth N]
 atlas graph dump                         [--data dir]
@@ -327,6 +328,10 @@ atlas shock --source Taiwan --commodity semiconductors --drop 30 --depth 3 --sav
 # Scenario presets
 atlas scenario list --data data/sample
 atlas scenario run taiwan_semiconductor_shock --data data/sample
+
+# Compare recommended scenarios side-by-side (default: Taiwan semiconductors, China lithium batteries, Saudi crude oil — filtered to what the graph supports)
+atlas scenario compare --data data/generated/trade_graph
+atlas scenario compare --data data/generated/trade_graph --output json
 
 # Graph tooling
 atlas graph summary --data data/sample
@@ -1216,6 +1221,7 @@ ATLASGRAPH API SERVER
     GET  /api/scenarios
     GET  /api/shock/options
     POST /api/shock
+    POST /api/scenarios/compare
     GET  /api/trade/summary
     GET  /api/trade/dependency?importer=USA&commodity=semiconductors
     GET  /api/trade/concentration?importer=USA&commodity=semiconductors
@@ -1239,6 +1245,7 @@ ATLASGRAPH API SERVER
 | `GET  /api/scenarios` | Saved shock scenario presets |
 | `GET  /api/shock/options` | Graph-aware shock guidance: valid sources/commodities, shock-type descriptions, and recommended scenarios |
 | `POST /api/shock` | Run a shock simulation (body below) |
+| `POST /api/scenarios/compare` | Run multiple shock scenarios and rank systemic impact |
 | `GET  /api/trade/summary` | Ingested trade-panel digest |
 | `GET  /api/trade/dependency?importer=&commodity=` | Supplier dependency breakdown |
 | `GET  /api/trade/concentration?importer=&commodity=` | Supplier HHI concentration |
@@ -1287,6 +1294,100 @@ relationship linking the chosen source to the commodity:
 `recommended_scenarios` that only include combinations that make sense for the
 loaded graph.
 
+### Scenario Comparison
+
+Compare multiple shock scenarios side-by-side and rank which causes the most
+systemic impact. Each scenario is run independently through the same shock
+engine as `POST /api/shock`; scoring formulas and propagation logic are
+unchanged.
+
+**CLI** — by default compares graph-validated recommended scenarios (Taiwan
+semiconductor export collapse, China lithium battery supply cut, Saudi crude oil
+supply cut when present in the graph):
+
+```bash
+go run ./cmd/atlas scenario compare --data data/generated/trade_graph
+go run ./cmd/atlas scenario compare --data data/generated/trade_graph --output json
+```
+
+**API** — `POST /api/scenarios/compare`:
+
+```json
+{
+  "scenarios": [
+    {
+      "label": "Taiwan semiconductor export collapse",
+      "source": "Taiwan",
+      "commodity": "semiconductors",
+      "shock_type": "export_collapse",
+      "drop": 30,
+      "depth": 3,
+      "explain": true
+    },
+    {
+      "label": "China lithium battery supply cut",
+      "source": "China",
+      "commodity": "lithium batteries",
+      "shock_type": "supply_cut",
+      "drop": 35,
+      "depth": 3,
+      "explain": true
+    },
+    {
+      "label": "Saudi crude oil supply cut",
+      "source": "Saudi Arabia",
+      "commodity": "crude oil",
+      "shock_type": "supply_cut",
+      "drop": 25,
+      "depth": 3,
+      "explain": true
+    }
+  ]
+}
+```
+
+Response shape:
+
+```json
+{
+  "summary": {
+    "worst_overall_scenario": "Taiwan semiconductor export collapse",
+    "most_countries_affected": "Taiwan semiconductor export collapse",
+    "most_sectors_affected": "Taiwan semiconductor export collapse",
+    "highest_average_fragility_delta": "Taiwan semiconductor export collapse",
+    "highest_max_fragility_delta": "Taiwan semiconductor export collapse"
+  },
+  "results": [
+    {
+      "label": "Taiwan semiconductor export collapse",
+      "source": "Taiwan",
+      "commodity": "semiconductors",
+      "shock_type": "export_collapse",
+      "drop": 30,
+      "depth": 3,
+      "affected_nodes_count": 12,
+      "affected_paths_count": 8,
+      "average_fragility_delta": 9.42,
+      "max_fragility_delta": 16.3,
+      "top_affected_entities": [],
+      "top_affected_countries": [],
+      "top_affected_sectors": [],
+      "warnings": []
+    }
+  ]
+}
+```
+
+Results are ranked worst-first (by average fragility delta, then max delta, then
+affected nodes). Invalid scenarios are included with a `warnings` entry describing
+the failure; the comparison as a whole still returns HTTP 200.
+
+```bash
+curl -X POST http://localhost:8080/api/scenarios/compare \
+  -H "Content-Type: application/json" \
+  -d '{"scenarios":[{"label":"Taiwan semiconductor export collapse","source":"Taiwan","commodity":"semiconductors","shock_type":"export_collapse","drop":30,"depth":3}]}'
+```
+
 ### Error shape
 
 Every failure returns a consistent JSON envelope (the `hint` is optional):
@@ -1316,6 +1417,11 @@ curl http://localhost:8080/api/shock/options
 curl -X POST http://localhost:8080/api/shock \
   -H "Content-Type: application/json" \
   -d '{"source":"Taiwan","commodity":"semiconductors","drop":30,"depth":3,"shock_type":"export_collapse"}'
+
+# Compare scenarios
+curl -X POST http://localhost:8080/api/scenarios/compare \
+  -H "Content-Type: application/json" \
+  -d '{"scenarios":[{"label":"Taiwan semiconductor export collapse","source":"Taiwan","commodity":"semiconductors","shock_type":"export_collapse","drop":30,"depth":3}]}'
 
 # Trade analysis
 curl http://localhost:8080/api/trade/summary

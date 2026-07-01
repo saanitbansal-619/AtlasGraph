@@ -219,3 +219,54 @@ export interface ApiError {
   error: string
   hint?: string
 }
+
+// POST /api/scenarios/compare — one scenario in the request body.
+export interface CompareScenarioInput {
+  label: string
+  source: string
+  commodity: string
+  shock_type: string
+  drop: number
+  depth: number
+  explain?: boolean
+}
+
+export interface CompareEntityImpact {
+  entity: string
+  type: string
+  delta: number
+}
+
+export interface ScenarioCompareResult {
+  label: string
+  source: string
+  commodity: string
+  shock_type: string
+  drop: number
+  depth: number
+  affected_nodes_count: number
+  affected_paths_count: number
+  average_fragility_delta: number
+  max_fragility_delta: number
+  top_affected_entities: CompareEntityImpact[]
+  top_affected_countries: CompareEntityImpact[]
+  top_affected_sectors: CompareEntityImpact[]
+  warnings?: string[]
+}
+
+export interface ScenarioCompareSummary {
+  worst_overall_scenario: string
+  most_countries_affected: string
+  most_sectors_affected: string
+  highest_average_fragility_delta: string
+  highest_max_fragility_delta: string
+}
+
+export interface ScenarioCompareResponse {
+  summary: ScenarioCompareSummary
+  results: ScenarioCompareResult[]
+}
+
+export interface CompareScenariosRequest {
+  scenarios: CompareScenarioInput[]
+}
