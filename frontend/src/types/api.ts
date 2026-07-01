@@ -180,6 +180,40 @@ export interface ShockOptionsResponse {
   recommended_scenarios: RecommendedScenario[]
 }
 
+export interface FragilitySummaryResponse {
+  countries: CountryFragilityScore[]
+  commodities: CommodityFragilityScore[]
+}
+
+export interface FragilityComponent {
+  key: string
+  name: string
+  score: number
+  weight: number
+  contribution: number
+  available: boolean
+}
+
+export interface CountryFragilityScore {
+  country_code: string
+  country_name: string
+  score: number
+  risk_level: string
+  top_drivers: string[]
+  missing_components: string[]
+  components: FragilityComponent[]
+}
+
+export interface CommodityFragilityScore {
+  commodity_code: string
+  commodity_name: string
+  score: number
+  risk_level: string
+  top_drivers: string[]
+  missing_components: string[]
+  components: FragilityComponent[]
+}
+
 // JSON error envelope returned by the API on failure.
 export interface ApiError {
   error: string

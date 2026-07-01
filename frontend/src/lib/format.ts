@@ -47,3 +47,17 @@ const TYPE_STYLES: Record<string, string> = {
 export function typeClass(type: string): string {
   return TYPE_STYLES[type] ?? 'border-slate-600/40 text-slate-300 bg-slate-600/10'
 }
+
+// riskBadgeClass colours a Low/Medium/High/Critical band badge.
+export function riskBadgeClass(level: string): string {
+  switch (level) {
+    case 'Critical':
+      return 'border-rose-500/50 bg-rose-500/15 text-rose-300'
+    case 'High':
+      return 'border-amber-500/50 bg-amber-500/15 text-amber-300'
+    case 'Medium':
+      return 'border-yellow-500/40 bg-yellow-500/10 text-yellow-200'
+    default:
+      return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+  }
+}

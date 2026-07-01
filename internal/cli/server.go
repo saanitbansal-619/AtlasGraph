@@ -17,6 +17,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
+	"github.com/atlasgraph/atlas/internal/scoring/fragility"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
 )
@@ -62,6 +63,9 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/macro/scores", s.handleMacroScores)
 	mux.HandleFunc("/api/events/risk", s.handleEventsRisk)
 	mux.HandleFunc("/api/commodities/stress", s.handleCommodityStress)
+	mux.HandleFunc("/api/fragility/countries", s.handleFragilityCountries)
+	mux.HandleFunc("/api/fragility/commodities", s.handleFragilityCommodities)
+	mux.HandleFunc("/api/fragility/summary", s.handleFragilitySummary)
 	mux.HandleFunc("/", s.handleNotFound)
 
 	return withCORS(mux)
@@ -369,6 +373,34 @@ func (s *apiServer) handleCommodityStress(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, buildCommodityStressJSON(scores))
+}
+
+func (s *apiServer) handleFragilityCountries(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	res := fragility.Score(s.fragilitySources())
+	writeJSONStatus(w, http.StatusOK, buildFragilityJSON(res).Countries)
+}
+
+func (s *apiServer) handleFragilityCommodities(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	res := fragility.Score(s.fragilitySources())
+	writeJSONStatus(w, http.StatusOK, buildFragilityJSON(res).Commodities)
+}
+
+func (s *apiServer) handleFragilitySummary(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	res := fragility.Score(s.fragilitySources())
+	writeJSONStatus(w, http.StatusOK, buildFragilitySummaryJSON(res, 5))
+}
+
+func (s *apiServer) fragilitySources() fragility.Sources {
+	return loadFragilitySources(s.cfg.GraphData, s.cfg.TradeData, s.cfg.MacroData, s.cfg.EventData, s.cfg.CommodityData)
 }
 
 // loadTrade loads the configured trade panel, writing a JSON error and

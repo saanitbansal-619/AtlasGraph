@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, ApiRequestError } from './lib/api'
 import type {
+  FragilitySummaryResponse,
   GraphEntitiesResponse,
   GraphSummaryResponse,
   HealthResponse,
@@ -18,6 +19,7 @@ import {
 } from './types/scenario'
 import { Header } from './components/Header'
 import { OverviewCards } from './components/OverviewCards'
+import { UnifiedFragility } from './components/UnifiedFragility'
 import { ShockSimulator, toRequest, type ShockForm } from './components/ShockSimulator'
 import { ShockResults } from './components/ShockResults'
 import { BackendDownNotice } from './components/States'
@@ -68,6 +70,11 @@ export default function App() {
   // Graph summary
   const [summary, setSummary] = useState<GraphSummaryResponse | null>(null)
   const [summaryErr, setSummaryErr] = useState<UiError | null>(null)
+
+  // Unified fragility summary
+  const [fragility, setFragility] = useState<FragilitySummaryResponse | null>(null)
+  const [fragilityErr, setFragilityErr] = useState<UiError | null>(null)
+  const [fragilityLoading, setFragilityLoading] = useState(true)
 
   // Scenarios
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -143,6 +150,19 @@ export default function App() {
     }
   }, [applyScenario])
 
+  const loadFragility = useCallback(async () => {
+    setFragilityLoading(true)
+    try {
+      setFragility(await api.fragilitySummary())
+      setFragilityErr(null)
+    } catch (e) {
+      setFragility(null)
+      setFragilityErr(toUiError(e))
+    } finally {
+      setFragilityLoading(false)
+    }
+  }, [])
+
   const loadGuidance = useCallback(async () => {
     try {
       setEntities(await api.graphEntities())
@@ -160,9 +180,10 @@ export default function App() {
     setHealthLoading(true)
     void checkHealth()
     void loadSummary()
+    void loadFragility()
     void loadScenarios()
     void loadGuidance()
-  }, [checkHealth, loadSummary, loadScenarios, loadGuidance])
+  }, [checkHealth, loadSummary, loadFragility, loadScenarios, loadGuidance])
 
   // Initial load.
   useEffect(() => {
@@ -254,6 +275,8 @@ export default function App() {
         )}
 
         <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
+
+        <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-1">

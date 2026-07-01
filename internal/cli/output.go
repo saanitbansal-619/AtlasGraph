@@ -12,6 +12,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
+	"github.com/atlasgraph/atlas/internal/scoring/fragility"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
 )
@@ -612,4 +613,157 @@ func buildTradeConcentrationJSON(c trade.Concentration) jsonTradeConcentration {
 		ConcentrationRisk: c.RiskLevel,
 		TopSupplier:       tradeSupplierToJSON(c.TopSupplier),
 	}
+}
+
+// --- unified fragility -----------------------------------------------------
+
+type jsonFragilityFile struct {
+	CountryWeights    fragility.CountryWeights    `json:"country_weights"`
+	CommodityWeights  fragility.CommodityWeights  `json:"commodity_weights"`
+	RiskBands         map[string]string           `json:"risk_bands"`
+	Countries         []jsonFragilityCountry      `json:"countries"`
+	Commodities       []jsonFragilityCommodity    `json:"commodities"`
+}
+
+type jsonFragilityCountry struct {
+	CountryCode       string                 `json:"country_code"`
+	CountryName       string                 `json:"country_name"`
+	Score             float64                `json:"score"`
+	RiskLevel         string                 `json:"risk_level"`
+	TopDrivers        []string               `json:"top_drivers"`
+	MissingComponents []string               `json:"missing_components"`
+	Components        []jsonFragilityComponent `json:"components"`
+}
+
+type jsonFragilityCommodity struct {
+	CommodityCode     string                 `json:"commodity_code"`
+	CommodityName     string                 `json:"commodity_name"`
+	Score             float64                `json:"score"`
+	RiskLevel         string                 `json:"risk_level"`
+	TopDrivers        []string               `json:"top_drivers"`
+	MissingComponents []string               `json:"missing_components"`
+	Components        []jsonFragilityComponent `json:"components"`
+}
+
+type jsonFragilityComponent struct {
+	Key          string  `json:"key"`
+	Name         string  `json:"name"`
+	Score        float64 `json:"score"`
+	Weight       float64 `json:"weight"`
+	Contribution float64 `json:"contribution"`
+	Available    bool    `json:"available"`
+}
+
+type jsonFragilitySummary struct {
+	Countries   []jsonFragilityCountry   `json:"countries"`
+	Commodities []jsonFragilityCommodity `json:"commodities"`
+}
+
+func buildFragilityJSON(res fragility.Result) jsonFragilityFile {
+	out := jsonFragilityFile{
+		CountryWeights:   fragility.DefaultCountryWeights(),
+		CommodityWeights: fragility.DefaultCommodityWeights(),
+		RiskBands: map[string]string{
+			"low": "0-30", "medium": "30-60", "high": "60-80", "critical": "80-100",
+		},
+		Countries:   make([]jsonFragilityCountry, 0, len(res.Countries)),
+		Commodities: make([]jsonFragilityCommodity, 0, len(res.Commodities)),
+	}
+	for _, s := range res.Countries {
+		out.Countries = append(out.Countries, countryToJSON(s))
+	}
+	for _, s := range res.Commodities {
+		out.Commodities = append(out.Commodities, commodityToJSON(s))
+	}
+	return out
+}
+
+func buildFragilitySummaryJSON(res fragility.Result, topN int) jsonFragilitySummary {
+	out := jsonFragilitySummary{
+		Countries:   make([]jsonFragilityCountry, 0, topN),
+		Commodities: make([]jsonFragilityCommodity, 0, topN),
+	}
+	for i, s := range res.Countries {
+		if i >= topN {
+			break
+		}
+		out.Countries = append(out.Countries, countryToJSON(s))
+	}
+	for i, s := range res.Commodities {
+		if i >= topN {
+			break
+		}
+		out.Commodities = append(out.Commodities, commodityToJSON(s))
+	}
+	return out
+}
+
+func countryToJSON(s fragility.CountryScore) jsonFragilityCountry {
+	jc := jsonFragilityCountry{
+		CountryCode:       s.CountryCode,
+		CountryName:       s.CountryName,
+		Score:             round(s.Score, 1),
+		RiskLevel:         s.RiskLevel,
+		TopDrivers:        s.TopDrivers,
+		MissingComponents: s.MissingComponents,
+		Components:        make([]jsonFragilityComponent, 0, len(s.Components)),
+	}
+	if jc.TopDrivers == nil {
+		jc.TopDrivers = []string{}
+	}
+	if jc.MissingComponents == nil {
+		jc.MissingComponents = []string{}
+	}
+	for _, c := range s.Components {
+		jc.Components = append(jc.Components, fragilityComponentToJSON(c))
+	}
+	return jc
+}
+
+func commodityToJSON(s fragility.CommodityScore) jsonFragilityCommodity {
+	jc := jsonFragilityCommodity{
+		CommodityCode:     s.CommodityCode,
+		CommodityName:     s.CommodityName,
+		Score:             round(s.Score, 1),
+		RiskLevel:         s.RiskLevel,
+		TopDrivers:        s.TopDrivers,
+		MissingComponents: s.MissingComponents,
+		Components:        make([]jsonFragilityComponent, 0, len(s.Components)),
+	}
+	if jc.TopDrivers == nil {
+		jc.TopDrivers = []string{}
+	}
+	if jc.MissingComponents == nil {
+		jc.MissingComponents = []string{}
+	}
+	for _, c := range s.Components {
+		jc.Components = append(jc.Components, fragilityComponentToJSON(c))
+	}
+	return jc
+}
+
+func fragilityComponentToJSON(c fragility.Component) jsonFragilityComponent {
+	return jsonFragilityComponent{
+		Key:          c.Key,
+		Name:         c.Name,
+		Score:        round(c.Score, 1),
+		Weight:       c.Weight,
+		Contribution: round(c.Contribution, 2),
+		Available:    c.Available,
+	}
+}
+
+func writeFragilityJSON(w io.Writer, res fragility.Result) error {
+	return writeJSON(w, buildFragilityJSON(res))
+}
+
+func saveFragilityJSON(path string, res fragility.Result) error {
+	raw, err := json.MarshalIndent(buildFragilityJSON(res), "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, raw, 0o644)
 }

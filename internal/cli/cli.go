@@ -89,6 +89,7 @@ Commands:
   trade concentration   Show supplier concentration (HHI) for an importer + commodity
   score macro           Score macro exposure per country from macro indicators
   score commodities     Score commodity price stress from ingested price series
+  score fragility       Unified country and commodity fragility from GFIP signals
   events risk           Score country event risk from ingested GDELT data
   serve                 Start the HTTP API server (JSON endpoints)
   version               Print version information
@@ -125,6 +126,7 @@ Examples:
   atlas events risk --data data/raw/gdelt
   atlas ingest commodity-prices --file data/examples/commodity_prices_sample.csv --out data/processed/commodity_prices
   atlas score commodities --data data/processed/commodity_prices
+  atlas score fragility --graph-data data/generated/trade_graph --trade-data data/processed/trade --macro-data data/raw/worldbank --event-data data/raw/gdelt --commodity-data data/processed/commodity_prices
   atlas serve --data data/generated/trade_graph --trade-data data/processed/trade --macro-data data/raw/worldbank --event-data data/raw/gdelt --commodity-data data/processed/commodity_prices --port 8080
 `, "\n"))
 }

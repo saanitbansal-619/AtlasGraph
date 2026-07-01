@@ -16,6 +16,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
+	"github.com/atlasgraph/atlas/internal/scoring/fragility"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
 	"github.com/atlasgraph/atlas/internal/tradegraph"
@@ -929,4 +930,82 @@ func renderRankedBoard(out io.Writer, label string, items []rankedEntity) {
 	for i, r := range items {
 		fmt.Fprintf(out, "    %d. %-24s fragility %.1f\n", i+1, r.Node.Name, r.Fragility)
 	}
+}
+
+// --- unified fragility -----------------------------------------------------
+
+func renderFragilityScores(out io.Writer, res fragility.Result) {
+	section(out, "UNIFIED FRAGILITY SCORES")
+
+	fmt.Fprintln(out, "COUNTRIES")
+	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "COUNTRY\tSCORE\tRISK\tTOP DRIVERS")
+	for _, s := range res.Countries {
+		fmt.Fprintf(tw, "%s\t%.1f\t%s\t%s\n", s.CountryName, s.Score, s.RiskLevel, strings.Join(s.TopDrivers, ", "))
+	}
+	tw.Flush()
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "COMMODITIES")
+	tw = tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "COMMODITY\tSCORE\tRISK\tTOP DRIVERS")
+	for _, s := range res.Commodities {
+		fmt.Fprintf(tw, "%s\t%.1f\t%s\t%s\n", s.CommodityName, s.Score, s.RiskLevel, strings.Join(s.TopDrivers, ", "))
+	}
+	tw.Flush()
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "Risk bands:")
+	fmt.Fprintln(out, "  Low      : 0-30")
+	fmt.Fprintln(out, "  Medium   : 30-60")
+	fmt.Fprintln(out, "  High     : 60-80")
+	fmt.Fprintln(out, "  Critical : 80-100")
+}
+
+func renderFragilityFormula(out io.Writer) {
+	cw := fragility.DefaultCountryWeights()
+	kw := fragility.DefaultCommodityWeights()
+
+	section(out, "UNIFIED FRAGILITY SCORE — FORMULA")
+	fmt.Fprintf(out, "  Score name: Unified Fragility Score\n\n")
+
+	fmt.Fprintln(out, "  Country formula weights:")
+	fmt.Fprintf(out, "      %.2f * macro_exposure_score\n", cw.MacroExposure)
+	fmt.Fprintf(out, "    + %.2f * event_risk_score\n", cw.EventRisk)
+	fmt.Fprintf(out, "    + %.2f * trade_concentration_score\n", cw.TradeConcentration)
+	fmt.Fprintf(out, "    + %.2f * shock_exposure_score\n\n", cw.ShockExposure)
+
+	fmt.Fprintln(out, "  Country component sources:")
+	fmt.Fprintln(out, "    macro_exposure_score      = existing World Bank macro exposure score")
+	fmt.Fprintln(out, "    event_risk_score          = existing GDELT event-risk score")
+	fmt.Fprintln(out, "    trade_concentration_score = average supplier HHI across imported commodities")
+	fmt.Fprintln(out, "    shock_exposure_score      = default scenario shock impact on the country")
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "  Commodity formula weights:")
+	fmt.Fprintf(out, "      %.2f * commodity_stress_score\n", kw.CommodityStress)
+	fmt.Fprintf(out, "    + %.2f * supplier_concentration_score\n", kw.SupplierConcentration)
+	fmt.Fprintf(out, "    + %.2f * event_exposure_score\n", kw.EventExposure)
+	fmt.Fprintf(out, "    + %.2f * graph_centrality_score\n\n", kw.GraphCentrality)
+
+	fmt.Fprintln(out, "  Commodity component sources:")
+	fmt.Fprintln(out, "    commodity_stress_score       = existing commodity price stress score")
+	fmt.Fprintln(out, "    supplier_concentration_score = average importer-side HHI across trade flows")
+	fmt.Fprintln(out, "    event_exposure_score         = average event risk of exporter countries")
+	fmt.Fprintln(out, "    graph_centrality_score       = commodity node degree relative to the graph")
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "  Risk bands:")
+	fmt.Fprintln(out, "    Low      : 0-30")
+	fmt.Fprintln(out, "    Medium   : 30-60")
+	fmt.Fprintln(out, "    High     : 60-80")
+	fmt.Fprintln(out, "    Critical : 80-100")
+	fmt.Fprintln(out)
+
+	fmt.Fprintln(out, "  Note:")
+	fmt.Fprintln(out, "    This is an explainable composite risk score, not a prediction.")
+	fmt.Fprintln(out, "    It combines existing GFIP signals — macro exposure, event risk, trade")
+	fmt.Fprintln(out, "    concentration, commodity stress, shock propagation and graph structure.")
+	fmt.Fprintln(out, "    Missing components are excluded and weights are renormalised over what")
+	fmt.Fprintln(out, "    remains available for each entity.")
 }

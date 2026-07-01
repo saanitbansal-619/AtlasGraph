@@ -69,12 +69,15 @@ store and ML forecasting are planned on top of the same core (see Roadmap).
   for geopolitical and supply-chain disruption signals from global news, and a
   **commodity price-stress** layer (`ingest commodity-prices` / `score
   commodities`) measuring recent price change and volatility.
+- **Unified fragility scoring** — explainable composite country/commodity scores
+  (`score fragility`) blending macro, event, trade, commodity, shock and graph
+  signals with partial-data renormalisation.
 - **Strong validation** — helpful errors for malformed data, unknown entity
   references, out-of-range weights, **invalid relationship types** and
   **unknown shock types**.
 - **HTTP API server** — a pure–`net/http` JSON API (`atlas serve`) exposing the
   engine over `/health`, `/api/graph/summary`, `/api/scenarios`, `/api/shock`,
-  trade/macro/event/commodity endpoints, with CORS ready for a future frontend.
+  trade/macro/event/commodity/fragility endpoints, with CORS ready for a future frontend.
 
 ---
 
@@ -1073,6 +1076,102 @@ COMMODITY STRESS SCORES
 
 ---
 
+## Unified Fragility Score
+
+AtlasGraph combines existing GFIP signals into an **explainable composite
+fragility score** for countries and commodities. This is a composite risk score,
+not a prediction — it summarises structural exposure from signals the engine
+already computes.
+
+### Country Fragility Score
+
+| Component | Weight | Source |
+|-----------|--------|--------|
+| `macro_exposure_score` | 0.30 | World Bank macro exposure scorer |
+| `event_risk_score` | 0.25 | GDELT event-risk scorer |
+| `trade_concentration_score` | 0.25 | Average supplier HHI across imported commodities |
+| `shock_exposure_score` | 0.20 | Default scenario shock impact on the country |
+
+### Commodity Fragility Score
+
+| Component | Weight | Source |
+|-----------|--------|--------|
+| `commodity_stress_score` | 0.35 | Commodity price stress scorer |
+| `supplier_concentration_score` | 0.30 | Average importer-side HHI across trade flows |
+| `event_exposure_score` | 0.20 | Average event risk of exporter countries |
+| `graph_centrality_score` | 0.15 | Commodity node degree relative to the graph |
+
+**Risk bands** (both country and commodity): Low 0–30, Medium 30–60, High 60–80,
+Critical 80–100.
+
+Missing components are listed in `missing_components` and excluded from the
+blend; remaining weights are renormalised so partial data still produces a
+meaningful score.
+
+### Commands
+
+```bash
+# Text table (countries + commodities)
+go run ./cmd/atlas score fragility \
+  --graph-data data/generated/trade_graph \
+  --trade-data data/processed/trade \
+  --macro-data data/raw/worldbank \
+  --event-data data/raw/gdelt \
+  --commodity-data data/processed/commodity_prices
+
+# JSON output
+go run ./cmd/atlas score fragility \
+  --graph-data data/generated/trade_graph \
+  --trade-data data/processed/trade \
+  --macro-data data/raw/worldbank \
+  --event-data data/raw/gdelt \
+  --commodity-data data/processed/commodity_prices \
+  --output json
+
+# Formula explanation (no data required)
+go run ./cmd/atlas score fragility --explain-formula
+```
+
+Example text output:
+
+```
+UNIFIED FRAGILITY SCORES
+----------------------------------------------------------------
+COUNTRIES
+COUNTRY        SCORE  RISK    TOP DRIVERS
+Taiwan         62.4   High    macro exposure, event risk
+United States  48.1   Medium  trade concentration, macro exposure
+...
+
+COMMODITIES
+COMMODITY      SCORE  RISK    TOP DRIVERS
+semiconductors 55.2   Medium  graph centrality, supplier concentration
+crude oil      41.0   Medium  commodity stress, event exposure
+...
+```
+
+### API endpoints
+
+| Method & path | Description |
+|---------------|-------------|
+| `GET /api/fragility/countries` | All country unified fragility scores |
+| `GET /api/fragility/commodities` | All commodity unified fragility scores |
+| `GET /api/fragility/summary` | Top 5 countries and top 5 commodities by score |
+
+If some data paths are missing at server startup, these endpoints still return
+partial scores with `missing_components` populated — they do not crash.
+
+```bash
+curl http://localhost:8080/api/fragility/summary
+curl http://localhost:8080/api/fragility/countries
+curl http://localhost:8080/api/fragility/commodities
+```
+
+The GFIP frontend overview page shows the top 5 countries and commodities from
+`GET /api/fragility/summary` with score, risk badge, and top drivers.
+
+---
+
 ## HTTP API Server
 
 AtlasGraph ships a lightweight, pure–`net/http` JSON API so the same engine that
@@ -1123,6 +1222,9 @@ ATLASGRAPH API SERVER
     GET  /api/macro/scores
     GET  /api/events/risk
     GET  /api/commodities/stress
+    GET  /api/fragility/countries
+    GET  /api/fragility/commodities
+    GET  /api/fragility/summary
 
   Listening on http://localhost:8080
 ```
@@ -1143,6 +1245,9 @@ ATLASGRAPH API SERVER
 | `GET  /api/macro/scores` | Macro exposure scores |
 | `GET  /api/events/risk` | GDELT event-risk scores |
 | `GET  /api/commodities/stress` | Commodity price-stress scores |
+| `GET  /api/fragility/countries` | Unified country fragility scores |
+| `GET  /api/fragility/commodities` | Unified commodity fragility scores |
+| `GET  /api/fragility/summary` | Top 5 countries and commodities by fragility |
 
 ### `POST /api/shock`
 
@@ -1221,6 +1326,7 @@ curl "http://localhost:8080/api/trade/concentration?importer=USA&commodity=semic
 curl http://localhost:8080/api/macro/scores
 curl http://localhost:8080/api/events/risk
 curl http://localhost:8080/api/commodities/stress
+curl http://localhost:8080/api/fragility/summary
 ```
 
 ### CORS
@@ -1244,6 +1350,8 @@ This milestone's screen includes:
 - a header with a **live API status badge** (polls `GET /health`),
 - **overview cards** (nodes / countries / commodities / sectors / dependencies)
   from `GET /api/graph/summary`,
+- a **Unified Fragility** panel (top 5 countries and commodities by score,
+  with risk badges and top drivers) from `GET /api/fragility/summary`,
 - a **scenario preset** dropdown from `GET /api/scenarios` (defaults to
   `taiwan_semiconductor_shock` when present),
 - a **graph-aware Shock Simulator**: source/commodity inputs are searchable

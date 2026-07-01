@@ -1,6 +1,7 @@
 import type {
   GraphSummaryResponse,
   GraphEntitiesResponse,
+  FragilitySummaryResponse,
   HealthResponse,
   ScenariosResponse,
   ShockOptionsResponse,
@@ -76,6 +77,7 @@ export const api = {
   graphEntities: () => request<GraphEntitiesResponse>('/api/graph/entities'),
   scenarios: () => request<ScenariosResponse>('/api/scenarios'),
   shockOptions: () => request<ShockOptionsResponse>('/api/shock/options'),
+  fragilitySummary: () => request<FragilitySummaryResponse>('/api/fragility/summary'),
   runShock: (body: ShockRequest) =>
     request<ShockResponse>('/api/shock', {
       method: 'POST',

@@ -13,7 +13,7 @@ import (
 
 func runScore(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: atlas score <macro|commodities> [flags]")
+		fmt.Fprintln(errOut, "Usage: atlas score <macro|commodities|fragility> [flags]")
 		return 2
 	}
 	switch args[0] {
@@ -21,8 +21,10 @@ func runScore(args []string, out, errOut io.Writer) int {
 		return scoreMacro(args[1:], out, errOut)
 	case "commodities":
 		return scoreCommodities(args[1:], out, errOut)
+	case "fragility":
+		return scoreFragility(args[1:], out, errOut)
 	default:
-		fmt.Fprintf(errOut, "unknown score subcommand %q (want macro or commodities)\n", args[0])
+		fmt.Fprintf(errOut, "unknown score subcommand %q (want macro, commodities, or fragility)\n", args[0])
 		return 2
 	}
 }
