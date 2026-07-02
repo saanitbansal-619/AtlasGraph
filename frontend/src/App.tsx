@@ -308,8 +308,10 @@ export default function App() {
 
         <ScenarioComparison options={options} />
 
-        <footer className="flex items-center justify-between border-t border-slate-800/80 pt-4 text-[11px] text-slate-600">
-          <span>Global Fragility Intelligence Platform · Powered by AtlasGraph</span>
+        <footer className="flex flex-col gap-1 border-t border-slate-800/80 pt-4 text-[11px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            GFIP · Global Fragility Intelligence Platform · Powered by AtlasGraph
+          </span>
           <span className="font-mono">control-room demo</span>
         </footer>
       </main>

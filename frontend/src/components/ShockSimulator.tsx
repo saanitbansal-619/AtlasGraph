@@ -264,7 +264,7 @@ export function ShockSimulator({
           <>
             <Divider label="Guided custom shock" />
             <p className="text-xs leading-relaxed text-slate-400">
-              Source → connected commodity → valid shock type. Only graph-linked combinations
+              Source {'->'} connected commodity {'->'} valid shock type. Only graph-linked combinations
               are shown.
             </p>
 
@@ -525,7 +525,7 @@ function RecommendedScenarios({
             type="button"
             disabled={disabled}
             onClick={() => onPick(rs)}
-            title={`${rs.source} → ${rs.commodity} · ${rs.shock_type} · drop ${rs.drop}% · depth ${rs.depth}`}
+            title={`${rs.source} -> ${rs.commodity} · ${rs.shock_type} · drop ${rs.drop}% · depth ${rs.depth}`}
             className="rounded border border-slate-700/70 bg-slate-800/40 px-2 py-1 text-[11px] text-slate-300 transition hover:border-cyan-500/50 hover:text-cyan-200 disabled:opacity-50"
           >
             {rs.label}

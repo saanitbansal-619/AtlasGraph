@@ -626,19 +626,19 @@ var shockTypeGuidance = map[string]struct {
 	requires       []string
 }{
 	string(models.ShockExportCollapse): {
-		recommendedFor: []string{"country → commodity export relationships"},
+		recommendedFor: []string{"country -> commodity export relationships"},
 		requires:       []string{"exports"},
 	},
 	string(models.ShockSupplyCut): {
-		recommendedFor: []string{"country → commodity supply relationships"},
+		recommendedFor: []string{"country -> commodity supply relationships"},
 		requires:       []string{"exports", "supplies"},
 	},
 	string(models.ShockPriceSpike): {
-		recommendedFor: []string{"commodity → price-exposed sectors"},
+		recommendedFor: []string{"commodity -> price-exposed sectors"},
 		requires:       []string{"price_exposure"},
 	},
 	string(models.ShockRouteDisruption): {
-		recommendedFor: []string{"route → commodity chokepoint relationships"},
+		recommendedFor: []string{"route -> commodity chokepoint relationships"},
 		requires:       []string{"route_exposure"},
 	},
 }
@@ -646,9 +646,9 @@ var shockTypeGuidance = map[string]struct {
 // candidateRecommendedScenarios are the spec's suggested scenarios. They are
 // only surfaced when they actually make sense for the loaded graph.
 var candidateRecommendedScenarios = []jsonRecommendedScenario{
-	{Label: "Taiwan semiconductor export collapse", Source: "Taiwan", Commodity: "semiconductors", ShockType: "export_collapse", Drop: 30, Depth: 3},
-	{Label: "China lithium battery supply cut", Source: "China", Commodity: "lithium batteries", ShockType: "supply_cut", Drop: 35, Depth: 3},
-	{Label: "Saudi crude oil supply cut", Source: "Saudi Arabia", Commodity: "crude oil", ShockType: "supply_cut", Drop: 25, Depth: 3},
+	{Label: "Taiwan Semiconductor Export Collapse", Source: "Taiwan", Commodity: "semiconductors", ShockType: "export_collapse", Drop: 30, Depth: 3},
+	{Label: "China Lithium Battery Supply Cut", Source: "China", Commodity: "lithium batteries", ShockType: "supply_cut", Drop: 35, Depth: 3},
+	{Label: "Saudi Crude Oil Supply Cut", Source: "Saudi Arabia", Commodity: "crude oil", ShockType: "supply_cut", Drop: 25, Depth: 3},
 }
 
 func buildShockOptionsJSON(ds *data.Dataset) jsonShockOptions {
