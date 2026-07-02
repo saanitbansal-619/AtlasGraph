@@ -13,6 +13,7 @@ import type {
   CommodityStressResponse,
   CommodityHistoryResponse,
   CommodityHistoryIndexResponse,
+  EventRiskResponse,
   ApiError,
 } from '../types/api'
 
@@ -21,7 +22,7 @@ export const API_BASE =
 
 // The exact command a user needs to start the backend — surfaced in error UI.
 export const BACKEND_COMMAND =
-  'go run ./cmd/atlas serve --data data/generated/trade_graph --trade-data data/processed/trade --macro-data data/raw/worldbank --event-data data/raw/gdelt --port 8080'
+  'go run ./cmd/atlas serve --data data/generated/trade_graph --trade-data data/processed/trade --macro-data data/raw/worldbank --event-data data/raw/gdelt --processed-event-data data/processed/events --port 8080'
 
 // ApiRequestError carries the structured {error, hint} from the API, plus a
 // flag distinguishing "backend unreachable" (network) from "request rejected".
@@ -94,6 +95,10 @@ export const api = {
     request<CommodityHistoryResponse>(
       `/api/commodities/history?commodity=${encodeURIComponent(commodity)}`,
     ),
+  eventRisk: (country?: string) => {
+    const q = country?.trim() ? `?country=${encodeURIComponent(country.trim())}` : ''
+    return request<EventRiskResponse>(`/api/events/risk${q}`)
+  },
   runShock: (body: ShockRequest) =>
     request<ShockResponse>('/api/shock', {
       method: 'POST',

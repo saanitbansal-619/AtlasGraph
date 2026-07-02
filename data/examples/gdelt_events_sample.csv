@@ -1,0 +1,10 @@
+country,date,event_type,severity,tone,summary
+Ukraine,2026-05-01,conflict,0.82,-6.4,Military escalation reported near eastern front
+Ukraine,2026-04-28,sanctions,0.75,-5.2,New sanctions package discussed
+Ukraine,2026-04-10,protest,0.55,-3.1,Demonstrations in major cities
+Russia,2026-05-02,conflict,0.90,-7.1,Border incident reported
+Russia,2026-04-20,infrastructure disruption,0.70,-4.8,Pipeline disruption near export hub
+United States,2026-05-01,economic,0.20,1.5,Trade report released
+USA,2026-04-15,security,0.45,-2.0,Security review announced
+Korea Rep.,2026-04-22,trade,0.35,-1.2,Export controls discussion
+Unknownistan,2026-05-01,conflict,0.50,-3.0,Should be skipped

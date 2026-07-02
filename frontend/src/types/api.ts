@@ -267,6 +267,30 @@ export interface CommodityHistoryIndexResponse {
   commodities: string[]
 }
 
+export interface EventRiskScore {
+  country?: string
+  country_code: string
+  country_name: string
+  events: number
+  event_count?: number
+  recent_event_count?: number
+  avg_tone: number
+  average_tone?: number
+  event_risk_score: number
+  risk_level: string
+  top_drivers: string[]
+  top_terms: string[]
+  top_event_types?: string[]
+}
+
+export interface EventRiskResponse {
+  source: string
+  real_event_data: boolean
+  date_from?: string
+  date_to?: string
+  scores: EventRiskScore[]
+}
+
 // JSON error envelope returned by the API on failure.
 export interface ApiError {
   error: string

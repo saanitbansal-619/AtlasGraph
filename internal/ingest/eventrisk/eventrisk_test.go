@@ -1,0 +1,133 @@
+package eventrisk
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestLoadSampleCSV(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "data", "examples", "gdelt_events_sample.csv")
+	res, err := LoadCSV(path)
+	if err != nil {
+		t.Fatalf("LoadCSV: %v", err)
+	}
+	if len(res.Events) != 8 {
+		t.Fatalf("events = %d, want 8 (unknown country skipped)", len(res.Events))
+	}
+	for _, w := range res.Warnings {
+		if !strings.Contains(w, "Unknownistan") {
+			continue
+		}
+		return
+	}
+	t.Fatal("expected warning for Unknownistan")
+}
+
+func TestIngestFromFileWritesRiskFile(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "data", "examples", "gdelt_events_sample.csv")
+	file, warnings, err := IngestFromFile(path, SourceName)
+	if err != nil {
+		t.Fatalf("IngestFromFile: %v", err)
+	}
+	if len(warnings) == 0 {
+		t.Fatal("expected at least one warning for unknown country")
+	}
+	if len(file.Countries) == 0 {
+		t.Fatal("expected country risk rows")
+	}
+
+	dir := t.TempDir()
+	out, err := Save(dir, file)
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if loaded.EventCount != file.EventCount {
+		t.Fatalf("event_count = %d, want %d", loaded.EventCount, file.EventCount)
+	}
+	if filepath.Base(out) != OutputFileName {
+		t.Fatalf("output file = %q, want %q", filepath.Base(out), OutputFileName)
+	}
+}
+
+func TestScoreEventsRecencyAndRiskTypes(t *testing.T) {
+	now := time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC)
+	events := []NormalizedEvent{
+		{Country: "Ukraine", Date: "2026-05-01", EventType: "conflict", Severity: 0.9, Tone: -8},
+		{Country: "Ukraine", Date: "2026-04-01", EventType: "economic", Severity: 0.2, Tone: 1},
+		{Country: "United States", Date: "2026-05-02", EventType: "economic", Severity: 0.2, Tone: 1},
+	}
+	scores := ScoreEvents(events, now)
+	if len(scores) != 2 {
+		t.Fatalf("scores = %d, want 2", len(scores))
+	}
+	if scores[0].Country != "Ukraine" {
+		t.Fatalf("top country = %q, want Ukraine", scores[0].Country)
+	}
+	if scores[0].RecentEventCount != 1 {
+		t.Fatalf("recent_event_count = %d, want 1", scores[0].RecentEventCount)
+	}
+	if scores[0].EventRiskScore <= scores[1].EventRiskScore {
+		t.Fatalf("expected Ukraine to outrank United States: %.1f vs %.1f", scores[0].EventRiskScore, scores[1].EventRiskScore)
+	}
+}
+
+func TestParseJSONWrapped(t *testing.T) {
+	b := []byte(`{"events":[{"country":"Ukraine","date":"2026-05-01","event_type":"conflict","severity":0.8,"tone":-5}]}`)
+	res, err := ParseJSON(b)
+	if err != nil {
+		t.Fatalf("ParseJSON: %v", err)
+	}
+	if len(res.Events) != 1 {
+		t.Fatalf("events = %d, want 1", len(res.Events))
+	}
+}
+
+func TestToLegacyCountryScores(t *testing.T) {
+	file := RiskFile{
+		Countries: []CountryRisk{{
+			Country: "Ukraine", CountryCode: "UKR", EventRiskScore: 80, RiskLevel: "Critical",
+			EventCount: 3, RecentEventCount: 2, AverageTone: -5, TopEventTypes: []string{"conflict"},
+		}},
+	}
+	legacy := ToLegacyCountryScores(file)
+	if len(legacy) != 1 || legacy[0].CountryCode != "UKR" {
+		t.Fatalf("legacy scores = %+v", legacy)
+	}
+}
+
+func TestRecentEventsForCountry(t *testing.T) {
+	file := RiskFile{
+		Events: []NormalizedEvent{
+			{Country: "Ukraine", Date: "2026-05-01"},
+			{Country: "Ukraine", Date: "2026-04-01"},
+			{Country: "Russia", Date: "2026-05-02"},
+		},
+	}
+	recent := RecentEventsForCountry(file, "Ukraine", 1)
+	if len(recent) != 1 || recent[0].Date != "2026-05-01" {
+		t.Fatalf("recent = %+v", recent)
+	}
+}
+
+func TestLoadMissingFile(t *testing.T) {
+	if _, err := LoadCSV("does-not-exist.csv"); err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestIngestFromFileUnsupportedExt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.txt")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := IngestFromFile(path, SourceName); err == nil {
+		t.Fatal("expected unsupported extension error")
+	}
+}

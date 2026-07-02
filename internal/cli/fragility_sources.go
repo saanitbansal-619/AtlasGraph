@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/atlasgraph/atlas/internal/config"
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
+	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
@@ -12,7 +13,7 @@ import (
 // loadFragilitySources assembles optional upstream datasets for unified
 // fragility scoring. Missing paths are skipped so callers can produce partial
 // scores with missing_components instead of failing outright.
-func loadFragilitySources(graphData, tradeData, macroData, eventData, commodityData string) fragility.Sources {
+func loadFragilitySources(graphData, tradeData, macroData, processedEventData, legacyEventData, commodityData string) fragility.Sources {
 	src := fragility.Sources{Config: config.Default()}
 
 	if ds, err := loadDataset(graphData); err == nil {
@@ -29,8 +30,13 @@ func loadFragilitySources(graphData, tradeData, macroData, eventData, commodityD
 			src.Macro = &f
 		}
 	}
-	if eventData != "" {
-		if f, err := gdelt.Load(eventData); err == nil {
+	if processedEventData != "" {
+		if f, err := eventrisk.Load(processedEventData); err == nil && len(f.Countries) > 0 {
+			src.ProcessedEventRisk = &f
+		}
+	}
+	if src.ProcessedEventRisk == nil && legacyEventData != "" {
+		if f, err := gdelt.Load(legacyEventData); err == nil {
 			src.Events = &f
 		}
 	}

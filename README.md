@@ -139,6 +139,73 @@ Pink Sheet data is **real public monthly historical nominal USD prices**, not li
 
 ---
 
+## Real Event Risk Pipeline
+
+GFIP can ingest **GDELT-style public event/news CSV or JSON** files from local downloads and score country-level event risk.
+
+### Raw data folder
+
+Place downloaded GDELT event exports here:
+
+```
+data/raw/gdelt_events/
+```
+
+See [`data/raw/gdelt_events/README.md`](data/raw/gdelt_events/README.md) for expected fields.
+
+### Ingest
+
+```bash
+go run ./cmd/atlas ingest events \
+  --file data/raw/gdelt_events/events.csv \
+  --out data/processed/events \
+  --source gdelt
+```
+
+For offline testing without a full GDELT download:
+
+```bash
+go run ./cmd/atlas ingest events \
+  --file data/examples/gdelt_events_sample.csv \
+  --out data/processed/events \
+  --source gdelt
+```
+
+Output: `data/processed/events/event_risk.json`
+
+### API
+
+```bash
+curl http://localhost:8080/api/events/risk
+curl "http://localhost:8080/api/events/risk?country=Ukraine"
+```
+
+Responses include `source` and `real_event_data` so the dashboard can show **Real event data** vs **Demo event data**.
+
+When no processed file exists, the API falls back to legacy demo GDELT fixture data from `--event-data` (typically `data/raw/gdelt`).
+
+### Serve with processed event risk
+
+```bash
+go run ./cmd/atlas serve \
+  --data data/strategic_global \
+  --processed-event-data data/processed/events \
+  --event-data data/raw/gdelt \
+  --port 8080
+```
+
+### Data note
+
+GDELT/event data in v1 is **manually refreshed** — download new files and re-run ingest. When real files are provided, GFIP treats the signals as **real public event/news-derived data**, not live intelligence or ground truth.
+
+The existing offline demo path still works:
+
+```bash
+go run ./cmd/atlas ingest gdelt --fixture data/examples/gdelt_events_sample.json --out data/raw/gdelt
+```
+
+---
+
 ## Quickstart
 
 ### Backend validation
@@ -157,6 +224,7 @@ go run ./cmd/atlas serve \
   --trade-data data/processed/trade \
   --macro-data data/raw/worldbank \
   --event-data data/raw/gdelt \
+  --processed-event-data data/processed/events \
   --commodity-data data/processed/commodity_prices \
   --port 8080
 ```

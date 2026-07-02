@@ -6,6 +6,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/config"
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
@@ -228,5 +229,52 @@ func sampleTradeFile() trade.TradeFile {
 			{Year: 2023, ExporterCode: "KOR", ExporterName: "Korea Rep.", ImporterCode: "USA", ImporterName: "United States", CommodityCode: "8542", CommodityName: "semiconductors", TradeValueUSD: 30e9},
 			{Year: 2023, ExporterCode: "JPN", ExporterName: "Japan", ImporterCode: "USA", ImporterName: "United States", CommodityCode: "8542", CommodityName: "semiconductors", TradeValueUSD: 10e9},
 		},
+	}
+}
+
+func TestCountryFragilityProcessedEventRisk(t *testing.T) {
+	ds, err := data.Default()
+	if err != nil {
+		t.Fatalf("default dataset: %v", err)
+	}
+
+	processed := eventrisk.RiskFile{
+		Source: eventrisk.SourceName,
+		Countries: []eventrisk.CountryRisk{
+			{Country: "Taiwan", CountryCode: "TWN", EventRiskScore: 85, RiskLevel: "Critical", EventCount: 4, RecentEventCount: 3, AverageTone: -6},
+			{Country: "United States", CountryCode: "USA", EventRiskScore: 25, RiskLevel: "Low", EventCount: 2, RecentEventCount: 1, AverageTone: -1},
+		},
+	}
+	legacyFile := sampleEventFile()
+
+	withLegacy := Score(Sources{
+		Graph: ds.Graph, Scenarios: ds.Scenarios, Trade: nil, Macro: nil,
+		Events: &legacyFile, Config: config.Default(),
+	})
+	withProcessed := Score(Sources{
+		Graph: ds.Graph, Scenarios: ds.Scenarios, Trade: nil, Macro: nil,
+		ProcessedEventRisk: &processed, Events: &legacyFile, Config: config.Default(),
+	})
+
+	if len(withProcessed.Countries) == 0 {
+		t.Fatal("expected country scores with processed event risk")
+	}
+
+	var twProcessed, twLegacy *CountryScore
+	for i := range withProcessed.Countries {
+		if withProcessed.Countries[i].CountryCode == "TWN" {
+			twProcessed = &withProcessed.Countries[i]
+		}
+	}
+	for i := range withLegacy.Countries {
+		if withLegacy.Countries[i].CountryCode == "TWN" {
+			twLegacy = &withLegacy.Countries[i]
+		}
+	}
+	if twProcessed == nil || twLegacy == nil {
+		t.Fatal("expected Taiwan in both score sets")
+	}
+	if twProcessed.Score == twLegacy.Score {
+		t.Fatalf("expected processed event risk to change Taiwan score: processed=%v legacy=%v", twProcessed.Score, twLegacy.Score)
 	}
 }

@@ -14,11 +14,12 @@ import (
 func fullTestServer(t *testing.T) http.Handler {
 	t.Helper()
 	return newAPIServer(serverConfig{
-		GraphData:     "", // embedded sample dataset
-		TradeData:     seedProcessedTrade(t, tradeSampleCSV),
-		MacroData:     seedMacroFile(t),
-		EventData:     seedGDELTFile(t),
-		CommodityData: seedCommodityPrices(t),
+		GraphData:          "", // embedded sample dataset
+		TradeData:          seedProcessedTrade(t, tradeSampleCSV),
+		MacroData:          seedMacroFile(t),
+		EventData:          seedGDELTFile(t),
+		ProcessedEventData: seedProcessedEventRisk(t),
+		CommodityData:      seedCommodityPrices(t),
 	})
 }
 
@@ -222,10 +223,39 @@ func TestAPIEventsRisk(t *testing.T) {
 		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
 	}
 	parsed := decodeBody(t, rec)
-	for _, key := range []string{"weights", "risk_bands", "scores"} {
+	for _, key := range []string{"source", "real_event_data", "weights", "risk_bands", "scores"} {
 		if _, ok := parsed[key]; !ok {
 			t.Errorf("events risk JSON missing %q", key)
 		}
+	}
+	if string(parsed["real_event_data"]) != "true" {
+		t.Errorf("real_event_data = %s, want true", parsed["real_event_data"])
+	}
+}
+
+func TestAPIEventsRiskDemoFallback(t *testing.T) {
+	h := newAPIServer(serverConfig{EventData: seedGDELTFile(t)})
+	rec := do(h, http.MethodGet, "/api/events/risk", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	parsed := decodeBody(t, rec)
+	if string(parsed["real_event_data"]) != "false" {
+		t.Errorf("real_event_data = %s, want false", parsed["real_event_data"])
+	}
+}
+
+func TestAPIEventsRiskCountryFilter(t *testing.T) {
+	rec := do(fullTestServer(t), http.MethodGet, "/api/events/risk?country=Ukraine", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	parsed := decodeBody(t, rec)
+	if _, ok := parsed["country"]; !ok {
+		t.Fatal("expected country field in filtered response")
+	}
+	if _, ok := parsed["recent_events"]; !ok {
+		t.Fatal("expected recent_events field in filtered response")
 	}
 }
 

@@ -11,12 +11,10 @@ import (
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
-	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
-	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/fragility"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
 	"github.com/atlasgraph/atlas/internal/simulation"
@@ -26,11 +24,12 @@ import (
 // loaded lazily, per request, so the server starts even when some are missing —
 // only the affected endpoint then returns a helpful error.
 type serverConfig struct {
-	GraphData     string // dataset dir (entities/dependencies/scenarios); "" => embedded sample
-	TradeData     string // ingested trade panel dir
-	MacroData     string // ingested World Bank macro dir
-	EventData     string // ingested GDELT event dir
-	CommodityData string // ingested commodity price dir
+	GraphData          string // dataset dir (entities/dependencies/scenarios); "" => embedded sample
+	TradeData          string // ingested trade panel dir
+	MacroData          string // ingested World Bank macro dir
+	EventData          string // legacy ingested GDELT event dir (demo fallback)
+	ProcessedEventData string // processed event-risk panel dir (event_risk.json)
+	CommodityData      string // ingested commodity price dir
 }
 
 // corsAllowedOrigins are the dev-frontend origins permitted by CORS, ready for a
@@ -418,19 +417,20 @@ func (s *apiServer) handleEventsRisk(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	file, err := gdelt.Load(s.cfg.EventData)
+	resolved, err := resolveEventRisk(s.cfg.ProcessedEventData, s.cfg.EventData)
 	if err != nil {
 		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"run `atlas ingest gdelt ...` (or use --fixture) or pass an existing --event-data dir")
+			"run `atlas ingest events --file <csv>` or `atlas ingest gdelt --fixture ...` and pass --processed-event-data / --event-data")
 		return
 	}
-	scores := events.ScoreCountries(file, events.DefaultWeights())
-	if len(scores) == 0 {
+	country := strings.TrimSpace(r.URL.Query().Get("country"))
+	resolved = resolved.withCountryFilter(country)
+	if len(resolved.Scores) == 0 {
 		writeAPIError(w, http.StatusInternalServerError,
-			"no event data found in "+s.cfg.EventData, "run `atlas ingest gdelt ...` first")
+			"no event data found", "run `atlas ingest events --file <csv>` or `atlas ingest gdelt --fixture ...` first")
 		return
 	}
-	writeJSONStatus(w, http.StatusOK, buildEventRiskJSON(scores))
+	writeJSONStatus(w, http.StatusOK, buildResolvedEventRiskJSON(resolved))
 }
 
 func (s *apiServer) handleCommodityStress(w http.ResponseWriter, r *http.Request) {
@@ -508,7 +508,7 @@ func (s *apiServer) handleFragilitySummary(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *apiServer) fragilitySources() fragility.Sources {
-	return loadFragilitySources(s.cfg.GraphData, s.cfg.TradeData, s.cfg.MacroData, s.cfg.EventData, s.cfg.CommodityData)
+	return loadFragilitySources(s.cfg.GraphData, s.cfg.TradeData, s.cfg.MacroData, s.cfg.ProcessedEventData, s.cfg.EventData, s.cfg.CommodityData)
 }
 
 // loadTrade loads the configured trade panel, writing a JSON error and

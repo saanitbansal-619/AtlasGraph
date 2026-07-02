@@ -10,6 +10,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
+	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
@@ -457,21 +458,42 @@ func saveMacroJSON(path string, scores []macro.CountryScore, yearLens int) error
 // --- event risk scores -----------------------------------------------------
 
 type jsonEventFile struct {
-	Weights   events.Weights     `json:"weights"`
-	RiskBands map[string]string  `json:"risk_bands"`
-	Scores    []jsonEventCountry `json:"scores"`
+	Source        string             `json:"source"`
+	RealEventData bool               `json:"real_event_data"`
+	DateFrom      string             `json:"date_from,omitempty"`
+	DateTo        string             `json:"date_to,omitempty"`
+	Weights       events.Weights     `json:"weights"`
+	RiskBands     map[string]string  `json:"risk_bands"`
+	Scores        []jsonEventCountry `json:"scores"`
+	Country       *jsonEventCountry  `json:"country,omitempty"`
+	RecentEvents  []jsonEventRecord  `json:"recent_events,omitempty"`
+}
+
+type jsonEventRecord struct {
+	Country   string  `json:"country"`
+	Date      string  `json:"date"`
+	EventType string  `json:"event_type"`
+	Severity  float64 `json:"severity"`
+	Tone      float64 `json:"tone"`
+	Source    string  `json:"source"`
+	Summary   string  `json:"summary,omitempty"`
 }
 
 type jsonEventCountry struct {
-	CountryCode    string               `json:"country_code"`
-	CountryName    string               `json:"country_name"`
-	Events         int                  `json:"events"`
-	AvgTone        float64              `json:"avg_tone"`
-	EventRiskScore float64              `json:"event_risk_score"`
-	RiskLevel      string               `json:"risk_level"`
-	TopDrivers     []string             `json:"top_drivers"`
-	TopTerms       []string             `json:"top_terms"`
-	Components     []jsonEventComponent `json:"components"`
+	Country          string               `json:"country,omitempty"`
+	CountryCode      string               `json:"country_code"`
+	CountryName      string               `json:"country_name"`
+	Events           int                  `json:"events"`
+	EventCount       int                  `json:"event_count,omitempty"`
+	RecentEventCount int                  `json:"recent_event_count,omitempty"`
+	AvgTone          float64              `json:"avg_tone"`
+	AverageTone      float64              `json:"average_tone,omitempty"`
+	EventRiskScore   float64              `json:"event_risk_score"`
+	RiskLevel        string               `json:"risk_level"`
+	TopDrivers       []string             `json:"top_drivers"`
+	TopTerms         []string             `json:"top_terms"`
+	TopEventTypes    []string             `json:"top_event_types,omitempty"`
+	Components       []jsonEventComponent `json:"components"`
 }
 
 type jsonEventComponent struct {
@@ -483,43 +505,84 @@ type jsonEventComponent struct {
 }
 
 func buildEventRiskJSON(scores []events.CountryScore) jsonEventFile {
+	return buildResolvedEventRiskJSON(resolvedEventRisk{Scores: scores, Source: "sample", RealEventData: false})
+}
+
+func buildResolvedEventRiskJSON(r resolvedEventRisk) jsonEventFile {
 	out := jsonEventFile{
-		Weights: events.DefaultWeights(),
+		Source:        r.Source,
+		RealEventData: r.RealEventData,
+		DateFrom:      r.DateFrom,
+		DateTo:        r.DateTo,
+		Weights:       events.DefaultWeights(),
 		RiskBands: map[string]string{
 			"low": "0-30", "medium": "30-60", "high": "60-80", "critical": "80-100",
 		},
-		Scores: make([]jsonEventCountry, 0, len(scores)),
+		Scores: make([]jsonEventCountry, 0, len(r.Scores)),
 	}
-	for _, s := range scores {
-		jc := jsonEventCountry{
-			CountryCode:    s.CountryCode,
-			CountryName:    s.CountryName,
-			Events:         s.Events,
-			AvgTone:        round(s.AvgTone, 2),
-			EventRiskScore: round(s.Score, 1),
-			RiskLevel:      s.RiskLevel,
-			TopDrivers:     s.TopDrivers,
-			TopTerms:       s.TopTerms,
-			Components:     make([]jsonEventComponent, 0, len(s.Components)),
-		}
-		if jc.TopDrivers == nil {
-			jc.TopDrivers = []string{}
-		}
-		if jc.TopTerms == nil {
-			jc.TopTerms = []string{}
-		}
-		for _, c := range s.Components {
-			jc.Components = append(jc.Components, jsonEventComponent{
-				Key:          c.Key,
-				Name:         c.Name,
-				Score:        round(c.Score, 1),
-				Weight:       c.Weight,
-				Contribution: round(c.Contribution, 2),
+	for _, s := range r.Scores {
+		out.Scores = append(out.Scores, jsonCountryFromScore(s, r.Processed))
+	}
+	if r.CountryFilter != "" && len(out.Scores) > 0 {
+		country := out.Scores[0]
+		out.Country = &country
+	}
+	if len(r.RecentEvents) > 0 {
+		out.RecentEvents = make([]jsonEventRecord, 0, len(r.RecentEvents))
+		for _, e := range r.RecentEvents {
+			out.RecentEvents = append(out.RecentEvents, jsonEventRecord{
+				Country: e.Country, Date: e.Date, EventType: e.EventType,
+				Severity: round(e.Severity, 2), Tone: round(e.Tone, 2),
+				Source: e.Source, Summary: e.Summary,
 			})
 		}
-		out.Scores = append(out.Scores, jc)
 	}
 	return out
+}
+
+func jsonCountryFromScore(s events.CountryScore, processed *eventrisk.RiskFile) jsonEventCountry {
+	jc := jsonEventCountry{
+		Country:        s.CountryName,
+		CountryCode:    s.CountryCode,
+		CountryName:    s.CountryName,
+		Events:         s.Events,
+		EventCount:     s.Events,
+		AvgTone:        round(s.AvgTone, 2),
+		AverageTone:    round(s.AvgTone, 2),
+		EventRiskScore: round(s.Score, 1),
+		RiskLevel:      s.RiskLevel,
+		TopDrivers:     s.TopDrivers,
+		TopTerms:       s.TopTerms,
+		TopEventTypes:  s.TopTerms,
+		Components:     make([]jsonEventComponent, 0, len(s.Components)),
+	}
+	if processed != nil {
+		if row, ok := eventrisk.CountryRiskFor(*processed, s.CountryName); ok {
+			jc.RecentEventCount = row.RecentEventCount
+			jc.TopEventTypes = row.TopEventTypes
+			jc.EventCount = row.EventCount
+			jc.AverageTone = round(row.AverageTone, 2)
+		}
+	}
+	if jc.TopDrivers == nil {
+		jc.TopDrivers = []string{}
+	}
+	if jc.TopTerms == nil {
+		jc.TopTerms = []string{}
+	}
+	if jc.TopEventTypes == nil {
+		jc.TopEventTypes = []string{}
+	}
+	for _, c := range s.Components {
+		jc.Components = append(jc.Components, jsonEventComponent{
+			Key:          c.Key,
+			Name:         c.Name,
+			Score:        round(c.Score, 1),
+			Weight:       c.Weight,
+			Contribution: round(c.Contribution, 2),
+		})
+	}
+	return jc
 }
 
 func writeEventRiskJSON(w io.Writer, scores []events.CountryScore) error {

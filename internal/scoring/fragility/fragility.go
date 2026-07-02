@@ -14,6 +14,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
+	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
@@ -108,8 +109,9 @@ type Sources struct {
 	Scenarios   []data.Scenario
 	Trade       *trade.TradeFile
 	Macro       *worldbank.IndicatorFile
-	Events      *gdelt.EventFile
-	Commodities *commodityprices.PriceFile
+	Events             *gdelt.EventFile
+	ProcessedEventRisk *eventrisk.RiskFile
+	Commodities        *commodityprices.PriceFile
 	Config      config.Config
 }
 
@@ -120,7 +122,7 @@ func Score(src Sources) Result {
 	kw := DefaultCommodityWeights()
 
 	macroByKey := indexMacro(src.Macro)
-	eventByKey := indexEvents(src.Events)
+	eventByKey := indexEvents(src.ProcessedEventRisk, src.Events)
 	tradeConcByKey := tradeConcentrationByImporter(src.Trade)
 	shockByName, shockOK := shockExposureByCountry(src.Graph, src.Scenarios, src.Config)
 
@@ -472,12 +474,18 @@ func indexMacro(file *worldbank.IndicatorFile) map[string]macro.CountryScore {
 	return out
 }
 
-func indexEvents(file *gdelt.EventFile) map[string]events.CountryScore {
+func indexEvents(processed *eventrisk.RiskFile, legacy *gdelt.EventFile) map[string]events.CountryScore {
 	out := map[string]events.CountryScore{}
-	if file == nil {
+	if processed != nil && len(processed.Countries) > 0 {
+		for _, s := range eventrisk.ToLegacyCountryScores(*processed) {
+			out[strings.ToUpper(s.CountryCode)] = s
+		}
 		return out
 	}
-	for _, s := range events.ScoreCountries(*file, events.DefaultWeights()) {
+	if legacy == nil {
+		return out
+	}
+	for _, s := range events.ScoreCountries(*legacy, events.DefaultWeights()) {
 		out[strings.ToUpper(s.CountryCode)] = s
 	}
 	return out

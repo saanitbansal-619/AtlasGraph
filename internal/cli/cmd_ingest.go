@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
+	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
@@ -16,7 +17,7 @@ import (
 
 func runIngest(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade|trade-comtrade|gdelt|commodity-prices> [flags]")
+		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade|trade-comtrade|gdelt|commodity-prices|events> [flags]")
 		return 2
 	}
 	switch args[0] {
@@ -30,8 +31,10 @@ func runIngest(args []string, out, errOut io.Writer) int {
 		return ingestGDELT(args[1:], out, errOut)
 	case "commodity-prices":
 		return ingestCommodityPrices(args[1:], out, errOut)
+	case "events":
+		return ingestEvents(args[1:], out, errOut)
 	default:
-		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, trade, trade-comtrade, gdelt or commodity-prices)\n", args[0])
+		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, trade, trade-comtrade, gdelt, commodity-prices or events)\n", args[0])
 		return 2
 	}
 }
@@ -83,6 +86,62 @@ func ingestCommodityPrices(args []string, out, errOut io.Writer) int {
 
 	renderCommodityIngestReport(out, *file, path, res, commodityprices.BuildSummary(pf), sourceName, meta)
 	return 0
+}
+
+// ingestEvents loads a local GDELT-style CSV/JSON file, scores country event
+// risk, and writes data/processed/events/event_risk.json.
+func ingestEvents(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("ingest events", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	file := fs.String("file", "", "path to a GDELT-style event CSV or JSON file")
+	source := fs.String("source", eventrisk.SourceName, "ingest source label (e.g. gdelt)")
+	outDir := fs.String("out", "data/processed/events", "directory to write normalized output to")
+	fs.Usage = func() {
+		fmt.Fprintln(errOut, "Usage: atlas ingest events --file <csv|json> [--source gdelt] [--out dir]")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if strings.TrimSpace(*file) == "" {
+		fmt.Fprintln(errOut, "error: --file is required (path to a GDELT-style event CSV or JSON)")
+		fs.Usage()
+		return 2
+	}
+
+	riskFile, warnings, err := eventrisk.IngestFromFile(*file, *source)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		for _, w := range warnings {
+			fmt.Fprintf(errOut, "  warning: %s\n", w)
+		}
+		return 1
+	}
+
+	path, err := eventrisk.Save(*outDir, riskFile)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+
+	renderEventIngestReport(out, *file, path, riskFile, warnings)
+	return 0
+}
+
+// renderEventIngestReport prints a short summary after event-risk ingest.
+func renderEventIngestReport(out io.Writer, srcFile, outPath string, file eventrisk.RiskFile, warnings []string) {
+	fmt.Fprintf(out, "Ingested %d events across %d countries from %s\n", file.EventCount, len(file.Countries), srcFile)
+	if file.DateFrom != "" && file.DateTo != "" {
+		fmt.Fprintf(out, "Date range: %s to %s\n", file.DateFrom, file.DateTo)
+	}
+	fmt.Fprintf(out, "Saved event risk panel to %s\n", outPath)
+	for _, w := range warnings {
+		fmt.Fprintf(out, "  warning: %s\n", w)
+	}
+	if len(file.Countries) > 0 {
+		top := file.Countries[0]
+		fmt.Fprintf(out, "Top event-risk country: %s (%.1f, %s)\n", top.Country, top.EventRiskScore, top.RiskLevel)
+	}
 }
 
 // gdeltSleepOverride lets tests replace the live client's rate-limit/back-off
