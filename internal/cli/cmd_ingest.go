@@ -36,29 +36,29 @@ func runIngest(args []string, out, errOut io.Writer) int {
 	}
 }
 
-// ingestCommodityPrices loads a local commodity price time-series CSV (World
-// Bank Pink Sheet style), normalises it into the same commodity_prices.json the
-// scoring command consumes, and prints an ingestion report. It calls no network
-// services; the bundled sample file is synthetic demo data.
+// ingestCommodityPrices loads a local commodity price time-series CSV or World
+// Bank Pink Sheet monthly XLSX, normalises it into commodity_prices.json, and
+// prints an ingestion report.
 func ingestCommodityPrices(args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("ingest commodity-prices", flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	file := fs.String("file", "", "path to a commodity price CSV to ingest")
+	file := fs.String("file", "", "path to a commodity price CSV or Pink Sheet XLSX to ingest")
+	source := fs.String("source", "", "ingest source: csv or worldbank-pinksheet (auto-detected from extension when omitted)")
 	outDir := fs.String("out", "data/processed/commodity_prices", "directory to write normalized output to")
 	fs.Usage = func() {
-		fmt.Fprintln(errOut, "Usage: atlas ingest commodity-prices --file <csv> [--out dir]")
+		fmt.Fprintln(errOut, "Usage: atlas ingest commodity-prices --file <csv|xlsx> [--source csv|worldbank-pinksheet] [--out dir]")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if strings.TrimSpace(*file) == "" {
-		fmt.Fprintln(errOut, "error: --file is required (path to a commodity price CSV)")
+		fmt.Fprintln(errOut, "error: --file is required (path to a commodity price CSV or Pink Sheet XLSX)")
 		fs.Usage()
 		return 2
 	}
 
-	res, err := commodityprices.LoadFile(*file)
+	res, sourceName, meta, err := commodityprices.IngestFromFile(*file, *source)
 	if err != nil {
 		fmt.Fprintf(errOut, "error: %v\n", err)
 		return 1
@@ -70,7 +70,7 @@ func ingestCommodityPrices(args []string, out, errOut io.Writer) int {
 
 	commodityprices.SortRecords(res.Records)
 	pf := commodityprices.PriceFile{
-		Source:     commodityprices.SourceName,
+		Source:     sourceName,
 		IngestedAt: time.Now().UTC(),
 		SourceFile: *file,
 		Records:    res.Records,
@@ -81,7 +81,7 @@ func ingestCommodityPrices(args []string, out, errOut io.Writer) int {
 		return 1
 	}
 
-	renderCommodityIngestReport(out, *file, path, res, commodityprices.BuildSummary(pf))
+	renderCommodityIngestReport(out, *file, path, res, commodityprices.BuildSummary(pf), sourceName, meta)
 	return 0
 }
 

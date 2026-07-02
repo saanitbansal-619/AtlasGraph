@@ -83,7 +83,7 @@ Commands:
   ingest worldbank      Fetch real macro indicators from the World Bank API
   ingest trade          Ingest country-to-country trade flows from a local CSV
   ingest gdelt          Fetch real-world event/news risk from the GDELT API
-  ingest commodity-prices  Ingest commodity price time series from a local CSV
+  ingest commodity-prices  Ingest commodity prices from CSV or World Bank Pink Sheet XLSX
   indicators country    Show ingested macro indicators for a country
   trade summary         Summarise an ingested trade-flow panel
   trade dependency      Show supplier dependency for an importer + commodity
@@ -128,6 +128,7 @@ Examples:
   atlas ingest gdelt --fixture data/examples/gdelt_events_sample.json --out data/raw/gdelt
   atlas events risk --data data/raw/gdelt
   atlas ingest commodity-prices --file data/examples/commodity_prices_sample.csv --out data/processed/commodity_prices
+  atlas ingest commodity-prices --file data/raw/worldbank_pinksheet/CMO-Historical-Data-Monthly.xlsx --out data/processed/commodity_prices --source worldbank-pinksheet
   atlas score commodities --data data/processed/commodity_prices
   atlas score fragility --graph-data data/generated/trade_graph --trade-data data/processed/trade --macro-data data/raw/worldbank --event-data data/raw/gdelt --commodity-data data/processed/commodity_prices
   atlas serve --data data/generated/trade_graph --trade-data data/processed/trade --macro-data data/raw/worldbank --event-data data/raw/gdelt --commodity-data data/processed/commodity_prices --port 8080

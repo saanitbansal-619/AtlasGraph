@@ -557,9 +557,10 @@ func labelOrCode(name, code string) string {
 
 // --- commodity prices ------------------------------------------------------
 
-func renderCommodityIngestReport(out io.Writer, srcFile, outPath string, res commodityprices.LoadResult, s commodityprices.Summary) {
+func renderCommodityIngestReport(out io.Writer, srcFile, outPath string, res commodityprices.LoadResult, s commodityprices.Summary, sourceName string, meta commodityprices.PinkSheetMeta) {
 	section(out, "COMMODITY PRICE INGESTION")
 	fmt.Fprintf(out, "  Source file  : %s\n", srcFile)
+	fmt.Fprintf(out, "  Data source  : %s\n", sourceName)
 	fmt.Fprintf(out, "  Output       : %s\n", outPath)
 	fmt.Fprintf(out, "  Rows         : %d\n", res.TotalRows)
 	fmt.Fprintf(out, "  Valid rows   : %d\n", res.ValidRows())
@@ -570,7 +571,17 @@ func renderCommodityIngestReport(out io.Writer, srcFile, outPath string, res com
 	fmt.Fprintf(out, "  Commodities  : %d\n", s.Commodities)
 	fmt.Fprintf(out, "  Date range   : %s\n", monthRange(s.FirstMonth, s.LastMonth))
 	fmt.Fprintf(out, "  Latest month : %s\n", monthOrDash(s.LastMonth))
-	fmt.Fprint(out, "\n  Note: the bundled sample is synthetic, reproducible demo data — not real prices.\n")
+	if meta.SheetName != "" {
+		fmt.Fprintf(out, "  Pink Sheet   : %s (%d mapped series)\n", meta.SheetName, meta.MappedSeries)
+	}
+	if len(meta.MissingGFIP) > 0 {
+		fmt.Fprintf(out, "  Missing GFIP : %s\n", strings.Join(meta.MissingGFIP, ", "))
+	}
+	if commodityprices.IsRealPriceSource(sourceName) {
+		fmt.Fprint(out, "\n  Note: real public monthly historical prices from World Bank Pink Sheet — not live streaming data.\n")
+	} else {
+		fmt.Fprint(out, "\n  Note: the bundled sample is synthetic, reproducible demo data — not real prices.\n")
+	}
 }
 
 func renderCommodityStressScores(out io.Writer, scores []commodities.CommodityScore) {

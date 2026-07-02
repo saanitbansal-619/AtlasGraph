@@ -231,6 +231,42 @@ export interface CommodityFragilityScore {
   components: FragilityComponent[]
 }
 
+export interface CommodityStressScore {
+  commodity_code: string
+  commodity_name: string
+  unit: string
+  months: number
+  latest_date: string
+  latest_price_usd: number
+  change_3m_pct?: number | null
+  change_12m_pct?: number | null
+  volatility_pct: number
+  commodity_stress_score: number
+  risk_level: string
+}
+
+export interface CommodityStressResponse {
+  data_source: string
+  real_price_data: boolean
+  scores: CommodityStressScore[]
+}
+
+export interface CommodityHistoryPoint {
+  month: string
+  price: number
+}
+
+export interface CommodityHistoryResponse {
+  commodity: string
+  source: string
+  points: CommodityHistoryPoint[]
+}
+
+export interface CommodityHistoryIndexResponse {
+  source: string
+  commodities: string[]
+}
+
 // JSON error envelope returned by the API on failure.
 export interface ApiError {
   error: string

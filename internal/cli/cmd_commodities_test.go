@@ -128,6 +128,30 @@ func TestScoreCommoditiesText(t *testing.T) {
 	}
 }
 
+func TestIngestCommodityPricesPinkSheet(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "pink.xlsx")
+	if err := commodityprices.WritePinkSheetFixture(path); err != nil {
+		t.Fatalf("WritePinkSheetFixture: %v", err)
+	}
+	outDir := t.TempDir()
+	out, _, code := run("ingest", "commodity-prices", "--file", path, "--source", "worldbank-pinksheet", "--out", outDir)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	for _, want := range []string{"World Bank Pink Sheet", "Pink Sheet", "Missing GFIP"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("ingest output missing %q\n---\n%s", want, out)
+		}
+	}
+	file, err := commodityprices.Load(outDir)
+	if err != nil {
+		t.Fatalf("loading ingested file: %v", err)
+	}
+	if !commodityprices.IsRealPriceSource(file.Source) {
+		t.Errorf("source = %q, want real Pink Sheet source", file.Source)
+	}
+}
+
 func TestScoreCommoditiesJSON(t *testing.T) {
 	dir := seedCommodityPrices(t)
 	out, _, code := run("score", "commodities", "--data", dir, "--output", "json")
@@ -138,7 +162,7 @@ func TestScoreCommoditiesJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
 		t.Fatalf("output is not valid JSON: %v", err)
 	}
-	for _, key := range []string{"weights", "risk_bands", "scores"} {
+	for _, key := range []string{"weights", "risk_bands", "scores", "data_source", "real_price_data"} {
 		if _, ok := parsed[key]; !ok {
 			t.Errorf("commodity JSON missing %q", key)
 		}

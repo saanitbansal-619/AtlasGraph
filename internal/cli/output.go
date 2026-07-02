@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
@@ -543,9 +544,11 @@ func saveEventRiskJSON(path string, scores []events.CountryScore) error {
 // --- commodity stress scores -----------------------------------------------
 
 type jsonCommodityFile struct {
-	Weights   commodities.Weights  `json:"weights"`
-	RiskBands map[string]string    `json:"risk_bands"`
-	Scores    []jsonCommodityScore `json:"scores"`
+	DataSource    string               `json:"data_source"`
+	RealPriceData bool                 `json:"real_price_data"`
+	Weights       commodities.Weights  `json:"weights"`
+	RiskBands     map[string]string    `json:"risk_bands"`
+	Scores        []jsonCommodityScore `json:"scores"`
 }
 
 type jsonCommodityScore struct {
@@ -571,9 +574,11 @@ type jsonCommodityComponent struct {
 	Contribution float64 `json:"contribution"`
 }
 
-func buildCommodityStressJSON(scores []commodities.CommodityScore) jsonCommodityFile {
+func buildCommodityStressJSON(scores []commodities.CommodityScore, dataSource string) jsonCommodityFile {
 	out := jsonCommodityFile{
-		Weights: commodities.DefaultWeights(),
+		DataSource:    dataSource,
+		RealPriceData: commodityprices.IsRealPriceSource(dataSource),
+		Weights:       commodities.DefaultWeights(),
 		RiskBands: map[string]string{
 			"low": "0-30", "medium": "30-60", "high": "60-80", "critical": "80-100",
 		},
@@ -614,14 +619,14 @@ func buildCommodityStressJSON(scores []commodities.CommodityScore) jsonCommodity
 	return out
 }
 
-func writeCommodityStressJSON(w io.Writer, scores []commodities.CommodityScore) error {
+func writeCommodityStressJSON(w io.Writer, scores []commodities.CommodityScore, dataSource string) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	return enc.Encode(buildCommodityStressJSON(scores))
+	return enc.Encode(buildCommodityStressJSON(scores, dataSource))
 }
 
-func saveCommodityStressJSON(path string, scores []commodities.CommodityScore) error {
-	b, err := json.MarshalIndent(buildCommodityStressJSON(scores), "", "  ")
+func saveCommodityStressJSON(path string, scores []commodities.CommodityScore, dataSource string) error {
+	b, err := json.MarshalIndent(buildCommodityStressJSON(scores, dataSource), "", "  ")
 	if err != nil {
 		return err
 	}

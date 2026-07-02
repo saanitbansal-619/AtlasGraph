@@ -90,9 +90,52 @@ AtlasGraph/
 - It includes **24 countries**, **20 commodities**, **20 sectors**, **8 routes**, and **193 dependencies**, plus 10 named shock scenarios.
 - **World Bank macro ingestion** exists separately (`atlas ingest worldbank`) and can populate `data/raw/worldbank` from the real API.
 - Bundled **trade**, **GDELT event**, and **commodity price** demo files are synthetic or fixture-based — they should **not** be presented as live global intelligence.
-- **Future work** includes real UN Comtrade flows, a GDELT/news pipeline, World Bank Pink Sheet commodity prices, and geospatial datasets.
+- **World Bank Pink Sheet** monthly XLSX ingestion provides **real public historical monthly prices** when you download and ingest `CMO-Historical-Data-Monthly.xlsx` locally (not live streaming).
+- **Future work** includes real UN Comtrade flows, a GDELT/news pipeline, and geospatial datasets.
 
-See also [`data/strategic_global/README.md`](data/strategic_global/README.md).
+See also [`data/strategic_global/README.md`](data/strategic_global/README.md) and [`data/raw/worldbank_pinksheet/README.md`](data/raw/worldbank_pinksheet/README.md).
+
+---
+
+## Real Commodity Price Pipeline
+
+GFIP can ingest **World Bank Commodity Markets / Pink Sheet** monthly historical prices from a local XLSX file.
+
+### Download and place the file
+
+1. Download **CMO-Historical-Data-Monthly.xlsx** from the [World Bank Commodity Markets](https://www.worldbank.org/en/research/commodity-markets) page.
+2. Place it at:
+
+```
+data/raw/worldbank_pinksheet/CMO-Historical-Data-Monthly.xlsx
+```
+
+The XLSX is **not committed** to this repository (large, updated monthly).
+
+### Ingest
+
+```bash
+go run ./cmd/atlas ingest commodity-prices \
+  --file data/raw/worldbank_pinksheet/CMO-Historical-Data-Monthly.xlsx \
+  --out data/processed/commodity_prices \
+  --source worldbank-pinksheet
+```
+
+`--source` is optional for `.xlsx` files (auto-detected). CSV ingest of `data/examples/commodity_prices_sample.csv` still works for offline demos.
+
+### API
+
+```bash
+curl http://localhost:8080/api/commodities/history
+curl "http://localhost:8080/api/commodities/history?commodity=crude%20oil"
+curl http://localhost:8080/api/commodities/stress
+```
+
+`GET /api/commodities/stress` includes `data_source` and `real_price_data` so the dashboard can show **Real price data** vs **Demo price data**.
+
+### Data note
+
+Pink Sheet data is **real public monthly historical nominal USD prices**, not live streaming market data. Some strategic graph commodities (semiconductors, rare earths, etc.) may not exist in Pink Sheet; ingest reports them as missing rather than failing.
 
 ---
 
@@ -187,6 +230,8 @@ Major endpoints (base URL `http://localhost:8080`):
 | `POST` | `/api/scenarios/compare` | Compare multiple scenarios |
 | `GET` | `/api/fragility/summary` | Top countries and commodities by unified score |
 | `GET` | `/api/commodities/stress` | Commodity price-stress scores |
+| `GET` | `/api/commodities/history` | Available commodities with price history |
+| `GET` | `/api/commodities/history?commodity=crude%20oil` | Monthly price history for one commodity |
 | `GET` | `/api/events/risk` | Event-risk scores |
 | `GET` | `/api/macro/scores` | Macro exposure scores |
 

@@ -12,6 +12,7 @@ import {
 import { EmptyHint, Panel, Spinner, TypeBadge } from './ui'
 import { InlineError } from './States'
 import { AdaptiveRankingChart } from './charts/AdaptiveRankingChart'
+import { CommodityPriceContext } from './CommodityPriceContext'
 
 export function ShockResults({
   result,
@@ -109,6 +110,8 @@ export function ShockResults({
           topN={8}
         />
       </div>
+
+      <CommodityPriceContext commodity={result.scenario.commodity} resetKey={result} />
 
       <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
         <Panel title="Direct Exposure" noPad className="min-w-0">

@@ -70,7 +70,7 @@ func scoreCommodities(args []string, out, errOut io.Writer) int {
 	}
 
 	if *save != "" {
-		if err := saveCommodityStressJSON(*save, scores); err != nil {
+		if err := saveCommodityStressJSON(*save, scores, file.Source); err != nil {
 			fmt.Fprintf(errOut, "error: saving results: %v\n", err)
 			return 1
 		}
@@ -79,7 +79,7 @@ func scoreCommodities(args []string, out, errOut io.Writer) int {
 
 	switch *output {
 	case "json":
-		if err := writeCommodityStressJSON(out, scores); err != nil {
+		if err := writeCommodityStressJSON(out, scores, file.Source); err != nil {
 			fmt.Fprintf(errOut, "error: encoding json: %v\n", err)
 			return 1
 		}

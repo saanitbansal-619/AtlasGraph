@@ -9,6 +9,8 @@ import type {
   ShockOptionsResponse,
   ShockValidOptionsResponse,
   ShockResponse,
+  CommodityStressResponse,
+  CommodityHistoryIndexResponse,
 } from './types/api'
 import {
   DEFAULT_META,
@@ -19,6 +21,8 @@ import {
 } from './types/scenario'
 import { Header } from './components/Header'
 import { OverviewCards } from './components/OverviewCards'
+import { CommodityStressPanel } from './components/CommodityStressPanel'
+import { CommodityPriceHistory } from './components/CommodityPriceHistory'
 import { UnifiedFragility } from './components/UnifiedFragility'
 import { ShockSimulator, toRequest, type ShockForm } from './components/ShockSimulator'
 import { ShockResults } from './components/ShockResults'
@@ -76,6 +80,15 @@ export default function App() {
   const [fragility, setFragility] = useState<FragilitySummaryResponse | null>(null)
   const [fragilityErr, setFragilityErr] = useState<UiError | null>(null)
   const [fragilityLoading, setFragilityLoading] = useState(true)
+
+  // Commodity stress + price history
+  const [commodityStress, setCommodityStress] = useState<CommodityStressResponse | null>(null)
+  const [commodityStressErr, setCommodityStressErr] = useState<UiError | null>(null)
+  const [commodityStressLoading, setCommodityStressLoading] = useState(true)
+  const [commodityHistoryIndex, setCommodityHistoryIndex] =
+    useState<CommodityHistoryIndexResponse | null>(null)
+  const [commodityHistoryErr, setCommodityHistoryErr] = useState<UiError | null>(null)
+  const [commodityHistoryLoading, setCommodityHistoryLoading] = useState(true)
 
   // Scenarios
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -164,6 +177,37 @@ export default function App() {
     }
   }, [])
 
+  const loadCommodityStress = useCallback(async () => {
+    setCommodityStressLoading(true)
+    try {
+      setCommodityStress(await api.commodityStress())
+      setCommodityStressErr(null)
+    } catch (e) {
+      setCommodityStress(null)
+      setCommodityStressErr(toUiError(e))
+    } finally {
+      setCommodityStressLoading(false)
+    }
+  }, [])
+
+  const loadCommodityHistoryIndex = useCallback(async () => {
+    setCommodityHistoryLoading(true)
+    try {
+      setCommodityHistoryIndex(await api.commodityHistoryIndex())
+      setCommodityHistoryErr(null)
+    } catch (e) {
+      setCommodityHistoryIndex(null)
+      setCommodityHistoryErr(toUiError(e))
+    } finally {
+      setCommodityHistoryLoading(false)
+    }
+  }, [])
+
+  const fetchCommodityHistory = useCallback(
+    (commodity: string) => api.commodityHistory(commodity),
+    [],
+  )
+
   const loadGuidance = useCallback(async () => {
     try {
       setOptions(await api.shockOptions())
@@ -182,9 +226,11 @@ export default function App() {
     void checkHealth()
     void loadSummary()
     void loadFragility()
+    void loadCommodityStress()
+    void loadCommodityHistoryIndex()
     void loadScenarios()
     void loadGuidance()
-  }, [checkHealth, loadSummary, loadFragility, loadScenarios, loadGuidance])
+  }, [checkHealth, loadSummary, loadFragility, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance])
 
   // Initial load.
   useEffect(() => {
@@ -278,6 +324,20 @@ export default function App() {
         <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
 
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <CommodityStressPanel
+            data={commodityStress}
+            loading={commodityStressLoading}
+            error={commodityStressErr}
+          />
+          <CommodityPriceHistory
+            index={commodityHistoryIndex}
+            loadingIndex={commodityHistoryLoading}
+            indexError={commodityHistoryErr}
+            fetchHistory={fetchCommodityHistory}
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,30%)_minmax(0,1fr)] xl:grid-cols-[minmax(300px,28%)_minmax(0,1fr)]">
           <div className="min-w-0">

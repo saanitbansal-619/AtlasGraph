@@ -16,6 +16,10 @@ import "time"
 // value their CSV row provided.
 const SourceName = "local commodity price CSV"
 
+// PinkSheetSourceName is recorded on PriceFile.Source when ingesting World Bank
+// Commodity Markets / Pink Sheet monthly historical XLSX data.
+const PinkSheetSourceName = "World Bank Pink Sheet"
+
 // OutputFileName is the canonical file the ingest command writes within its
 // output directory and the scoring command reads back.
 const OutputFileName = "commodity_prices.json"

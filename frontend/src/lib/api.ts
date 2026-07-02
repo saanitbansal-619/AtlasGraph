@@ -10,6 +10,9 @@ import type {
   ShockResponse,
   CompareScenariosRequest,
   ScenarioCompareResponse,
+  CommodityStressResponse,
+  CommodityHistoryResponse,
+  CommodityHistoryIndexResponse,
   ApiError,
 } from '../types/api'
 
@@ -85,6 +88,12 @@ export const api = {
     return request<ShockValidOptionsResponse>(`/api/shock/valid-options${q}`)
   },
   fragilitySummary: () => request<FragilitySummaryResponse>('/api/fragility/summary'),
+  commodityStress: () => request<CommodityStressResponse>('/api/commodities/stress'),
+  commodityHistoryIndex: () => request<CommodityHistoryIndexResponse>('/api/commodities/history'),
+  commodityHistory: (commodity: string) =>
+    request<CommodityHistoryResponse>(
+      `/api/commodities/history?commodity=${encodeURIComponent(commodity)}`,
+    ),
   runShock: (body: ShockRequest) =>
     request<ShockResponse>('/api/shock', {
       method: 'POST',

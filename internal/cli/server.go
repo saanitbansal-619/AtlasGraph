@@ -65,6 +65,7 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/macro/scores", s.handleMacroScores)
 	mux.HandleFunc("/api/events/risk", s.handleEventsRisk)
 	mux.HandleFunc("/api/commodities/stress", s.handleCommodityStress)
+	mux.HandleFunc("/api/commodities/history", s.handleCommodityHistory)
 	mux.HandleFunc("/api/fragility/countries", s.handleFragilityCountries)
 	mux.HandleFunc("/api/fragility/commodities", s.handleFragilityCommodities)
 	mux.HandleFunc("/api/fragility/summary", s.handleFragilitySummary)
@@ -448,7 +449,38 @@ func (s *apiServer) handleCommodityStress(w http.ResponseWriter, r *http.Request
 			"no commodity data found in "+s.cfg.CommodityData, "run `atlas ingest commodity-prices --file <csv>` first")
 		return
 	}
-	writeJSONStatus(w, http.StatusOK, buildCommodityStressJSON(scores))
+	writeJSONStatus(w, http.StatusOK, buildCommodityStressJSON(scores, file.Source))
+}
+
+func (s *apiServer) handleCommodityHistory(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	file, err := commodityprices.Load(s.cfg.CommodityData)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, err.Error(),
+			"run `atlas ingest commodity-prices --file <csv|xlsx>` or pass an existing --commodity-data dir")
+		return
+	}
+	if len(file.Records) == 0 {
+		writeAPIError(w, http.StatusInternalServerError,
+			"no commodity data found in "+s.cfg.CommodityData, "run `atlas ingest commodity-prices --file <csv|xlsx>` first")
+		return
+	}
+
+	commodity := strings.TrimSpace(r.URL.Query().Get("commodity"))
+	if commodity == "" {
+		writeJSONStatus(w, http.StatusOK, commodityprices.ListHistoryCommodities(file))
+		return
+	}
+
+	history, err := commodityprices.HistoryForCommodity(file, commodity)
+	if err != nil {
+		writeAPIError(w, http.StatusNotFound, err.Error(),
+			"try GET /api/commodities/history for available commodities")
+		return
+	}
+	writeJSONStatus(w, http.StatusOK, history)
 }
 
 func (s *apiServer) handleFragilityCountries(w http.ResponseWriter, r *http.Request) {

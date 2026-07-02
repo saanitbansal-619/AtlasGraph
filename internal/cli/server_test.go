@@ -327,7 +327,7 @@ func TestAPICommodityStress(t *testing.T) {
 		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
 	}
 	parsed := decodeBody(t, rec)
-	for _, key := range []string{"weights", "risk_bands", "scores"} {
+	for _, key := range []string{"weights", "risk_bands", "scores", "data_source", "real_price_data"} {
 		if _, ok := parsed[key]; !ok {
 			t.Errorf("commodity stress JSON missing %q", key)
 		}
@@ -338,6 +338,51 @@ func TestAPICommodityStress(t *testing.T) {
 	}
 	if len(scores) == 0 {
 		t.Fatal("expected at least one commodity score")
+	}
+}
+
+func TestAPICommodityHistoryIndex(t *testing.T) {
+	rec := do(fullTestServer(t), http.MethodGet, "/api/commodities/history", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Source      string   `json:"source"`
+		Commodities []string `json:"commodities"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Commodities) == 0 {
+		t.Fatal("expected at least one commodity with history")
+	}
+}
+
+func TestAPICommodityHistoryByCommodity(t *testing.T) {
+	rec := do(fullTestServer(t), http.MethodGet, "/api/commodities/history?commodity=crude%20oil", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Commodity string `json:"commodity"`
+		Source    string `json:"source"`
+		Points    []struct {
+			Month string  `json:"month"`
+			Price float64 `json:"price"`
+		} `json:"points"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Commodity == "" || len(body.Points) == 0 {
+		t.Fatalf("unexpected history body: %+v", body)
+	}
+}
+
+func TestAPICommodityHistoryMissingCommodity(t *testing.T) {
+	rec := do(fullTestServer(t), http.MethodGet, "/api/commodities/history?commodity=semiconductors", "", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404\n%s", rec.Code, rec.Body.String())
 	}
 }
 
