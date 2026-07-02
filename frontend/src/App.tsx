@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, ApiRequestError } from './lib/api'
 import type {
   FragilitySummaryResponse,
-  GraphEntitiesResponse,
   GraphSummaryResponse,
   HealthResponse,
   RecommendedScenario,
   Scenario,
   ShockOptionsResponse,
+  ShockValidOptionsResponse,
   ShockResponse,
 } from './types/api'
 import {
@@ -82,9 +82,9 @@ export default function App() {
   const [scenariosLoading, setScenariosLoading] = useState(true)
   const [selectedId, setSelectedId] = useState('')
 
-  // Graph-aware guidance: entity catalog + shock options.
-  const [entities, setEntities] = useState<GraphEntitiesResponse | null>(null)
+  // Graph-aware guidance: shock options + valid custom-shock combos.
   const [options, setOptions] = useState<ShockOptionsResponse | null>(null)
+  const [validOptions, setValidOptions] = useState<ShockValidOptionsResponse | null>(null)
 
   // Shock form + scenario metadata (metadata is frontend-only).
   const [mode, setMode] = useState<ShockMode>('preset')
@@ -166,14 +166,14 @@ export default function App() {
 
   const loadGuidance = useCallback(async () => {
     try {
-      setEntities(await api.graphEntities())
-    } catch {
-      setEntities(null)
-    }
-    try {
       setOptions(await api.shockOptions())
     } catch {
       setOptions(null)
+    }
+    try {
+      setValidOptions(await api.shockValidOptions())
+    } catch {
+      setValidOptions(null)
     }
   }, [])
 
@@ -270,7 +270,7 @@ export default function App() {
     <div className="min-h-screen">
       <Header health={health} error={!!healthErr} loading={healthLoading} />
 
-      <main className="mx-auto max-w-7xl space-y-4 px-4 py-5">
+      <main className="dashboard-shell space-y-4 py-5">
         {backendDown && (
           <BackendDownNotice message={healthErr?.message} onRetry={loadAll} />
         )}
@@ -279,8 +279,8 @@ export default function App() {
 
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,30%)_minmax(0,1fr)] xl:grid-cols-[minmax(300px,28%)_minmax(0,1fr)]">
+          <div className="min-w-0">
             <ShockSimulator
               mode={mode}
               setMode={setMode}
@@ -292,8 +292,8 @@ export default function App() {
               selectedId={selectedId}
               onSelectScenario={onSelectScenario}
               scenariosLoading={scenariosLoading}
-              entities={entities}
               options={options}
+              validOptions={validOptions}
               onApplyRecommended={onApplyRecommended}
               onRun={runShock}
               onReset={onReset}
@@ -301,7 +301,7 @@ export default function App() {
             />
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="min-w-0">
             <ShockResults result={result} submitted={submitted} running={running} error={runErr} />
           </div>
         </div>

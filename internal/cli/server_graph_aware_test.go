@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -301,6 +302,78 @@ func TestAPIScenariosCompareRejectsEmptyBody(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", rec.Code)
 	}
+}
+
+func strategicGlobalServer(t *testing.T) http.Handler {
+	t.Helper()
+	dir := filepath.Join("..", "..", "data", "strategic_global")
+	return newAPIServer(serverConfig{GraphData: dir})
+}
+
+func TestAPIShockValidOptions(t *testing.T) {
+	rec := do(strategicGlobalServer(t), http.MethodGet, "/api/shock/valid-options", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	var resp jsonShockValidOptions
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v\n%s", err, rec.Body.String())
+	}
+	if len(resp.Sources) == 0 {
+		t.Fatal("expected at least one valid source")
+	}
+
+	var russia, hormuz, taiwan *jsonValidSourceOption
+	for i := range resp.Sources {
+		switch resp.Sources[i].Source {
+		case "Russia":
+			russia = &resp.Sources[i]
+		case "Strait of Hormuz":
+			hormuz = &resp.Sources[i]
+		case "Taiwan":
+			taiwan = &resp.Sources[i]
+		}
+	}
+	if russia == nil {
+		t.Fatal("Russia should appear in valid sources")
+	}
+	for _, c := range russia.Commodities {
+		if c.Commodity == "batteries" {
+			t.Error("Russia should not list batteries")
+		}
+	}
+	if !commodityHasShock(russia.Commodities, "natural gas", "supply_cut") {
+		t.Errorf("Russia natural gas options: %+v", russia.Commodities)
+	}
+	if hormuz == nil || !commodityHasShock(hormuz.Commodities, "crude oil", "route_disruption") {
+		t.Fatalf("Hormuz crude route_disruption missing: %+v", hormuz)
+	}
+	if taiwan == nil || !commodityHasShock(taiwan.Commodities, "semiconductors", "export_collapse") {
+		t.Fatalf("Taiwan semiconductors export_collapse missing: %+v", taiwan)
+	}
+}
+
+func TestAPIShockValidOptionsSourceFilter(t *testing.T) {
+	rec := do(strategicGlobalServer(t), http.MethodGet, "/api/shock/valid-options?source=Taiwan", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var resp jsonShockValidOptions
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Sources) != 1 || resp.Sources[0].Source != "Taiwan" {
+		t.Fatalf("expected only Taiwan, got %+v", resp.Sources)
+	}
+}
+
+func commodityHasShock(commodities []jsonValidCommodityOption, commodity, shock string) bool {
+	for _, c := range commodities {
+		if c.Commodity == commodity {
+			return contains(c.ShockTypes, shock)
+		}
+	}
+	return false
 }
 
 func mustEmbeddedGraph(t *testing.T) *graph.Graph {

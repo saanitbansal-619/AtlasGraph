@@ -69,6 +69,7 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 		"GET  /api/graph/entities",
 		"GET  /api/scenarios",
 		"GET  /api/shock/options",
+		"GET  /api/shock/valid-options",
 		"POST /api/shock",
 		"POST /api/scenarios/compare",
 		"GET  /api/trade/summary",

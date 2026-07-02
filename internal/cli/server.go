@@ -56,6 +56,7 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/graph/entities", s.handleGraphEntities)
 	mux.HandleFunc("/api/scenarios", s.handleScenarios)
 	mux.HandleFunc("/api/shock/options", s.handleShockOptions)
+	mux.HandleFunc("/api/shock/valid-options", s.handleShockValidOptions)
 	mux.HandleFunc("/api/shock", s.handleShock)
 	mux.HandleFunc("/api/scenarios/compare", s.handleScenariosCompare)
 	mux.HandleFunc("/api/trade/summary", s.handleTradeSummary)

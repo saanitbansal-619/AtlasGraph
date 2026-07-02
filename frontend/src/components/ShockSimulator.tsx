@@ -1,10 +1,12 @@
 import { useMemo, type ReactNode } from 'react'
 import type {
-  GraphEntitiesResponse,
   RecommendedScenario,
   Scenario,
   ShockOptionsResponse,
   ShockRequest,
+  ShockValidOptionsResponse,
+  ValidCommodityOption,
+  ValidSourceOption,
 } from '../types/api'
 import {
   ASSUMPTION_NOTE,
@@ -18,23 +20,12 @@ import {
 } from '../types/scenario'
 import { Panel, Spinner } from './ui'
 
-const SHOCK_TYPES = ['export_collapse', 'supply_cut', 'price_spike', 'route_disruption']
-
 const SHOCK_TYPE_DESC: Record<string, string> = {
   export_collapse: 'Producer exports fall, affecting importers and downstream sectors.',
   supply_cut: 'Source supply availability falls.',
   price_spike: 'Commodity price pressure rises across exposed sectors.',
   route_disruption: 'Logistics route disruption affects flows.',
 }
-
-const SOURCE_EXAMPLES = ['Taiwan', 'China', 'Saudi Arabia', 'United States', 'Japan']
-const COMMODITY_EXAMPLES = [
-  'semiconductors',
-  'crude oil',
-  'lithium batteries',
-  'cobalt ores',
-  'rare earths',
-]
 
 const eq = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
@@ -58,8 +49,8 @@ export function ShockSimulator({
   selectedId,
   onSelectScenario,
   scenariosLoading,
-  entities,
   options,
+  validOptions,
   onApplyRecommended,
   onRun,
   onReset,
@@ -75,8 +66,8 @@ export function ShockSimulator({
   selectedId: string
   onSelectScenario: (id: string) => void
   scenariosLoading: boolean
-  entities: GraphEntitiesResponse | null
   options: ShockOptionsResponse | null
+  validOptions: ShockValidOptionsResponse | null
   onApplyRecommended: (rs: RecommendedScenario) => void
   onRun: () => void
   onReset: () => void
@@ -90,55 +81,117 @@ export function ShockSimulator({
     value: ScenarioAssumptions[K],
   ) => setMeta({ ...meta, assumptions: { ...meta.assumptions, [key]: value } })
 
-  const canRun = form.source.trim() !== '' && form.commodity.trim() !== '' && !running
   const selected = scenarios.find((s) => s.id === selectedId)
+  const validSources = validOptions?.sources ?? []
 
-  // Suggestions come from the live graph when available, else static examples.
-  const sourceSuggestions = useMemo(() => {
-    if (options?.sources?.length) return options.sources
-    const fromGraph = [...(entities?.countries ?? []), ...(entities?.routes ?? [])]
-    return fromGraph.length ? fromGraph : SOURCE_EXAMPLES
-  }, [options, entities])
+  const selectedSource = useMemo(
+    () => findValidSource(validOptions, form.source),
+    [validOptions, form.source],
+  )
 
-  const commoditySuggestions = useMemo(() => {
-    if (options?.commodities?.length) return options.commodities
-    return entities?.commodities?.length ? entities.commodities : COMMODITY_EXAMPLES
-  }, [options, entities])
+  const commodityOptions = selectedSource?.commodities ?? []
 
-  const shockTypeList = options?.shock_types?.length
-    ? options.shock_types.map((s) => s.type)
-    : SHOCK_TYPES
+  const selectedCommodity = useMemo(
+    () => findValidCommodity(selectedSource, form.commodity),
+    [selectedSource, form.commodity],
+  )
+
+  const shockTypeOptions = selectedCommodity?.shock_types ?? []
+
+  const guidedValid = useMemo(
+    () => isGuidedValid(form, validOptions),
+    [form, validOptions],
+  )
+
+  const canRun =
+    !running &&
+    (mode === 'preset'
+      ? form.source.trim() !== '' && form.commodity.trim() !== ''
+      : guidedValid)
+
+  const shockTypeName = (type: string) =>
+    options?.shock_types?.find((s) => s.type === type)?.name || type.replace(/_/g, ' ')
 
   const shockDescription = useMemo(() => {
     const opt = options?.shock_types?.find((s) => s.type === form.shock_type)
     return opt?.description || SHOCK_TYPE_DESC[form.shock_type] || ''
   }, [options, form.shock_type])
 
-  const shockTypeName = (type: string) =>
-    options?.shock_types?.find((s) => s.type === type)?.name || type
+  const guidedMessage = useMemo(() => {
+    if (mode !== 'custom') return null
+    if (!validOptions) return 'Loading graph-valid shock combinations…'
+    if (!form.source.trim()) return 'Select a source to see connected commodities.'
+    if (!selectedSource) return 'Select a source to see connected commodities.'
+    if (commodityOptions.length === 0) {
+      return 'No valid commodities found for this source in the current graph.'
+    }
+    if (!form.commodity.trim() || !selectedCommodity) {
+      return 'Select a connected commodity for this source.'
+    }
+    if (!shockTypeOptions.includes(form.shock_type)) {
+      return 'This source and commodity do not support that shock type.'
+    }
+    return null
+  }, [
+    mode,
+    validOptions,
+    form.source,
+    form.commodity,
+    form.shock_type,
+    selectedSource,
+    commodityOptions.length,
+    selectedCommodity,
+    shockTypeOptions,
+  ])
 
-  // Lightweight, graph-aware pre-run advisories. The backend returns the
-  // authoritative warnings; these just guide the analyst before they run.
-  const preRunWarnings = useMemo(() => {
-    const out: string[] = []
-    const src = form.source.trim()
-    const com = form.commodity.trim()
-    if (src && sourceSuggestions.length && !sourceSuggestions.some((s) => eq(s, src))) {
-      out.push(`"${src}" is not a known source in the current graph — results may be empty.`)
+  const onSourceInput = (source: string) => {
+    const src = findValidSource(validOptions, source)
+    if (!src) {
+      setForm({ ...form, source })
+      return
     }
-    if (com && commoditySuggestions.length && !commoditySuggestions.some((c) => eq(c, com))) {
-      out.push(`"${com}" is not a known commodity in the current graph — results may be empty.`)
+    const commodities = src.commodities
+    let commodity = form.commodity
+    let shock_type = form.shock_type
+    const com = findValidCommodity(src, commodity)
+    if (!com) {
+      commodity = commodities[0]?.commodity ?? ''
+      shock_type = commodities[0]?.shock_types[0] ?? form.shock_type
+    } else if (!com.shock_types.includes(shock_type)) {
+      shock_type = com.shock_types[0] ?? shock_type
     }
-    if (form.shock_type === 'route_disruption' && entities && entities.routes.length === 0) {
-      out.push('route_disruption works best with route nodes, but this graph has none.')
+    setForm({ ...form, source: src.source, commodity, shock_type })
+  }
+
+  const onCommodityChange = (commodity: string) => {
+    const com = findValidCommodity(selectedSource, commodity)
+    let shock_type = form.shock_type
+    if (com && !com.shock_types.includes(shock_type)) {
+      shock_type = com.shock_types[0] ?? shock_type
     }
-    return out
-  }, [form.source, form.commodity, form.shock_type, sourceSuggestions, commoditySuggestions, entities])
+    setForm({ ...form, commodity, shock_type })
+  }
+
+  const switchMode = (next: ShockMode) => {
+    if (next === 'custom' && validOptions && !isGuidedValid(form, validOptions)) {
+      const first = validOptions.sources[0]
+      const com = first?.commodities[0]
+      if (first && com) {
+        setForm({
+          ...form,
+          source: first.source,
+          commodity: com.commodity,
+          shock_type: com.shock_types[0] ?? form.shock_type,
+        })
+      }
+    }
+    setMode(next)
+  }
 
   const recommended = options?.recommended_scenarios ?? []
 
   return (
-    <Panel title="Shock Simulator" right={<ModeToggle mode={mode} setMode={setMode} />}>
+    <Panel title="Shock Simulator" right={<ModeToggle mode={mode} setMode={switchMode} />}>
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -194,54 +247,112 @@ export function ShockSimulator({
           <RecommendedScenarios items={recommended} onPick={onApplyRecommended} disabled={running} />
         )}
 
-        <Divider label="Shock parameters" />
+        {mode === 'preset' ? (
+          <>
+            <Divider label="Scenario details" />
+            <div className="space-y-2 rounded border border-slate-800/80 bg-slate-950/40 px-3 py-2.5">
+              <ReadOnlyRow label="Source" value={form.source} />
+              <ReadOnlyRow label="Commodity" value={form.commodity} accent />
+              <ReadOnlyRow label="Shock type" value={shockTypeName(form.shock_type)} />
+              <p className="pt-1 text-[11px] text-slate-500">
+                Preset propagation targets are fixed. Adjust drop and depth below.
+              </p>
+            </div>
+            <Divider label="Scenario parameters" />
+          </>
+        ) : (
+          <>
+            <Divider label="Guided custom shock" />
+            <p className="text-xs leading-relaxed text-slate-400">
+              Source → connected commodity → valid shock type. Only graph-linked combinations
+              are shown.
+            </p>
 
-        <Field label="Source">
-          <input
-            className="field"
-            list="gfip-source-options"
-            value={form.source}
-            onChange={(e) => update('source', e.target.value)}
-            placeholder="Search countries / routes…"
-            autoComplete="off"
-          />
-          <datalist id="gfip-source-options">
-            {sourceSuggestions.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
-        </Field>
+            <Field label="Source">
+              {validOptions === null ? (
+                <div className="flex items-center gap-2 py-2 text-sm text-slate-400">
+                  <Spinner className="h-3.5 w-3.5" />
+                  Loading valid sources…
+                </div>
+              ) : (
+                <>
+                  <input
+                    className="field"
+                    list="gfip-valid-sources"
+                    value={form.source}
+                    onChange={(e) => onSourceInput(e.target.value)}
+                    placeholder="Search countries / routes…"
+                    autoComplete="off"
+                  />
+                  <datalist id="gfip-valid-sources">
+                    {validSources.map((s) => (
+                      <option key={s.source} value={s.source} />
+                    ))}
+                  </datalist>
+                  {selectedSource && (
+                    <p className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
+                      {selectedSource.type}
+                    </p>
+                  )}
+                </>
+              )}
+            </Field>
 
-        <Field label="Commodity">
-          <input
-            className="field"
-            list="gfip-commodity-options"
-            value={form.commodity}
-            onChange={(e) => update('commodity', e.target.value)}
-            placeholder="Search commodities…"
-            autoComplete="off"
-          />
-          <datalist id="gfip-commodity-options">
-            {commoditySuggestions.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
-        </Field>
+            <Field label="Connected commodity">
+              <select
+                className="field"
+                value={form.commodity}
+                onChange={(e) => onCommodityChange(e.target.value)}
+                disabled={!selectedSource || commodityOptions.length === 0}
+              >
+                {commodityOptions.length === 0 && (
+                  <option value="">No commodities for this source</option>
+                )}
+                {commodityOptions.map((c) => (
+                  <option key={c.commodity} value={c.commodity}>
+                    {c.commodity}
+                  </option>
+                ))}
+              </select>
+              {selectedCommodity && selectedCommodity.relationships.length > 0 && (
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  via {selectedCommodity.relationships.map((r) => r.replace(/_/g, ' ')).join(', ')}
+                </p>
+              )}
+            </Field>
 
-        <Field label="Shock type">
-          <select
-            className="field"
-            value={form.shock_type}
-            onChange={(e) => update('shock_type', e.target.value)}
-          >
-            {shockTypeList.map((t) => (
-              <option key={t} value={t}>
-                {shockTypeName(t)}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{shockDescription}</p>
-        </Field>
+            <Field label="Valid shock type">
+              <select
+                className="field"
+                value={form.shock_type}
+                onChange={(e) => update('shock_type', e.target.value)}
+                disabled={shockTypeOptions.length === 0}
+              >
+                {shockTypeOptions.length === 0 && (
+                  <option value="">Select source and commodity first</option>
+                )}
+                {shockTypeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {shockTypeName(t)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{shockDescription}</p>
+            </Field>
+
+            {guidedMessage && (
+              <p className="rounded border border-slate-800/80 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+                {guidedMessage}
+              </p>
+            )}
+          </>
+        )}
+
+        {mode === 'preset' && (
+          <Field label="Shock type description">
+            <p className="text-xs leading-relaxed text-slate-400">{shockDescription}</p>
+          </Field>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={`Drop  ·  ${form.drop}%`}>
@@ -274,7 +385,7 @@ export function ShockSimulator({
             onChange={(e) => update('explain', e.target.checked)}
             className="h-4 w-4 rounded border-slate-600 bg-slate-950 accent-cyan-400"
           />
-          Explain (include blocked edges &amp; propagation rules)
+          Show technical propagation details
         </label>
 
         <Divider label="Scenario assumptions" />
@@ -313,20 +424,6 @@ export function ShockSimulator({
         </div>
         <p className="text-[11px] italic leading-relaxed text-slate-500">{ASSUMPTION_NOTE}</p>
 
-        {preRunWarnings.length > 0 && (
-          <div className="space-y-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-300">
-              <span aria-hidden>⚠</span> Combination may be weak
-            </div>
-            {preRunWarnings.map((w, i) => (
-              <p key={i} className="text-xs leading-relaxed text-amber-200/90">
-                {w}
-              </p>
-            ))}
-            <p className="text-[11px] text-amber-200/60">You can still run this simulation.</p>
-          </div>
-        )}
-
         <div className="flex gap-2 pt-1">
           <button type="submit" className="btn-primary flex-1" disabled={!canRun}>
             {running ? (
@@ -352,6 +449,29 @@ export function ShockSimulator({
       </form>
     </Panel>
   )
+}
+
+function findValidSource(
+  valid: ShockValidOptionsResponse | null,
+  source: string,
+): ValidSourceOption | undefined {
+  if (!valid || !source.trim()) return undefined
+  return valid.sources.find((s) => eq(s.source, source))
+}
+
+function findValidCommodity(
+  src: ValidSourceOption | undefined,
+  commodity: string,
+): ValidCommodityOption | undefined {
+  if (!src || !commodity.trim()) return undefined
+  return src.commodities.find((c) => eq(c.commodity, commodity))
+}
+
+function isGuidedValid(form: ShockForm, valid: ShockValidOptionsResponse | null): boolean {
+  const src = findValidSource(valid, form.source)
+  const com = findValidCommodity(src, form.commodity)
+  if (!src || !com) return false
+  return com.shock_types.includes(form.shock_type)
 }
 
 export function toRequest(form: ShockForm): ShockRequest {
@@ -412,6 +532,27 @@ function RecommendedScenarios({
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+function ReadOnlyRow({
+  label,
+  value,
+  accent,
+}: {
+  label: string
+  value: string
+  accent?: boolean
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-sm">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </span>
+      <span className={`text-right font-medium ${accent ? 'text-amber-300' : 'text-slate-100'}`}>
+        {value || '—'}
+      </span>
     </div>
   )
 }

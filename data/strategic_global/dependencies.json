@@ -1,0 +1,1816 @@
+{
+  "dependencies": [
+    {
+      "source": "Taiwan",
+      "target": "semiconductors",
+      "relationship_type": "exports",
+      "weight": 0.95,
+      "concentration": 0.92,
+      "commodity": "semiconductors",
+      "description": "Taiwan dominates advanced fab output."
+    },
+    {
+      "source": "Korea, Rep.",
+      "target": "semiconductors",
+      "relationship_type": "exports",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "semiconductors",
+      "description": "Korea is a major memory producer."
+    },
+    {
+      "source": "United States",
+      "target": "semiconductors",
+      "relationship_type": "exports",
+      "weight": 0.55,
+      "concentration": 0.38,
+      "commodity": "semiconductors",
+      "description": "US design-linked fabrication."
+    },
+    {
+      "source": "Japan",
+      "target": "semiconductors",
+      "relationship_type": "exports",
+      "weight": 0.48,
+      "concentration": 0.35,
+      "commodity": "semiconductors",
+      "description": "Japanese specialty semiconductors."
+    },
+    {
+      "source": "China",
+      "target": "semiconductors",
+      "relationship_type": "exports",
+      "weight": 0.42,
+      "concentration": 0.28,
+      "commodity": "semiconductors",
+      "description": "Chinese mature-node production."
+    },
+    {
+      "source": "semiconductors",
+      "target": "United States",
+      "relationship_type": "imports",
+      "weight": 0.88,
+      "concentration": 0.82,
+      "commodity": "semiconductors",
+      "description": "US compute imports advanced chips."
+    },
+    {
+      "source": "semiconductors",
+      "target": "China",
+      "relationship_type": "imports",
+      "weight": 0.78,
+      "concentration": 0.7,
+      "commodity": "semiconductors",
+      "description": "China assembly imports leading-edge chips."
+    },
+    {
+      "source": "semiconductors",
+      "target": "Japan",
+      "relationship_type": "imports",
+      "weight": 0.7,
+      "concentration": 0.62,
+      "commodity": "semiconductors",
+      "description": "Japanese industry chip imports."
+    },
+    {
+      "source": "semiconductors",
+      "target": "Germany",
+      "relationship_type": "imports",
+      "weight": 0.65,
+      "concentration": 0.55,
+      "commodity": "semiconductors",
+      "description": "German automotive chip demand."
+    },
+    {
+      "source": "semiconductors",
+      "target": "Korea, Rep.",
+      "relationship_type": "imports",
+      "weight": 0.58,
+      "concentration": 0.48,
+      "commodity": "semiconductors",
+      "description": "Korean device makers import logic."
+    },
+    {
+      "source": "semiconductors",
+      "target": "India",
+      "relationship_type": "imports",
+      "weight": 0.52,
+      "concentration": 0.42,
+      "commodity": "semiconductors",
+      "description": "India electronics import growth."
+    },
+    {
+      "source": "semiconductors",
+      "target": "Vietnam",
+      "relationship_type": "imports",
+      "weight": 0.55,
+      "concentration": 0.45,
+      "commodity": "semiconductors",
+      "description": "Vietnam EMS chip imports."
+    },
+    {
+      "source": "Taiwan",
+      "target": "semiconductor fabrication",
+      "relationship_type": "industry_dependency",
+      "weight": 0.92,
+      "concentration": 0.88,
+      "commodity": "semiconductors",
+      "sector": "semiconductor fabrication",
+      "description": "Taiwan fab cluster."
+    },
+    {
+      "source": "Korea, Rep.",
+      "target": "semiconductor fabrication",
+      "relationship_type": "industry_dependency",
+      "weight": 0.8,
+      "concentration": 0.72,
+      "commodity": "semiconductors",
+      "sector": "semiconductor fabrication",
+      "description": "Korean memory fabs."
+    },
+    {
+      "source": "United States",
+      "target": "AI hardware",
+      "relationship_type": "industry_dependency",
+      "weight": 0.85,
+      "concentration": 0.75,
+      "commodity": "semiconductors",
+      "sector": "AI hardware",
+      "description": "US AI accelerator ecosystem."
+    },
+    {
+      "source": "United States",
+      "target": "cloud infrastructure",
+      "relationship_type": "industry_dependency",
+      "weight": 0.82,
+      "concentration": 0.7,
+      "commodity": "semiconductors",
+      "sector": "cloud infrastructure",
+      "description": "US hyperscale build-out."
+    },
+    {
+      "source": "China",
+      "target": "electronics manufacturing",
+      "relationship_type": "industry_dependency",
+      "weight": 0.8,
+      "concentration": 0.68,
+      "commodity": "semiconductors",
+      "sector": "electronics manufacturing",
+      "description": "Chinese EMS sector."
+    },
+    {
+      "source": "Vietnam",
+      "target": "electronics manufacturing",
+      "relationship_type": "industry_dependency",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "semiconductors",
+      "sector": "electronics manufacturing",
+      "description": "Vietnam assembly hubs."
+    },
+    {
+      "source": "Mexico",
+      "target": "automotive electronics",
+      "relationship_type": "industry_dependency",
+      "weight": 0.62,
+      "concentration": 0.5,
+      "commodity": "semiconductors",
+      "sector": "automotive electronics",
+      "description": "Nearshored auto electronics."
+    },
+    {
+      "source": "Japan",
+      "target": "automotive electronics",
+      "relationship_type": "industry_dependency",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "semiconductors",
+      "sector": "automotive electronics",
+      "description": "Japanese auto electronics."
+    },
+    {
+      "source": "Germany",
+      "target": "automotive electronics",
+      "relationship_type": "industry_dependency",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "semiconductors",
+      "sector": "automotive electronics",
+      "description": "German automotive supply chain."
+    },
+    {
+      "source": "Korea, Rep.",
+      "target": "consumer devices",
+      "relationship_type": "industry_dependency",
+      "weight": 0.7,
+      "concentration": 0.58,
+      "commodity": "semiconductors",
+      "sector": "consumer devices",
+      "description": "Korean consumer electronics."
+    },
+    {
+      "source": "China",
+      "target": "consumer devices",
+      "relationship_type": "industry_dependency",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "semiconductors",
+      "sector": "consumer devices",
+      "description": "Chinese device assembly."
+    },
+    {
+      "source": "AI hardware",
+      "target": "cloud infrastructure",
+      "relationship_type": "used_by",
+      "weight": 0.82,
+      "concentration": 0.68,
+      "commodity": "semiconductors",
+      "sector": "cloud infrastructure",
+      "description": "Cloud depends on AI accelerators."
+    },
+    {
+      "source": "AI hardware",
+      "target": "data centers",
+      "relationship_type": "used_by",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "semiconductors",
+      "sector": "data centers",
+      "description": "Data centres deploy AI hardware."
+    },
+    {
+      "source": "semiconductor fabrication",
+      "target": "telecommunications",
+      "relationship_type": "used_by",
+      "weight": 0.65,
+      "concentration": 0.52,
+      "commodity": "semiconductors",
+      "sector": "telecommunications",
+      "description": "5G chips from fabs."
+    },
+    {
+      "source": "semiconductors",
+      "target": "defense manufacturing",
+      "relationship_type": "used_by",
+      "weight": 0.7,
+      "concentration": 0.58,
+      "commodity": "semiconductors",
+      "sector": "defense manufacturing",
+      "description": "Defense systems need secure chips."
+    },
+    {
+      "source": "Saudi Arabia",
+      "target": "crude oil",
+      "relationship_type": "exports",
+      "weight": 0.92,
+      "concentration": 0.88,
+      "commodity": "crude oil",
+      "description": "Saudi swing crude production."
+    },
+    {
+      "source": "Russia",
+      "target": "crude oil",
+      "relationship_type": "exports",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "crude oil",
+      "description": "Russian crude exports."
+    },
+    {
+      "source": "United Arab Emirates",
+      "target": "crude oil",
+      "relationship_type": "exports",
+      "weight": 0.68,
+      "concentration": 0.58,
+      "commodity": "crude oil",
+      "description": "UAE Gulf crude exports."
+    },
+    {
+      "source": "United States",
+      "target": "crude oil",
+      "relationship_type": "exports",
+      "weight": 0.62,
+      "concentration": 0.48,
+      "commodity": "crude oil",
+      "description": "US shale crude production."
+    },
+    {
+      "source": "Canada",
+      "target": "crude oil",
+      "relationship_type": "exports",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "crude oil",
+      "description": "Canadian oil sands exports."
+    },
+    {
+      "source": "crude oil",
+      "target": "China",
+      "relationship_type": "imports",
+      "weight": 0.82,
+      "concentration": 0.75,
+      "commodity": "crude oil",
+      "description": "China crude import demand."
+    },
+    {
+      "source": "crude oil",
+      "target": "India",
+      "relationship_type": "imports",
+      "weight": 0.75,
+      "concentration": 0.68,
+      "commodity": "crude oil",
+      "description": "India growing oil imports."
+    },
+    {
+      "source": "crude oil",
+      "target": "Japan",
+      "relationship_type": "imports",
+      "weight": 0.8,
+      "concentration": 0.72,
+      "commodity": "crude oil",
+      "description": "Japan energy import reliance."
+    },
+    {
+      "source": "crude oil",
+      "target": "Germany",
+      "relationship_type": "imports",
+      "weight": 0.68,
+      "concentration": 0.58,
+      "commodity": "crude oil",
+      "description": "German industrial oil demand."
+    },
+    {
+      "source": "crude oil",
+      "target": "United States",
+      "relationship_type": "imports",
+      "weight": 0.45,
+      "concentration": 0.35,
+      "commodity": "crude oil",
+      "description": "US refinery crude imports."
+    },
+    {
+      "source": "crude oil",
+      "target": "Netherlands",
+      "relationship_type": "imports",
+      "weight": 0.58,
+      "concentration": 0.48,
+      "commodity": "crude oil",
+      "description": "Rotterdam refining hub."
+    },
+    {
+      "source": "Russia",
+      "target": "natural gas",
+      "relationship_type": "exports",
+      "weight": 0.88,
+      "concentration": 0.82,
+      "commodity": "natural gas",
+      "description": "Russian pipeline gas."
+    },
+    {
+      "source": "United States",
+      "target": "natural gas",
+      "relationship_type": "exports",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "natural gas",
+      "description": "US shale gas production."
+    },
+    {
+      "source": "Canada",
+      "target": "natural gas",
+      "relationship_type": "exports",
+      "weight": 0.55,
+      "concentration": 0.45,
+      "commodity": "natural gas",
+      "description": "Canadian gas to US."
+    },
+    {
+      "source": "natural gas",
+      "target": "Germany",
+      "relationship_type": "imports",
+      "weight": 0.78,
+      "concentration": 0.7,
+      "commodity": "natural gas",
+      "description": "German gas import dependence."
+    },
+    {
+      "source": "natural gas",
+      "target": "Japan",
+      "relationship_type": "imports",
+      "weight": 0.72,
+      "concentration": 0.65,
+      "commodity": "natural gas",
+      "description": "Japan LNG/gas imports."
+    },
+    {
+      "source": "natural gas",
+      "target": "China",
+      "relationship_type": "imports",
+      "weight": 0.65,
+      "concentration": 0.55,
+      "commodity": "natural gas",
+      "description": "Chinese gas demand growth."
+    },
+    {
+      "source": "Australia",
+      "target": "LNG",
+      "relationship_type": "exports",
+      "weight": 0.82,
+      "concentration": 0.72,
+      "commodity": "LNG",
+      "description": "Australian LNG exports."
+    },
+    {
+      "source": "United Arab Emirates",
+      "target": "LNG",
+      "relationship_type": "exports",
+      "weight": 0.58,
+      "concentration": 0.48,
+      "commodity": "LNG",
+      "description": "UAE LNG export capacity."
+    },
+    {
+      "source": "United States",
+      "target": "LNG",
+      "relationship_type": "exports",
+      "weight": 0.72,
+      "concentration": 0.6,
+      "commodity": "LNG",
+      "description": "US Gulf Coast LNG."
+    },
+    {
+      "source": "LNG",
+      "target": "Japan",
+      "relationship_type": "imports",
+      "weight": 0.85,
+      "concentration": 0.78,
+      "commodity": "LNG",
+      "description": "Japan LNG import reliance."
+    },
+    {
+      "source": "LNG",
+      "target": "China",
+      "relationship_type": "imports",
+      "weight": 0.7,
+      "concentration": 0.62,
+      "commodity": "LNG",
+      "description": "Chinese LNG imports."
+    },
+    {
+      "source": "LNG",
+      "target": "Korea, Rep.",
+      "relationship_type": "imports",
+      "weight": 0.68,
+      "concentration": 0.58,
+      "commodity": "LNG",
+      "description": "Korean LNG demand."
+    },
+    {
+      "source": "LNG",
+      "target": "India",
+      "relationship_type": "imports",
+      "weight": 0.55,
+      "concentration": 0.45,
+      "commodity": "LNG",
+      "description": "Indian LNG growth."
+    },
+    {
+      "source": "crude oil",
+      "target": "shipping logistics",
+      "relationship_type": "used_by",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "crude oil",
+      "sector": "shipping logistics",
+      "description": "Maritime fuel from crude."
+    },
+    {
+      "source": "crude oil",
+      "target": "energy-intensive manufacturing",
+      "relationship_type": "used_by",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "crude oil",
+      "sector": "energy-intensive manufacturing",
+      "description": "Industrial fuel demand."
+    },
+    {
+      "source": "natural gas",
+      "target": "power generation",
+      "relationship_type": "used_by",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "natural gas",
+      "sector": "power generation",
+      "description": "Gas-fired power plants."
+    },
+    {
+      "source": "natural gas",
+      "target": "energy-intensive manufacturing",
+      "relationship_type": "used_by",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "natural gas",
+      "sector": "energy-intensive manufacturing",
+      "description": "Gas for chemicals and heat."
+    },
+    {
+      "source": "LNG",
+      "target": "power generation",
+      "relationship_type": "used_by",
+      "weight": 0.62,
+      "concentration": 0.5,
+      "commodity": "LNG",
+      "sector": "power generation",
+      "description": "LNG peaker plants."
+    },
+    {
+      "source": "Chile",
+      "target": "lithium",
+      "relationship_type": "exports",
+      "weight": 0.88,
+      "concentration": 0.75,
+      "commodity": "lithium",
+      "description": "Chilean brine lithium."
+    },
+    {
+      "source": "Argentina",
+      "target": "lithium",
+      "relationship_type": "exports",
+      "weight": 0.62,
+      "concentration": 0.48,
+      "commodity": "lithium",
+      "description": "Argentine lithium triangle."
+    },
+    {
+      "source": "Australia",
+      "target": "lithium",
+      "relationship_type": "exports",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "lithium",
+      "description": "Australian spodumene."
+    },
+    {
+      "source": "China",
+      "target": "lithium",
+      "relationship_type": "exports",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "lithium",
+      "description": "Chinese lithium refining."
+    },
+    {
+      "source": "Democratic Republic of the Congo",
+      "target": "cobalt",
+      "relationship_type": "exports",
+      "weight": 0.92,
+      "concentration": 0.78,
+      "commodity": "cobalt",
+      "description": "DRC mined cobalt dominance."
+    },
+    {
+      "source": "China",
+      "target": "cobalt",
+      "relationship_type": "exports",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "cobalt",
+      "description": "Chinese cobalt refining."
+    },
+    {
+      "source": "Indonesia",
+      "target": "nickel",
+      "relationship_type": "exports",
+      "weight": 0.82,
+      "concentration": 0.68,
+      "commodity": "nickel",
+      "description": "Indonesian nickel processing."
+    },
+    {
+      "source": "Russia",
+      "target": "nickel",
+      "relationship_type": "exports",
+      "weight": 0.58,
+      "concentration": 0.45,
+      "commodity": "nickel",
+      "description": "Russian nickel production."
+    },
+    {
+      "source": "Chile",
+      "target": "copper",
+      "relationship_type": "exports",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "copper",
+      "description": "Chilean copper mining."
+    },
+    {
+      "source": "Peru",
+      "target": "copper",
+      "relationship_type": "exports",
+      "weight": 0.65,
+      "concentration": 0.52,
+      "commodity": "copper",
+      "description": "Peruvian copper exports."
+    },
+    {
+      "source": "China",
+      "target": "rare earths",
+      "relationship_type": "exports",
+      "weight": 0.9,
+      "concentration": 0.85,
+      "commodity": "rare earths",
+      "description": "Chinese rare-earth processing."
+    },
+    {
+      "source": "Australia",
+      "target": "rare earths",
+      "relationship_type": "exports",
+      "weight": 0.42,
+      "concentration": 0.32,
+      "commodity": "rare earths",
+      "description": "Australian rare-earth mining."
+    },
+    {
+      "source": "lithium",
+      "target": "EV batteries",
+      "relationship_type": "used_by",
+      "weight": 0.85,
+      "concentration": 0.72,
+      "commodity": "lithium",
+      "sector": "EV batteries",
+      "description": "Battery cathode lithium."
+    },
+    {
+      "source": "cobalt",
+      "target": "EV batteries",
+      "relationship_type": "used_by",
+      "weight": 0.82,
+      "concentration": 0.68,
+      "commodity": "cobalt",
+      "sector": "EV batteries",
+      "description": "High-nickel cathodes use cobalt."
+    },
+    {
+      "source": "nickel",
+      "target": "EV batteries",
+      "relationship_type": "used_by",
+      "weight": 0.8,
+      "concentration": 0.65,
+      "commodity": "nickel",
+      "sector": "EV batteries",
+      "description": "Nickel-rich cathodes."
+    },
+    {
+      "source": "copper",
+      "target": "renewable energy",
+      "relationship_type": "used_by",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "copper",
+      "sector": "renewable energy",
+      "description": "Solar and wind wiring."
+    },
+    {
+      "source": "copper",
+      "target": "data centers",
+      "relationship_type": "used_by",
+      "weight": 0.62,
+      "concentration": 0.48,
+      "commodity": "copper",
+      "sector": "data centers",
+      "description": "Power and cooling infrastructure."
+    },
+    {
+      "source": "rare earths",
+      "target": "defense manufacturing",
+      "relationship_type": "used_by",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "rare earths",
+      "sector": "defense manufacturing",
+      "description": "Rare-earth magnets in defense."
+    },
+    {
+      "source": "rare earths",
+      "target": "renewable energy",
+      "relationship_type": "used_by",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "rare earths",
+      "sector": "renewable energy",
+      "description": "Wind turbine magnets."
+    },
+    {
+      "source": "China",
+      "target": "batteries",
+      "relationship_type": "exports",
+      "weight": 0.82,
+      "concentration": 0.7,
+      "commodity": "batteries",
+      "description": "Chinese battery cell exports."
+    },
+    {
+      "source": "Korea, Rep.",
+      "target": "batteries",
+      "relationship_type": "exports",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "batteries",
+      "description": "Korean battery giants."
+    },
+    {
+      "source": "batteries",
+      "target": "EV batteries",
+      "relationship_type": "used_by",
+      "weight": 0.88,
+      "concentration": 0.75,
+      "commodity": "batteries",
+      "sector": "EV batteries",
+      "description": "Pack integrators use cells."
+    },
+    {
+      "source": "Korea, Rep.",
+      "target": "EV batteries",
+      "relationship_type": "industry_dependency",
+      "weight": 0.8,
+      "concentration": 0.68,
+      "commodity": "batteries",
+      "sector": "EV batteries",
+      "description": "Korean EV battery sector."
+    },
+    {
+      "source": "China",
+      "target": "EV batteries",
+      "relationship_type": "industry_dependency",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "batteries",
+      "sector": "EV batteries",
+      "description": "Chinese battery manufacturing."
+    },
+    {
+      "source": "lithium",
+      "target": "automotive electronics",
+      "relationship_type": "price_exposure",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "lithium",
+      "sector": "automotive electronics",
+      "description": "EV cost pass-through."
+    },
+    {
+      "source": "Russia",
+      "target": "wheat",
+      "relationship_type": "exports",
+      "weight": 0.82,
+      "concentration": 0.72,
+      "commodity": "wheat",
+      "description": "Russian wheat exports."
+    },
+    {
+      "source": "Ukraine",
+      "target": "wheat",
+      "relationship_type": "exports",
+      "weight": 0.75,
+      "concentration": 0.65,
+      "commodity": "wheat",
+      "description": "Ukrainian wheat exports."
+    },
+    {
+      "source": "United States",
+      "target": "wheat",
+      "relationship_type": "exports",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "wheat",
+      "description": "US grain exports."
+    },
+    {
+      "source": "Argentina",
+      "target": "wheat",
+      "relationship_type": "exports",
+      "weight": 0.58,
+      "concentration": 0.45,
+      "commodity": "wheat",
+      "description": "Argentine wheat exports."
+    },
+    {
+      "source": "Brazil",
+      "target": "corn",
+      "relationship_type": "exports",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "corn",
+      "description": "Brazilian corn exports."
+    },
+    {
+      "source": "United States",
+      "target": "corn",
+      "relationship_type": "exports",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "corn",
+      "description": "US corn belt exports."
+    },
+    {
+      "source": "Ukraine",
+      "target": "corn",
+      "relationship_type": "exports",
+      "weight": 0.62,
+      "concentration": 0.5,
+      "commodity": "corn",
+      "description": "Ukrainian corn exports."
+    },
+    {
+      "source": "India",
+      "target": "rice",
+      "relationship_type": "exports",
+      "weight": 0.65,
+      "concentration": 0.52,
+      "commodity": "rice",
+      "description": "Indian rice exports."
+    },
+    {
+      "source": "Vietnam",
+      "target": "rice",
+      "relationship_type": "exports",
+      "weight": 0.58,
+      "concentration": 0.45,
+      "commodity": "rice",
+      "description": "Vietnamese rice exports."
+    },
+    {
+      "source": "wheat",
+      "target": "China",
+      "relationship_type": "imports",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "wheat",
+      "description": "Chinese wheat imports."
+    },
+    {
+      "source": "wheat",
+      "target": "Indonesia",
+      "relationship_type": "imports",
+      "weight": 0.48,
+      "concentration": 0.38,
+      "commodity": "wheat",
+      "description": "Indonesian wheat demand."
+    },
+    {
+      "source": "wheat",
+      "target": "food security",
+      "relationship_type": "used_by",
+      "weight": 0.82,
+      "concentration": 0.7,
+      "commodity": "wheat",
+      "sector": "food security",
+      "description": "Wheat in national food systems."
+    },
+    {
+      "source": "corn",
+      "target": "China",
+      "relationship_type": "imports",
+      "weight": 0.52,
+      "concentration": 0.42,
+      "commodity": "corn",
+      "description": "Chinese feed corn imports."
+    },
+    {
+      "source": "corn",
+      "target": "agriculture",
+      "relationship_type": "used_by",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "corn",
+      "sector": "agriculture",
+      "description": "Feed and ethanol demand."
+    },
+    {
+      "source": "rice",
+      "target": "China",
+      "relationship_type": "imports",
+      "weight": 0.42,
+      "concentration": 0.32,
+      "commodity": "rice",
+      "description": "Chinese rice trade."
+    },
+    {
+      "source": "rice",
+      "target": "food security",
+      "relationship_type": "used_by",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "rice",
+      "sector": "food security",
+      "description": "Rice staple security."
+    },
+    {
+      "source": "Russia",
+      "target": "fertilizer",
+      "relationship_type": "exports",
+      "weight": 0.8,
+      "concentration": 0.7,
+      "commodity": "fertilizer",
+      "description": "Russian fertilizer exports."
+    },
+    {
+      "source": "Canada",
+      "target": "fertilizer",
+      "relationship_type": "exports",
+      "weight": 0.65,
+      "concentration": 0.52,
+      "commodity": "fertilizer",
+      "description": "Canadian potash exports."
+    },
+    {
+      "source": "fertilizer",
+      "target": "agriculture",
+      "relationship_type": "used_by",
+      "weight": 0.85,
+      "concentration": 0.72,
+      "commodity": "fertilizer",
+      "sector": "agriculture",
+      "description": "Crop yield depends on fertilizer."
+    },
+    {
+      "source": "fertilizer",
+      "target": "food security",
+      "relationship_type": "used_by",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "fertilizer",
+      "sector": "food security",
+      "description": "Fertilizer and harvest stability."
+    },
+    {
+      "source": "Ukraine",
+      "target": "agriculture",
+      "relationship_type": "industry_dependency",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "wheat",
+      "sector": "agriculture",
+      "description": "Ukrainian agri sector."
+    },
+    {
+      "source": "Brazil",
+      "target": "agriculture",
+      "relationship_type": "industry_dependency",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "corn",
+      "sector": "agriculture",
+      "description": "Brazilian agribusiness."
+    },
+    {
+      "source": "India",
+      "target": "agriculture",
+      "relationship_type": "industry_dependency",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "rice",
+      "sector": "agriculture",
+      "description": "Indian agricultural base."
+    },
+    {
+      "source": "China",
+      "target": "steel",
+      "relationship_type": "exports",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "steel",
+      "description": "Chinese steel exports."
+    },
+    {
+      "source": "Russia",
+      "target": "steel",
+      "relationship_type": "exports",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "steel",
+      "description": "Russian steel exports."
+    },
+    {
+      "source": "China",
+      "target": "aluminum",
+      "relationship_type": "exports",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "aluminum",
+      "description": "Chinese aluminum smelting."
+    },
+    {
+      "source": "Canada",
+      "target": "aluminum",
+      "relationship_type": "exports",
+      "weight": 0.58,
+      "concentration": 0.45,
+      "commodity": "aluminum",
+      "description": "Canadian aluminum."
+    },
+    {
+      "source": "steel",
+      "target": "construction",
+      "relationship_type": "used_by",
+      "weight": 0.82,
+      "concentration": 0.7,
+      "commodity": "steel",
+      "sector": "construction",
+      "description": "Structural steel demand."
+    },
+    {
+      "source": "steel",
+      "target": "energy-intensive manufacturing",
+      "relationship_type": "used_by",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "steel",
+      "sector": "energy-intensive manufacturing",
+      "description": "Industrial steel inputs."
+    },
+    {
+      "source": "aluminum",
+      "target": "aerospace manufacturing",
+      "relationship_type": "used_by",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "aluminum",
+      "sector": "aerospace manufacturing",
+      "description": "Airframe aluminum."
+    },
+    {
+      "source": "aluminum",
+      "target": "automotive electronics",
+      "relationship_type": "used_by",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "aluminum",
+      "sector": "automotive electronics",
+      "description": "Lightweight vehicle parts."
+    },
+    {
+      "source": "Canada",
+      "target": "uranium",
+      "relationship_type": "exports",
+      "weight": 0.62,
+      "concentration": 0.48,
+      "commodity": "uranium",
+      "description": "Canadian uranium mining."
+    },
+    {
+      "source": "Australia",
+      "target": "uranium",
+      "relationship_type": "exports",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "uranium",
+      "description": "Australian uranium exports."
+    },
+    {
+      "source": "uranium",
+      "target": "power generation",
+      "relationship_type": "used_by",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "uranium",
+      "sector": "power generation",
+      "description": "Nuclear fuel cycle."
+    },
+    {
+      "source": "China",
+      "target": "solar panels",
+      "relationship_type": "exports",
+      "weight": 0.88,
+      "concentration": 0.82,
+      "commodity": "solar panels",
+      "description": "Chinese PV module exports."
+    },
+    {
+      "source": "solar panels",
+      "target": "renewable energy",
+      "relationship_type": "used_by",
+      "weight": 0.85,
+      "concentration": 0.72,
+      "commodity": "solar panels",
+      "sector": "renewable energy",
+      "description": "Utility-scale solar deployment."
+    },
+    {
+      "source": "India",
+      "target": "pharmaceuticals",
+      "relationship_type": "exports",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "pharmaceuticals",
+      "description": "Indian generic pharma exports."
+    },
+    {
+      "source": "United States",
+      "target": "pharmaceuticals",
+      "relationship_type": "exports",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "pharmaceuticals",
+      "description": "US innovative pharma."
+    },
+    {
+      "source": "China",
+      "target": "pharmaceuticals",
+      "relationship_type": "exports",
+      "weight": 0.62,
+      "concentration": 0.48,
+      "commodity": "pharmaceuticals",
+      "description": "Chinese API exports."
+    },
+    {
+      "source": "pharmaceuticals",
+      "target": "medical supply chains",
+      "relationship_type": "used_by",
+      "weight": 0.88,
+      "concentration": 0.75,
+      "commodity": "pharmaceuticals",
+      "sector": "medical supply chains",
+      "description": "Hospital and pharmacy supply."
+    },
+    {
+      "source": "China",
+      "target": "shipping containers",
+      "relationship_type": "exports",
+      "weight": 0.82,
+      "concentration": 0.72,
+      "commodity": "shipping containers",
+      "description": "Chinese container manufacturing."
+    },
+    {
+      "source": "shipping containers",
+      "target": "shipping logistics",
+      "relationship_type": "used_by",
+      "weight": 0.85,
+      "concentration": 0.72,
+      "commodity": "shipping containers",
+      "sector": "shipping logistics",
+      "description": "Containerised freight capacity."
+    },
+    {
+      "source": "Strait of Hormuz",
+      "target": "crude oil",
+      "relationship_type": "route_exposure",
+      "weight": 0.9,
+      "concentration": 0.85,
+      "commodity": "crude oil",
+      "description": "Gulf crude transit chokepoint."
+    },
+    {
+      "source": "Strait of Hormuz",
+      "target": "LNG",
+      "relationship_type": "route_exposure",
+      "weight": 0.75,
+      "concentration": 0.68,
+      "commodity": "LNG",
+      "description": "Gulf LNG transit."
+    },
+    {
+      "source": "Suez Canal",
+      "target": "crude oil",
+      "relationship_type": "route_exposure",
+      "weight": 0.65,
+      "concentration": 0.55,
+      "commodity": "crude oil",
+      "description": "Suez crude transit."
+    },
+    {
+      "source": "Suez Canal",
+      "target": "shipping containers",
+      "relationship_type": "route_exposure",
+      "weight": 0.72,
+      "concentration": 0.62,
+      "commodity": "shipping containers",
+      "description": "Asia–Europe container route."
+    },
+    {
+      "source": "Red Sea",
+      "target": "crude oil",
+      "relationship_type": "route_exposure",
+      "weight": 0.68,
+      "concentration": 0.58,
+      "commodity": "crude oil",
+      "description": "Red Sea shipping corridor."
+    },
+    {
+      "source": "Red Sea",
+      "target": "shipping containers",
+      "relationship_type": "route_exposure",
+      "weight": 0.7,
+      "concentration": 0.58,
+      "commodity": "shipping containers",
+      "description": "Red Sea container routing."
+    },
+    {
+      "source": "Panama Canal",
+      "target": "shipping containers",
+      "relationship_type": "route_exposure",
+      "weight": 0.78,
+      "concentration": 0.68,
+      "commodity": "shipping containers",
+      "description": "Panama container corridor."
+    },
+    {
+      "source": "Panama Canal",
+      "target": "LNG",
+      "relationship_type": "route_exposure",
+      "weight": 0.55,
+      "concentration": 0.45,
+      "commodity": "LNG",
+      "description": "Atlantic–Pacific LNG routing."
+    },
+    {
+      "source": "Taiwan Strait",
+      "target": "semiconductors",
+      "relationship_type": "route_exposure",
+      "weight": 0.72,
+      "concentration": 0.62,
+      "commodity": "semiconductors",
+      "description": "Chip shipping through Taiwan Strait."
+    },
+    {
+      "source": "South China Sea",
+      "target": "semiconductors",
+      "relationship_type": "route_exposure",
+      "weight": 0.75,
+      "concentration": 0.65,
+      "commodity": "semiconductors",
+      "description": "Electronics trade corridor."
+    },
+    {
+      "source": "South China Sea",
+      "target": "shipping containers",
+      "relationship_type": "route_exposure",
+      "weight": 0.8,
+      "concentration": 0.7,
+      "commodity": "shipping containers",
+      "description": "East Asian container flows."
+    },
+    {
+      "source": "Malacca Strait",
+      "target": "crude oil",
+      "relationship_type": "route_exposure",
+      "weight": 0.72,
+      "concentration": 0.62,
+      "commodity": "crude oil",
+      "description": "Indian Ocean crude lane."
+    },
+    {
+      "source": "Malacca Strait",
+      "target": "LNG",
+      "relationship_type": "route_exposure",
+      "weight": 0.65,
+      "concentration": 0.55,
+      "commodity": "LNG",
+      "description": "Asian LNG transit."
+    },
+    {
+      "source": "Black Sea",
+      "target": "wheat",
+      "relationship_type": "route_exposure",
+      "weight": 0.78,
+      "concentration": 0.68,
+      "commodity": "wheat",
+      "description": "Black Sea grain corridor."
+    },
+    {
+      "source": "Black Sea",
+      "target": "fertilizer",
+      "relationship_type": "route_exposure",
+      "weight": 0.62,
+      "concentration": 0.5,
+      "commodity": "fertilizer",
+      "description": "Black Sea fertilizer routing."
+    },
+    {
+      "source": "Black Sea",
+      "target": "corn",
+      "relationship_type": "route_exposure",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "corn",
+      "description": "Black Sea corn exports route."
+    },
+    {
+      "source": "Germany",
+      "target": "industrial machinery",
+      "relationship_type": "industry_dependency",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "steel",
+      "sector": "industrial machinery",
+      "description": "German machinery sector."
+    },
+    {
+      "source": "Japan",
+      "target": "industrial machinery",
+      "relationship_type": "industry_dependency",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "semiconductors",
+      "sector": "industrial machinery",
+      "description": "Japanese capital goods."
+    },
+    {
+      "source": "United States",
+      "target": "defense manufacturing",
+      "relationship_type": "industry_dependency",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "semiconductors",
+      "sector": "defense manufacturing",
+      "description": "US defense industrial base."
+    },
+    {
+      "source": "United States",
+      "target": "aerospace manufacturing",
+      "relationship_type": "industry_dependency",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "aluminum",
+      "sector": "aerospace manufacturing",
+      "description": "US aerospace supply chain."
+    },
+    {
+      "source": "Singapore",
+      "target": "shipping logistics",
+      "relationship_type": "industry_dependency",
+      "weight": 0.82,
+      "concentration": 0.7,
+      "commodity": "shipping containers",
+      "sector": "shipping logistics",
+      "description": "Singapore transshipment hub."
+    },
+    {
+      "source": "Netherlands",
+      "target": "shipping logistics",
+      "relationship_type": "industry_dependency",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "crude oil",
+      "sector": "shipping logistics",
+      "description": "Rotterdam port complex."
+    },
+    {
+      "source": "China",
+      "target": "renewable energy",
+      "relationship_type": "industry_dependency",
+      "weight": 0.8,
+      "concentration": 0.68,
+      "commodity": "solar panels",
+      "sector": "renewable energy",
+      "description": "Chinese renewable deployment."
+    },
+    {
+      "source": "India",
+      "target": "renewable energy",
+      "relationship_type": "industry_dependency",
+      "weight": 0.65,
+      "concentration": 0.52,
+      "commodity": "solar panels",
+      "sector": "renewable energy",
+      "description": "Indian solar build-out."
+    },
+    {
+      "source": "Germany",
+      "target": "power generation",
+      "relationship_type": "industry_dependency",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "natural gas",
+      "sector": "power generation",
+      "description": "German power sector."
+    },
+    {
+      "source": "Japan",
+      "target": "power generation",
+      "relationship_type": "industry_dependency",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "LNG",
+      "sector": "power generation",
+      "description": "Japanese power imports."
+    },
+    {
+      "source": "South Africa",
+      "target": "energy-intensive manufacturing",
+      "relationship_type": "industry_dependency",
+      "weight": 0.58,
+      "concentration": 0.45,
+      "commodity": "copper",
+      "sector": "energy-intensive manufacturing",
+      "description": "South African smelting."
+    },
+    {
+      "source": "Mexico",
+      "target": "construction",
+      "relationship_type": "industry_dependency",
+      "weight": 0.62,
+      "concentration": 0.48,
+      "commodity": "steel",
+      "sector": "construction",
+      "description": "Mexican construction demand."
+    },
+    {
+      "source": "Indonesia",
+      "target": "electronics manufacturing",
+      "relationship_type": "industry_dependency",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "nickel",
+      "sector": "electronics manufacturing",
+      "description": "Nickel-linked manufacturing."
+    },
+    {
+      "source": "Peru",
+      "target": "construction",
+      "relationship_type": "industry_dependency",
+      "weight": 0.52,
+      "concentration": 0.4,
+      "commodity": "copper",
+      "sector": "construction",
+      "description": "Peruvian copper-linked construction."
+    },
+    {
+      "source": "United Arab Emirates",
+      "target": "energy-intensive manufacturing",
+      "relationship_type": "industry_dependency",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "crude oil",
+      "sector": "energy-intensive manufacturing",
+      "description": "Gulf petrochemicals."
+    },
+    {
+      "source": "Australia",
+      "target": "renewable energy",
+      "relationship_type": "industry_dependency",
+      "weight": 0.62,
+      "concentration": 0.48,
+      "commodity": "lithium",
+      "sector": "renewable energy",
+      "description": "Australian battery supply chain."
+    },
+    {
+      "source": "consumer devices",
+      "target": "telecommunications",
+      "relationship_type": "depends_on",
+      "weight": 0.65,
+      "concentration": 0.52,
+      "commodity": "semiconductors",
+      "sector": "telecommunications",
+      "description": "Devices enable telecom services."
+    },
+    {
+      "source": "cloud infrastructure",
+      "target": "data centers",
+      "relationship_type": "depends_on",
+      "weight": 0.8,
+      "concentration": 0.68,
+      "commodity": "semiconductors",
+      "sector": "data centers",
+      "description": "Cloud runs in data centres."
+    },
+    {
+      "source": "EV batteries",
+      "target": "automotive electronics",
+      "relationship_type": "depends_on",
+      "weight": 0.72,
+      "concentration": 0.58,
+      "commodity": "batteries",
+      "sector": "automotive electronics",
+      "description": "EV platforms integrate power electronics."
+    },
+    {
+      "source": "medical supply chains",
+      "target": "food security",
+      "relationship_type": "depends_on",
+      "weight": 0.45,
+      "concentration": 0.35,
+      "commodity": "pharmaceuticals",
+      "sector": "food security",
+      "description": "Health and nutrition systems overlap."
+    },
+    {
+      "source": "United States",
+      "target": "medical supply chains",
+      "relationship_type": "industry_dependency",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "pharmaceuticals",
+      "sector": "medical supply chains",
+      "description": "US healthcare supply chain."
+    },
+    {
+      "source": "India",
+      "target": "medical supply chains",
+      "relationship_type": "industry_dependency",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "pharmaceuticals",
+      "sector": "medical supply chains",
+      "description": "Indian pharma distribution."
+    },
+    {
+      "source": "China",
+      "target": "telecommunications",
+      "relationship_type": "industry_dependency",
+      "weight": 0.78,
+      "concentration": 0.65,
+      "commodity": "semiconductors",
+      "sector": "telecommunications",
+      "description": "Chinese 5G rollout."
+    },
+    {
+      "source": "Korea, Rep.",
+      "target": "telecommunications",
+      "relationship_type": "industry_dependency",
+      "weight": 0.65,
+      "concentration": 0.52,
+      "commodity": "semiconductors",
+      "sector": "telecommunications",
+      "description": "Korean telecom equipment."
+    },
+    {
+      "source": "crude oil",
+      "target": "automotive electronics",
+      "relationship_type": "price_exposure",
+      "weight": 0.48,
+      "concentration": 0.38,
+      "commodity": "crude oil",
+      "sector": "automotive electronics",
+      "description": "Fuel and petrochemical pass-through."
+    },
+    {
+      "source": "natural gas",
+      "target": "energy-intensive manufacturing",
+      "relationship_type": "price_exposure",
+      "weight": 0.62,
+      "concentration": 0.5,
+      "commodity": "natural gas",
+      "sector": "energy-intensive manufacturing",
+      "description": "Gas price and industrial margins."
+    },
+    {
+      "source": "shipping containers",
+      "target": "consumer devices",
+      "relationship_type": "used_by",
+      "weight": 0.7,
+      "concentration": 0.55,
+      "commodity": "shipping containers",
+      "sector": "consumer devices",
+      "description": "Consumer goods shipped in containers."
+    },
+    {
+      "source": "shipping containers",
+      "target": "electronics manufacturing",
+      "relationship_type": "used_by",
+      "weight": 0.75,
+      "concentration": 0.62,
+      "commodity": "shipping containers",
+      "sector": "electronics manufacturing",
+      "description": "EMS imports via containers."
+    },
+    {
+      "source": "Russia",
+      "target": "Ukraine",
+      "relationship_type": "supplies",
+      "weight": 0.42,
+      "concentration": 0.32,
+      "commodity": "fertilizer",
+      "description": "Regional fertilizer trade links."
+    },
+    {
+      "source": "China",
+      "target": "Australia",
+      "relationship_type": "depends_on",
+      "weight": 0.55,
+      "concentration": 0.42,
+      "commodity": "lithium",
+      "description": "China refines Australian lithium."
+    },
+    {
+      "source": "Japan",
+      "target": "Australia",
+      "relationship_type": "depends_on",
+      "weight": 0.62,
+      "concentration": 0.5,
+      "commodity": "LNG",
+      "description": "Japan imports Australian LNG."
+    },
+    {
+      "source": "Korea, Rep.",
+      "target": "Chile",
+      "relationship_type": "depends_on",
+      "weight": 0.48,
+      "concentration": 0.38,
+      "commodity": "copper",
+      "description": "Korean industry copper demand."
+    },
+    {
+      "source": "Germany",
+      "target": "Russia",
+      "relationship_type": "depends_on",
+      "weight": 0.52,
+      "concentration": 0.42,
+      "commodity": "natural gas",
+      "description": "Legacy European gas links."
+    },
+    {
+      "source": "India",
+      "target": "Saudi Arabia",
+      "relationship_type": "depends_on",
+      "weight": 0.58,
+      "concentration": 0.48,
+      "commodity": "crude oil",
+      "description": "Indian crude from Gulf."
+    },
+    {
+      "source": "United States",
+      "target": "Taiwan",
+      "relationship_type": "depends_on",
+      "weight": 0.72,
+      "concentration": 0.65,
+      "commodity": "semiconductors",
+      "description": "US reliance on Taiwan fabs."
+    },
+    {
+      "source": "Vietnam",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.62,
+      "concentration": 0.5,
+      "commodity": "semiconductors",
+      "description": "Vietnam EMS upstream links."
+    },
+    {
+      "source": "Netherlands",
+      "target": "United States",
+      "relationship_type": "depends_on",
+      "weight": 0.45,
+      "concentration": 0.35,
+      "commodity": "LNG",
+      "description": "European LNG from US."
+    },
+    {
+      "source": "Singapore",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.68,
+      "concentration": 0.55,
+      "commodity": "shipping containers",
+      "description": "Transshipment from China."
+    },
+    {
+      "source": "United Arab Emirates",
+      "target": "India",
+      "relationship_type": "depends_on",
+      "weight": 0.55,
+      "concentration": 0.45,
+      "commodity": "crude oil",
+      "description": "Gulf crude to India."
+    },
+    {
+      "source": "Brazil",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.52,
+      "concentration": 0.42,
+      "commodity": "corn",
+      "description": "Brazilian corn to China."
+    },
+    {
+      "source": "Argentina",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.48,
+      "concentration": 0.38,
+      "commodity": "lithium",
+      "description": "Lithium triangle to China."
+    },
+    {
+      "source": "Peru",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.58,
+      "concentration": 0.48,
+      "commodity": "copper",
+      "description": "Peruvian copper to China."
+    },
+    {
+      "source": "South Africa",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.42,
+      "concentration": 0.32,
+      "commodity": "cobalt",
+      "description": "Cobalt trade via refiners."
+    },
+    {
+      "source": "Democratic Republic of the Congo",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.75,
+      "concentration": 0.65,
+      "commodity": "cobalt",
+      "description": "DRC cobalt to Chinese refiners."
+    },
+    {
+      "source": "Chile",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.68,
+      "concentration": 0.58,
+      "commodity": "lithium",
+      "description": "Chilean lithium to China."
+    },
+    {
+      "source": "Ukraine",
+      "target": "Germany",
+      "relationship_type": "depends_on",
+      "weight": 0.45,
+      "concentration": 0.35,
+      "commodity": "wheat",
+      "description": "Ukrainian grain to EU."
+    },
+    {
+      "source": "Russia",
+      "target": "China",
+      "relationship_type": "depends_on",
+      "weight": 0.48,
+      "concentration": 0.38,
+      "commodity": "natural gas",
+      "description": "Pipeline gas to China."
+    },
+    {
+      "source": "Canada",
+      "target": "United States",
+      "relationship_type": "supplies",
+      "weight": 0.62,
+      "concentration": 0.52,
+      "commodity": "natural gas",
+      "description": "Canadian gas to US."
+    },
+    {
+      "source": "Canada",
+      "target": "United States",
+      "relationship_type": "supplies",
+      "weight": 0.55,
+      "concentration": 0.45,
+      "commodity": "crude oil",
+      "description": "Canadian crude to US refiners."
+    },
+    {
+      "source": "Mexico",
+      "target": "United States",
+      "relationship_type": "supplies",
+      "weight": 0.58,
+      "concentration": 0.48,
+      "commodity": "semiconductors",
+      "description": "Nearshored auto electronics supply."
+    },
+    {
+      "source": "Taiwan",
+      "target": "Japan",
+      "relationship_type": "supplies",
+      "weight": 0.55,
+      "concentration": 0.45,
+      "commodity": "semiconductors",
+      "description": "Taiwan chips to Japan."
+    },
+    {
+      "source": "Korea, Rep.",
+      "target": "United States",
+      "relationship_type": "supplies",
+      "weight": 0.52,
+      "concentration": 0.42,
+      "commodity": "batteries",
+      "description": "Korean batteries to US EVs."
+    },
+    {
+      "source": "Germany",
+      "target": "China",
+      "relationship_type": "imports",
+      "weight": 0.48,
+      "concentration": 0.38,
+      "commodity": "semiconductors",
+      "description": "German chip imports from Asia."
+    },
+    {
+      "source": "United States",
+      "target": "Japan",
+      "relationship_type": "imports",
+      "weight": 0.42,
+      "concentration": 0.32,
+      "commodity": "semiconductors",
+      "description": "US–Japan chip trade."
+    }
+  ]
+}

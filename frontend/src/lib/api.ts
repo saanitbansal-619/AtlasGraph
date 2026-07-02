@@ -5,6 +5,7 @@ import type {
   HealthResponse,
   ScenariosResponse,
   ShockOptionsResponse,
+  ShockValidOptionsResponse,
   ShockRequest,
   ShockResponse,
   CompareScenariosRequest,
@@ -79,6 +80,10 @@ export const api = {
   graphEntities: () => request<GraphEntitiesResponse>('/api/graph/entities'),
   scenarios: () => request<ScenariosResponse>('/api/scenarios'),
   shockOptions: () => request<ShockOptionsResponse>('/api/shock/options'),
+  shockValidOptions: (source?: string) => {
+    const q = source?.trim() ? `?source=${encodeURIComponent(source.trim())}` : ''
+    return request<ShockValidOptionsResponse>(`/api/shock/valid-options${q}`)
+  },
   fragilitySummary: () => request<FragilitySummaryResponse>('/api/fragility/summary'),
   runShock: (body: ShockRequest) =>
     request<ShockResponse>('/api/shock', {

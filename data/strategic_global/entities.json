@@ -1,0 +1,299 @@
+{
+  "countries": [
+    {
+      "name": "United States",
+      "description": "Largest economy; chip design, energy production, and defense manufacturing."
+    },
+    {
+      "name": "China",
+      "description": "Manufacturing hub, rare-earth processor, and major commodity importer."
+    },
+    {
+      "name": "Taiwan",
+      "description": "Dominant advanced semiconductor fabrication capacity."
+    },
+    {
+      "name": "Japan",
+      "description": "Precision manufacturing, automotive electronics, and industrial machinery."
+    },
+    {
+      "name": "Korea, Rep.",
+      "description": "Memory semiconductors, batteries, and shipbuilding."
+    },
+    {
+      "name": "Germany",
+      "description": "Industrial machinery, automotive, and chemicals."
+    },
+    {
+      "name": "India",
+      "description": "Growing electronics assembly, pharmaceuticals, and agriculture."
+    },
+    {
+      "name": "Saudi Arabia",
+      "description": "Swing crude oil producer and regional energy exporter."
+    },
+    {
+      "name": "Democratic Republic of the Congo",
+      "description": "Dominant mined cobalt supplier."
+    },
+    {
+      "name": "Russia",
+      "description": "Major natural gas, wheat, and fertilizer exporter."
+    },
+    {
+      "name": "Ukraine",
+      "description": "Key wheat, corn, and fertilizer transit economy."
+    },
+    {
+      "name": "Brazil",
+      "description": "Agricultural exporter and iron ore producer."
+    },
+    {
+      "name": "Mexico",
+      "description": "Electronics manufacturing and automotive supply chains."
+    },
+    {
+      "name": "Canada",
+      "description": "Energy, uranium, and industrial metals producer."
+    },
+    {
+      "name": "Vietnam",
+      "description": "Electronics assembly and textile manufacturing."
+    },
+    {
+      "name": "Netherlands",
+      "description": "European logistics hub and energy import gateway."
+    },
+    {
+      "name": "Singapore",
+      "description": "Maritime chokepoint economy and refining hub."
+    },
+    {
+      "name": "United Arab Emirates",
+      "description": "Gulf energy exporter and logistics node."
+    },
+    {
+      "name": "Australia",
+      "description": "Lithium, iron ore, and LNG exporter."
+    },
+    {
+      "name": "Indonesia",
+      "description": "Nickel processing and palm-oil economy."
+    },
+    {
+      "name": "South Africa",
+      "description": "Platinum group metals and industrial minerals."
+    },
+    {
+      "name": "Chile",
+      "description": "Largest lithium brine producer."
+    },
+    {
+      "name": "Peru",
+      "description": "Copper mining and agricultural exports."
+    },
+    {
+      "name": "Argentina",
+      "description": "Lithium triangle producer and grain exporter."
+    }
+  ],
+  "commodities": [
+    {
+      "name": "semiconductors",
+      "description": "Advanced logic, memory, and packaging."
+    },
+    {
+      "name": "crude oil",
+      "description": "Unrefined petroleum feedstock."
+    },
+    {
+      "name": "natural gas",
+      "description": "Pipeline and regional gas supply."
+    },
+    {
+      "name": "LNG",
+      "description": "Liquefied natural gas for maritime trade."
+    },
+    {
+      "name": "lithium",
+      "description": "Battery-grade lithium compounds."
+    },
+    {
+      "name": "cobalt",
+      "description": "Battery cathode and aerospace alloys."
+    },
+    {
+      "name": "nickel",
+      "description": "Stainless steel and battery cathodes."
+    },
+    {
+      "name": "copper",
+      "description": "Electrical wiring and grid infrastructure."
+    },
+    {
+      "name": "rare earths",
+      "description": "Magnets, optics, and defense inputs."
+    },
+    {
+      "name": "wheat",
+      "description": "Staple grain for food security."
+    },
+    {
+      "name": "corn",
+      "description": "Feed grain and ethanol feedstock."
+    },
+    {
+      "name": "rice",
+      "description": "Staple grain for Asia and Africa."
+    },
+    {
+      "name": "fertilizer",
+      "description": "Nitrogen, phosphate, and potash inputs."
+    },
+    {
+      "name": "uranium",
+      "description": "Nuclear fuel feedstock."
+    },
+    {
+      "name": "steel",
+      "description": "Construction and industrial feedstock."
+    },
+    {
+      "name": "aluminum",
+      "description": "Lightweight metals for transport and packaging."
+    },
+    {
+      "name": "batteries",
+      "description": "Finished lithium-ion battery cells and packs."
+    },
+    {
+      "name": "solar panels",
+      "description": "Photovoltaic modules and polysilicon chain."
+    },
+    {
+      "name": "pharmaceuticals",
+      "description": "Active ingredients and finished medicines."
+    },
+    {
+      "name": "shipping containers",
+      "description": "Intermodal freight capacity proxy."
+    }
+  ],
+  "sectors": [
+    {
+      "name": "AI hardware",
+      "description": "GPUs, accelerators, and AI compute."
+    },
+    {
+      "name": "cloud infrastructure",
+      "description": "Hyperscale data centres."
+    },
+    {
+      "name": "automotive electronics",
+      "description": "Vehicle ECUs and sensors."
+    },
+    {
+      "name": "consumer devices",
+      "description": "Phones, PCs, and wearables."
+    },
+    {
+      "name": "electronics manufacturing",
+      "description": "Contract assembly and EMS."
+    },
+    {
+      "name": "EV batteries",
+      "description": "Electric vehicle battery packs."
+    },
+    {
+      "name": "renewable energy",
+      "description": "Wind, solar, and grid storage."
+    },
+    {
+      "name": "power generation",
+      "description": "Utilities and baseload power."
+    },
+    {
+      "name": "agriculture",
+      "description": "Farming and agri-inputs."
+    },
+    {
+      "name": "food security",
+      "description": "National grain reserves and food systems."
+    },
+    {
+      "name": "defense manufacturing",
+      "description": "Military systems and munitions."
+    },
+    {
+      "name": "aerospace manufacturing",
+      "description": "Airframes, engines, and avionics."
+    },
+    {
+      "name": "medical supply chains",
+      "description": "Hospitals and pharma distribution."
+    },
+    {
+      "name": "construction",
+      "description": "Buildings and civil infrastructure."
+    },
+    {
+      "name": "shipping logistics",
+      "description": "Freight, ports, and maritime trade."
+    },
+    {
+      "name": "energy-intensive manufacturing",
+      "description": "Steel, chemicals, and smelting."
+    },
+    {
+      "name": "data centers",
+      "description": "Colocation and enterprise compute."
+    },
+    {
+      "name": "industrial machinery",
+      "description": "Machine tools and capital goods."
+    },
+    {
+      "name": "telecommunications",
+      "description": "5G networks and backbone fibre."
+    },
+    {
+      "name": "semiconductor fabrication",
+      "description": "Foundry and packaging capacity."
+    }
+  ],
+  "routes": [
+    {
+      "name": "Suez Canal",
+      "description": "Asia–Europe maritime shortcut."
+    },
+    {
+      "name": "Panama Canal",
+      "description": "Atlantic–Pacific container corridor."
+    },
+    {
+      "name": "Strait of Hormuz",
+      "description": "Gulf crude and LNG transit chokepoint."
+    },
+    {
+      "name": "Red Sea",
+      "description": "Suez approach and Bab el-Mandeb corridor."
+    },
+    {
+      "name": "Taiwan Strait",
+      "description": "Semiconductor and electronics shipping lane."
+    },
+    {
+      "name": "South China Sea",
+      "description": "East Asian manufacturing trade corridor."
+    },
+    {
+      "name": "Black Sea",
+      "description": "Grain and fertilizer export corridor."
+    },
+    {
+      "name": "Malacca Strait",
+      "description": "Indian Ocean–Pacific energy and goods lane."
+    }
+  ],
+  "companies": []
+}

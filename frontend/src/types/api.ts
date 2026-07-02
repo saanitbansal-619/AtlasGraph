@@ -180,6 +180,23 @@ export interface ShockOptionsResponse {
   recommended_scenarios: RecommendedScenario[]
 }
 
+// GET /api/shock/valid-options — graph-valid source → commodity → shock_type combos.
+export interface ValidCommodityOption {
+  commodity: string
+  shock_types: string[]
+  relationships: string[]
+}
+
+export interface ValidSourceOption {
+  source: string
+  type: string
+  commodities: ValidCommodityOption[]
+}
+
+export interface ShockValidOptionsResponse {
+  sources: ValidSourceOption[]
+}
+
 export interface FragilitySummaryResponse {
   countries: CountryFragilityScore[]
   commodities: CommodityFragilityScore[]

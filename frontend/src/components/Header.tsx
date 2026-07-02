@@ -23,7 +23,7 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
+      <div className="dashboard-shell flex items-center justify-between gap-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded border border-cyan-500/40 bg-cyan-500/10 font-mono text-sm font-bold text-cyan-300">
             AG

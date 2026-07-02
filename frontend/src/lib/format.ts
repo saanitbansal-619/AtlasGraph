@@ -30,10 +30,26 @@ export function riskBand(score: number): RiskBand {
   return 'Low'
 }
 
-// Render a labeled path like "Taiwan --exports/semiconductors--> ..." with nicer
-// arrow glyphs for display.
-export function prettyPath(labeled: string): string {
-  return labeled.replace(/-->/g, '→').replace(/--/g, ' ')
+// Format relationship_type for display (exports, used_by → used by).
+export function formatRelationship(rel: string): string {
+  return rel.replace(/_/g, ' ')
+}
+
+// Group blocked-edge reasons into analyst-facing categories.
+export function blockedEdgeCategory(reason: string): string {
+  if (reason.includes('cross-commodity branch blocked')) {
+    return 'Cross-commodity branch blocked'
+  }
+  if (reason.includes('relationship not propagated')) {
+    return 'Relationship not propagated by shock type'
+  }
+  if (reason.includes('propagation disabled on edge')) {
+    return 'Propagation disabled on edge'
+  }
+  if (reason.includes('edge restricted') || reason.includes('edge allows')) {
+    return 'Edge restricted to other shock types'
+  }
+  return 'Other branch blocked'
 }
 
 const TYPE_STYLES: Record<string, string> = {

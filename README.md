@@ -971,6 +971,44 @@ exactly the wire format the loader validates, so the standard `graph summary`,
 
 ---
 
+## Strategic Global Demo Dataset
+
+`data/strategic_global` is a **curated synthetic strategic dataset** for larger
+control-room demos: **24 countries**, **20 commodities**, **20 sectors**, **8
+maritime chokepoints**, **~190 dependencies**, and **10 shock scenarios**. It uses
+the same JSON schema as `data/sample` and does **not** replace the trade-graph
+builder output under `data/generated/trade_graph`.
+
+This is reproducible local demo data — **not** live UN Comtrade, GDELT, or World
+Bank prices. See [`data/strategic_global/README.md`](data/strategic_global/README.md)
+for scope and future-ingestion notes.
+
+```bash
+# Graph overview
+go run ./cmd/atlas graph summary --data data/strategic_global
+
+# Scenario presets (Taiwan semiconductors, Hormuz crude, Panama shipping, …)
+go run ./cmd/atlas scenario list --data data/strategic_global
+go run ./cmd/atlas scenario run taiwan_semiconductor_shock --data data/strategic_global --explain
+
+# Custom shock
+go run ./cmd/atlas shock --source Taiwan --commodity semiconductors --drop 30 --depth 3 --data data/strategic_global --explain
+
+# Compare scenarios on the larger graph
+go run ./cmd/atlas scenario compare --data data/strategic_global
+
+# Serve the API against this dataset
+go run ./cmd/atlas serve \
+  --data data/strategic_global \
+  --trade-data data/processed/trade \
+  --macro-data data/raw/worldbank \
+  --event-data data/raw/gdelt \
+  --commodity-data data/processed/commodity_prices \
+  --port 8080
+```
+
+---
+
 ## Commodity Price Stress
 
 Knowing that a country *depends* on a commodity is only half the picture —

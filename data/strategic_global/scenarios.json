@@ -1,0 +1,104 @@
+{
+  "scenarios": [
+    {
+      "id": "taiwan_semiconductor_shock",
+      "name": "Taiwan Semiconductor Export Collapse",
+      "source": "Taiwan",
+      "commodity": "semiconductors",
+      "shock_type": "export_collapse",
+      "shock_percent": 30,
+      "depth": 3,
+      "description": "A 30% drop in Taiwan semiconductor exports and cascade through compute-dependent economies."
+    },
+    {
+      "id": "china_rare_earth_export_control",
+      "name": "China Rare Earth Export Control",
+      "source": "China",
+      "commodity": "rare earths",
+      "shock_type": "export_collapse",
+      "shock_percent": 35,
+      "depth": 3,
+      "description": "A 35% contraction in Chinese rare-earth exports hitting defense and renewable supply chains."
+    },
+    {
+      "id": "saudi_crude_oil_supply_cut",
+      "name": "Saudi Crude Oil Supply Cut",
+      "source": "Saudi Arabia",
+      "commodity": "crude oil",
+      "shock_type": "supply_cut",
+      "shock_percent": 25,
+      "depth": 3,
+      "description": "A 25% Saudi crude production cut pressuring importers and energy-intensive sectors."
+    },
+    {
+      "id": "russia_natural_gas_disruption",
+      "name": "Russia Natural Gas Disruption",
+      "source": "Russia",
+      "commodity": "natural gas",
+      "shock_type": "supply_cut",
+      "shock_percent": 40,
+      "depth": 3,
+      "description": "A 40% Russian natural gas supply disruption affecting European power and industry."
+    },
+    {
+      "id": "ukraine_wheat_export_disruption",
+      "name": "Ukraine Wheat Export Disruption",
+      "source": "Ukraine",
+      "commodity": "wheat",
+      "shock_type": "export_collapse",
+      "shock_percent": 45,
+      "depth": 3,
+      "description": "A 45% drop in Ukrainian wheat exports stressing food-security systems."
+    },
+    {
+      "id": "drc_cobalt_supply_disruption",
+      "name": "DRC Cobalt Supply Disruption",
+      "source": "Democratic Republic of the Congo",
+      "commodity": "cobalt",
+      "shock_type": "supply_cut",
+      "shock_percent": 30,
+      "depth": 3,
+      "description": "A 30% DRC cobalt supply disruption propagating into EV battery manufacturing."
+    },
+    {
+      "id": "chile_lithium_export_disruption",
+      "name": "Chile Lithium Export Disruption",
+      "source": "Chile",
+      "commodity": "lithium",
+      "shock_type": "export_collapse",
+      "shock_percent": 35,
+      "depth": 3,
+      "description": "A 35% Chilean lithium export shock hitting battery and automotive chains."
+    },
+    {
+      "id": "hormuz_crude_route_disruption",
+      "name": "Strait of Hormuz Crude Route Disruption",
+      "source": "Strait of Hormuz",
+      "commodity": "crude oil",
+      "shock_type": "route_disruption",
+      "shock_percent": 40,
+      "depth": 3,
+      "description": "A 40% reduction in crude oil transiting Hormuz and downstream import pressure."
+    },
+    {
+      "id": "panama_canal_shipping_disruption",
+      "name": "Panama Canal Shipping Disruption",
+      "source": "Panama Canal",
+      "commodity": "shipping containers",
+      "shock_type": "route_disruption",
+      "shock_percent": 35,
+      "depth": 3,
+      "description": "A 35% Panama Canal container capacity shock disrupting global logistics."
+    },
+    {
+      "id": "south_china_sea_electronics_disruption",
+      "name": "South China Sea Electronics Disruption",
+      "source": "South China Sea",
+      "commodity": "semiconductors",
+      "shock_type": "route_disruption",
+      "shock_percent": 30,
+      "depth": 3,
+      "description": "A 30% South China Sea semiconductor shipping disruption hitting electronics trade."
+    }
+  ]
+}
