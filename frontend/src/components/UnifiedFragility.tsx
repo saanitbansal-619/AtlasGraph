@@ -1,5 +1,6 @@
 import type { FragilitySummaryResponse } from '../types/api'
 import { fixed, riskBadgeClass } from '../lib/format'
+import { HorizontalBarChartCard } from './charts/HorizontalBarChartCard'
 import { Panel, Spinner } from './ui'
 import { InlineError } from './States'
 
@@ -33,27 +34,65 @@ export function UnifiedFragility({
 
   return (
     <Panel title="Unified Fragility" right={<span className="text-[11px] text-slate-500">top 5 by score</span>}>
-      <div className={`grid grid-cols-1 gap-4 lg:grid-cols-2 ${loading ? 'opacity-70' : ''}`}>
-        <FragilityTable
-          label="Countries"
-          rows={summary.countries.map((c) => ({
-            name: c.country_name,
-            score: c.score,
-            risk: c.risk_level,
-            drivers: c.top_drivers,
-          }))}
-          empty="No country fragility scores available."
-        />
-        <FragilityTable
-          label="Commodities"
-          rows={summary.commodities.map((c) => ({
-            name: c.commodity_name,
-            score: c.score,
-            risk: c.risk_level,
-            drivers: c.top_drivers,
-          }))}
-          empty="No commodity fragility scores available."
-        />
+      <div className={`space-y-4 ${loading ? 'opacity-70' : ''}`}>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <HorizontalBarChartCard
+            title="Top Fragile Countries"
+            subtitle="fragility score"
+            valueLabel="Fragility score"
+            valueDigits={1}
+            data={summary.countries.map((c) => ({
+              label: c.country_name,
+              value: c.score,
+              meta: { risk: c.risk_level },
+            }))}
+            emptyLabel="No country fragility scores available."
+            topN={5}
+            showValueLabels
+            valueSuffix=" score"
+          />
+          <HorizontalBarChartCard
+            title="Top Fragile Commodities"
+            subtitle="fragility score"
+            valueLabel="Fragility score"
+            valueDigits={1}
+            data={summary.commodities.map((c) => ({
+              label: c.commodity_name,
+              value: c.score,
+              meta: {
+                risk: c.risk_level,
+                drivers: (c.top_drivers ?? []).slice(0, 3).join(', '),
+              },
+            }))}
+            emptyLabel="No commodity fragility scores available."
+            topN={5}
+            showValueLabels
+            valueSuffix=" score"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <FragilityTable
+            label="Countries"
+            rows={summary.countries.map((c) => ({
+              name: c.country_name,
+              score: c.score,
+              risk: c.risk_level,
+              drivers: c.top_drivers,
+            }))}
+            empty="No country fragility scores available."
+          />
+          <FragilityTable
+            label="Commodities"
+            rows={summary.commodities.map((c) => ({
+              name: c.commodity_name,
+              score: c.score,
+              risk: c.risk_level,
+              drivers: c.top_drivers,
+            }))}
+            empty="No commodity fragility scores available."
+          />
+        </div>
       </div>
     </Panel>
   )

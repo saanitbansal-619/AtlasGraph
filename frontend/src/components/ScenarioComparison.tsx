@@ -7,6 +7,7 @@ import type {
   ShockOptionsResponse,
 } from '../types/api'
 import { deltaClass, signed } from '../lib/format'
+import { AdaptiveRankingChart } from './charts/AdaptiveRankingChart'
 import { EmptyHint, Panel, Spinner } from './ui'
 import { InlineError } from './States'
 
@@ -188,6 +189,37 @@ function CompareResults({
           <SummaryChip label="Highest max Δ" value={s.highest_max_fragility_delta} />
         </div>
       </Panel>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <AdaptiveRankingChart
+          title="Scenario Avg Fragility Delta"
+          subtitle="Δ fragility"
+          valueLabel="Δ fragility"
+          valueDigits={1}
+          valueSuffix=" Δ"
+          data={data.results.map((r) => ({
+            label: r.label,
+            value: r.average_fragility_delta,
+          }))}
+          emptyLabel="No comparison results available."
+          topN={10}
+          forceRanking={data.results.length <= 3}
+        />
+        <AdaptiveRankingChart
+          title="Scenario Max Fragility Delta"
+          subtitle="Δ fragility"
+          valueLabel="Δ fragility"
+          valueDigits={1}
+          valueSuffix=" Δ"
+          data={data.results.map((r) => ({
+            label: r.label,
+            value: r.max_fragility_delta,
+          }))}
+          emptyLabel="No comparison results available."
+          topN={10}
+          forceRanking={data.results.length <= 3}
+        />
+      </div>
 
       <div className="space-y-3">
         {data.results.map((r, i) => (

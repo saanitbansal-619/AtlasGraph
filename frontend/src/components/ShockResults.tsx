@@ -11,6 +11,7 @@ import {
 } from '../lib/format'
 import { EmptyHint, Panel, Spinner, TypeBadge } from './ui'
 import { InlineError } from './States'
+import { AdaptiveRankingChart } from './charts/AdaptiveRankingChart'
 
 export function ShockResults({
   result,
@@ -77,6 +78,35 @@ export function ShockResults({
           value={s.largest_single_impact_entity || '—'}
           small
           wrapperClassName="col-span-2 min-[480px]:col-span-1"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <AdaptiveRankingChart
+          title="Top Impacted Countries"
+          subtitle="Δ fragility"
+          valueLabel="Δ fragility"
+          valueDigits={1}
+          valueSuffix=" Δ"
+          data={(result.highest_risk_entities?.countries ?? []).map((it) => ({
+            label: it.entity,
+            value: it.delta,
+          }))}
+          emptyLabel="No country-level impacts were detected for this scenario."
+          topN={8}
+        />
+        <AdaptiveRankingChart
+          title="Top Impacted Sectors"
+          subtitle="Δ fragility"
+          valueLabel="Δ fragility"
+          valueDigits={1}
+          valueSuffix=" Δ"
+          data={(result.highest_risk_entities?.sectors ?? []).map((it) => ({
+            label: it.entity,
+            value: it.delta,
+          }))}
+          emptyLabel="No sector-level impacts were detected for this scenario."
+          topN={8}
         />
       </div>
 
