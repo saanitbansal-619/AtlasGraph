@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { FragilitySummaryResponse } from '../types/api'
 import { fixed, riskBadgeClass } from '../lib/format'
 import { HorizontalBarChartCard } from './charts/HorizontalBarChartCard'
@@ -13,6 +14,8 @@ export function UnifiedFragility({
   loading: boolean
   error?: { message: string; hint?: string } | null
 }) {
+  const [showDetails, setShowDetails] = useState(false)
+
   if (error && !summary) {
     return (
       <Panel title="Unified Fragility">
@@ -34,7 +37,7 @@ export function UnifiedFragility({
 
   return (
     <Panel title="Unified Fragility" right={<span className="text-[11px] text-slate-500">top 5 by score</span>}>
-      <div className={`space-y-4 ${loading ? 'opacity-70' : ''}`}>
+      <div className={`space-y-3 ${loading ? 'opacity-70' : ''}`}>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <HorizontalBarChartCard
             title="Top Fragile Countries"
@@ -71,28 +74,43 @@ export function UnifiedFragility({
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <FragilityTable
-            label="Countries"
-            rows={summary.countries.map((c) => ({
-              name: c.country_name,
-              score: c.score,
-              risk: c.risk_level,
-              drivers: c.top_drivers,
-            }))}
-            empty="No country fragility scores available."
-          />
-          <FragilityTable
-            label="Commodities"
-            rows={summary.commodities.map((c) => ({
-              name: c.commodity_name,
-              score: c.score,
-              risk: c.risk_level,
-              drivers: c.top_drivers,
-            }))}
-            empty="No commodity fragility scores available."
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          className="rounded border border-slate-700/60 bg-slate-950/40 px-3 py-1.5 text-[11px] font-medium text-slate-400 transition hover:border-slate-600 hover:text-slate-300"
+        >
+          {showDetails ? 'Hide detailed score breakdown' : 'Show detailed score breakdown'}
+        </button>
+
+        {showDetails && (
+          <div className="space-y-3 border-t border-slate-800/60 pt-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Score Breakdown
+            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <FragilityTable
+                label="Countries"
+                rows={summary.countries.map((c) => ({
+                  name: c.country_name,
+                  score: c.score,
+                  risk: c.risk_level,
+                  drivers: c.top_drivers,
+                }))}
+                empty="No country fragility scores available."
+              />
+              <FragilityTable
+                label="Commodities"
+                rows={summary.commodities.map((c) => ({
+                  name: c.commodity_name,
+                  score: c.score,
+                  risk: c.risk_level,
+                  drivers: c.top_drivers,
+                }))}
+                empty="No commodity fragility scores available."
+              />
+            </div>
+          </div>
+        )}
       </div>
     </Panel>
   )

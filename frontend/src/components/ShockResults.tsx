@@ -1,5 +1,5 @@
-import { Fragment, useMemo, useState } from 'react'
-import type { BlockedEdge, ExposureItem, ShockResponse } from '../types/api'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import type { AffectedPath, BlockedEdge, ExposureItem, ShockResponse } from '../types/api'
 import { ASSUMPTION_NOTE, type SubmittedScenario } from '../types/scenario'
 import {
   blockedEdgeCategory,
@@ -123,9 +123,7 @@ export function ShockResults({
         </Panel>
       </div>
 
-      <Panel title={`Affected Dependency Paths · ${result.affected_paths.length}`} noPad>
-        <PathList result={result} />
-      </Panel>
+      <AffectedPathsPanel paths={result.affected_paths} result={result} />
 
       {result.blocked_edges && result.blocked_edges.length > 0 && (
         <BlockedEdgesPanel result={result} />
@@ -321,16 +319,79 @@ function ExposureTable({
   )
 }
 
-function PathList({ result }: { result: ShockResponse }) {
-  if (result.affected_paths.length === 0) {
-    return <div className="px-4 py-5 text-sm text-slate-500">No affected paths within depth.</div>
+const PATH_PREVIEW_LIMIT = 4
+
+function sortAffectedPaths(paths: AffectedPath[]): AffectedPath[] {
+  return [...paths].sort((a, b) => {
+    if (b.end_impact !== a.end_impact) return b.end_impact - a.end_impact
+    if (b.path_weight !== a.path_weight) return b.path_weight - a.path_weight
+    return a.path.length - b.path.length
+  })
+}
+
+function pathRowKey(p: AffectedPath, index: number): string {
+  return p.labeled_path || `${p.path.join('|')}-${index}`
+}
+
+function AffectedPathsPanel({
+  paths,
+  result,
+}: {
+  paths: AffectedPath[]
+  result: ShockResponse
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  const sorted = useMemo(() => sortAffectedPaths(paths), [paths])
+  const total = sorted.length
+  const canExpand = total > PATH_PREVIEW_LIMIT
+  const visible = expanded || !canExpand ? sorted : sorted.slice(0, PATH_PREVIEW_LIMIT)
+  const showing = visible.length
+
+  useEffect(() => {
+    setExpanded(false)
+  }, [result])
+
+  const title =
+    total === 0
+      ? 'Affected Dependency Paths'
+      : `Affected Dependency Paths · showing ${showing} of ${total}`
+
+  return (
+    <Panel
+      title={title}
+      noPad
+      right={
+        canExpand ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="rounded border border-slate-700/60 bg-slate-950/40 px-2.5 py-1 text-[11px] font-medium text-slate-400 transition hover:border-slate-600 hover:text-slate-300"
+          >
+            {expanded ? 'Show fewer' : 'Show all paths'}
+          </button>
+        ) : null
+      }
+    >
+      <PathList paths={visible} empty={total === 0} />
+    </Panel>
+  )
+}
+
+function PathList({ paths, empty }: { paths: AffectedPath[]; empty: boolean }) {
+  if (empty) {
+    return (
+      <div className="px-4 py-5 text-sm text-slate-500">
+        No dependency paths were affected for this scenario.
+      </div>
+    )
   }
   return (
     <ul className="divide-y divide-slate-800/60">
-      {result.affected_paths.map((p, i) => (
+      {paths.map((p, i) => (
         <li
-          key={i}
-          className="flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+          key={pathRowKey(p, i)}
+          className="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
         >
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm leading-relaxed">
