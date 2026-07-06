@@ -339,11 +339,11 @@ func (s *apiServer) handleTradeSummary(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	file, ok := s.loadTrade(w)
+	resolved, ok := s.loadTrade(w)
 	if !ok {
 		return
 	}
-	writeJSONStatus(w, http.StatusOK, trade.BuildSummary(file, 5))
+	writeJSONStatus(w, http.StatusOK, buildTradeSummaryJSON(resolved, trade.BuildSummary(resolved.File, 5)))
 }
 
 func (s *apiServer) handleTradeDependency(w http.ResponseWriter, r *http.Request) {
@@ -357,17 +357,17 @@ func (s *apiServer) handleTradeDependency(w http.ResponseWriter, r *http.Request
 			"example: /api/trade/dependency?importer=USA&commodity=semiconductors")
 		return
 	}
-	file, ok := s.loadTrade(w)
+	resolved, ok := s.loadTrade(w)
 	if !ok {
 		return
 	}
-	dep := trade.BuildDependency(file, importer, commodity)
+	dep := trade.BuildDependencyResolved(resolved, importer, commodity)
 	if !dep.HasData {
 		writeAPIError(w, http.StatusNotFound,
 			"no trade flows for importer "+importer+" and commodity "+commodity, "")
 		return
 	}
-	writeJSONStatus(w, http.StatusOK, buildTradeDependencyJSON(dep))
+	writeJSONStatus(w, http.StatusOK, buildTradeDependencyJSON(resolved, dep))
 }
 
 func (s *apiServer) handleTradeConcentration(w http.ResponseWriter, r *http.Request) {
@@ -381,17 +381,17 @@ func (s *apiServer) handleTradeConcentration(w http.ResponseWriter, r *http.Requ
 			"example: /api/trade/concentration?importer=USA&commodity=semiconductors")
 		return
 	}
-	file, ok := s.loadTrade(w)
+	resolved, ok := s.loadTrade(w)
 	if !ok {
 		return
 	}
-	con := trade.BuildConcentration(file, importer, commodity)
+	con := trade.BuildConcentrationResolved(resolved, importer, commodity)
 	if !con.HasData {
 		writeAPIError(w, http.StatusNotFound,
 			"no trade flows for importer "+importer+" and commodity "+commodity, "")
 		return
 	}
-	writeJSONStatus(w, http.StatusOK, buildTradeConcentrationJSON(con))
+	writeJSONStatus(w, http.StatusOK, buildTradeConcentrationJSON(resolved, con))
 }
 
 func (s *apiServer) handleMacroScores(w http.ResponseWriter, r *http.Request) {
@@ -511,16 +511,15 @@ func (s *apiServer) fragilitySources() fragility.Sources {
 	return loadFragilitySources(s.cfg.GraphData, s.cfg.TradeData, s.cfg.MacroData, s.cfg.ProcessedEventData, s.cfg.EventData, s.cfg.CommodityData)
 }
 
-// loadTrade loads the configured trade panel, writing a JSON error and
-// returning ok=false on failure.
-func (s *apiServer) loadTrade(w http.ResponseWriter) (trade.TradeFile, bool) {
-	file, err := trade.Load(s.cfg.TradeData)
+// loadTrade loads processed trade data, preferring trade_dependencies.json.
+func (s *apiServer) loadTrade(w http.ResponseWriter) (trade.ResolvedTrade, bool) {
+	resolved, err := trade.ResolveTrade(s.cfg.TradeData)
 	if err != nil {
 		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"run `atlas ingest trade --file <csv>` or pass an existing --trade-data dir")
-		return trade.TradeFile{}, false
+			"run `atlas ingest trade --dir <dir> --source un-comtrade` or `atlas ingest trade --file <csv>` and pass --trade-data")
+		return trade.ResolvedTrade{}, false
 	}
-	return file, true
+	return resolved, true
 }
 
 // --- graph summary JSON ----------------------------------------------------

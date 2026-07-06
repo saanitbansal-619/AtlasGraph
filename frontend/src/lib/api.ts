@@ -14,6 +14,9 @@ import type {
   CommodityHistoryResponse,
   CommodityHistoryIndexResponse,
   EventRiskResponse,
+  TradeSummaryResponse,
+  TradeDependencyResponse,
+  TradeConcentrationResponse,
   ApiError,
 } from '../types/api'
 
@@ -99,6 +102,15 @@ export const api = {
     const q = country?.trim() ? `?country=${encodeURIComponent(country.trim())}` : ''
     return request<EventRiskResponse>(`/api/events/risk${q}`)
   },
+  tradeSummary: () => request<TradeSummaryResponse>('/api/trade/summary'),
+  tradeDependency: (importer: string, commodity: string) =>
+    request<TradeDependencyResponse>(
+      `/api/trade/dependency?importer=${encodeURIComponent(importer)}&commodity=${encodeURIComponent(commodity)}`,
+    ),
+  tradeConcentration: (importer: string, commodity: string) =>
+    request<TradeConcentrationResponse>(
+      `/api/trade/concentration?importer=${encodeURIComponent(importer)}&commodity=${encodeURIComponent(commodity)}`,
+    ),
   runShock: (body: ShockRequest) =>
     request<ShockResponse>('/api/shock', {
       method: 'POST',

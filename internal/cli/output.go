@@ -718,6 +718,12 @@ func writeJSON(w io.Writer, v any) error {
 
 // --- trade dependency & concentration -------------------------------------
 
+type jsonTradeSummary struct {
+	Source        string        `json:"source"`
+	RealTradeData bool          `json:"real_trade_data"`
+	trade.Summary
+}
+
 type jsonTradeSupplier struct {
 	ExporterCode string  `json:"exporter_code"`
 	ExporterName string  `json:"exporter_name"`
@@ -728,6 +734,8 @@ type jsonTradeSupplier struct {
 }
 
 type jsonTradeDependency struct {
+	Source          string              `json:"source"`
+	RealTradeData   bool                `json:"real_trade_data"`
 	Importer        string              `json:"importer"`
 	ImporterCode    string              `json:"importer_code"`
 	Commodity       string              `json:"commodity"`
@@ -736,6 +744,8 @@ type jsonTradeDependency struct {
 }
 
 type jsonTradeConcentration struct {
+	Source            string            `json:"source"`
+	RealTradeData     bool              `json:"real_trade_data"`
 	Importer          string            `json:"importer"`
 	ImporterCode      string            `json:"importer_code"`
 	Commodity         string            `json:"commodity"`
@@ -755,8 +765,18 @@ func tradeSupplierToJSON(s trade.Supplier) jsonTradeSupplier {
 	}
 }
 
-func buildTradeDependencyJSON(d trade.Dependency) jsonTradeDependency {
+func buildTradeSummaryJSON(resolved trade.ResolvedTrade, summary trade.Summary) jsonTradeSummary {
+	return jsonTradeSummary{
+		Source:        resolved.Source,
+		RealTradeData: resolved.RealTradeData,
+		Summary:       summary,
+	}
+}
+
+func buildTradeDependencyJSON(resolved trade.ResolvedTrade, d trade.Dependency) jsonTradeDependency {
 	out := jsonTradeDependency{
+		Source:          resolved.Source,
+		RealTradeData:   resolved.RealTradeData,
 		Importer:        d.ImporterName,
 		ImporterCode:    d.ImporterCode,
 		Commodity:       d.Commodity,
@@ -769,8 +789,10 @@ func buildTradeDependencyJSON(d trade.Dependency) jsonTradeDependency {
 	return out
 }
 
-func buildTradeConcentrationJSON(c trade.Concentration) jsonTradeConcentration {
+func buildTradeConcentrationJSON(resolved trade.ResolvedTrade, c trade.Concentration) jsonTradeConcentration {
 	return jsonTradeConcentration{
+		Source:            resolved.Source,
+		RealTradeData:     resolved.RealTradeData,
 		Importer:          c.ImporterName,
 		ImporterCode:      c.ImporterCode,
 		Commodity:         c.Commodity,

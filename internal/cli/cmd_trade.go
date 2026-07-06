@@ -44,14 +44,14 @@ func tradeSummary(args []string, out, errOut io.Writer) int {
 		return 2
 	}
 
-	file, ok := loadTradeFile(*dataDir, errOut)
+	resolved, ok := loadTradeFile(*dataDir, errOut)
 	if !ok {
 		return 1
 	}
 
-	summary := trade.BuildSummary(file, 5)
+	summary := trade.BuildSummary(resolved.File, 5)
 	if *output == "json" {
-		if err := writeJSON(out, summary); err != nil {
+		if err := writeJSON(out, buildTradeSummaryJSON(resolved, summary)); err != nil {
 			fmt.Fprintf(errOut, "error: encoding json: %v\n", err)
 			return 1
 		}
@@ -85,18 +85,18 @@ func tradeDependency(args []string, out, errOut io.Writer) int {
 		return 2
 	}
 
-	file, ok := loadTradeFile(*dataDir, errOut)
+	resolved, ok := loadTradeFile(*dataDir, errOut)
 	if !ok {
 		return 1
 	}
 
-	dep := trade.BuildDependency(file, *importer, *commodity)
+	dep := trade.BuildDependencyResolved(resolved, *importer, *commodity)
 	if !dep.HasData {
 		fmt.Fprintf(errOut, "error: no trade flows for importer %q and commodity %q in %s\n", *importer, *commodity, *dataDir)
 		return 1
 	}
 	if *output == "json" {
-		if err := writeJSON(out, buildTradeDependencyJSON(dep)); err != nil {
+		if err := writeJSON(out, buildTradeDependencyJSON(resolved, dep)); err != nil {
 			fmt.Fprintf(errOut, "error: encoding json: %v\n", err)
 			return 1
 		}
@@ -130,18 +130,18 @@ func tradeConcentration(args []string, out, errOut io.Writer) int {
 		return 2
 	}
 
-	file, ok := loadTradeFile(*dataDir, errOut)
+	resolved, ok := loadTradeFile(*dataDir, errOut)
 	if !ok {
 		return 1
 	}
 
-	con := trade.BuildConcentration(file, *importer, *commodity)
+	con := trade.BuildConcentrationResolved(resolved, *importer, *commodity)
 	if !con.HasData {
 		fmt.Fprintf(errOut, "error: no trade flows for importer %q and commodity %q in %s\n", *importer, *commodity, *dataDir)
 		return 1
 	}
 	if *output == "json" {
-		if err := writeJSON(out, buildTradeConcentrationJSON(con)); err != nil {
+		if err := writeJSON(out, buildTradeConcentrationJSON(resolved, con)); err != nil {
 			fmt.Fprintf(errOut, "error: encoding json: %v\n", err)
 			return 1
 		}
@@ -151,14 +151,13 @@ func tradeConcentration(args []string, out, errOut io.Writer) int {
 	return 0
 }
 
-// loadTradeFile loads the ingested trade panel, printing a friendly hint on
-// failure. ok is false when the caller should return a non-zero exit code.
-func loadTradeFile(dir string, errOut io.Writer) (trade.TradeFile, bool) {
-	file, err := trade.Load(dir)
+// loadTradeFile loads processed trade data, preferring trade_dependencies.json.
+func loadTradeFile(dir string, errOut io.Writer) (trade.ResolvedTrade, bool) {
+	resolved, err := trade.ResolveTrade(dir)
 	if err != nil {
 		fmt.Fprintf(errOut, "error: %v\n", err)
-		fmt.Fprintln(errOut, "hint: run `atlas ingest trade --file <csv>` first")
-		return trade.TradeFile{}, false
+		fmt.Fprintln(errOut, "hint: run `atlas ingest trade --dir <dir> --source un-comtrade` or `atlas ingest trade --file <csv>` first")
+		return trade.ResolvedTrade{}, false
 	}
-	return file, true
+	return resolved, true
 }

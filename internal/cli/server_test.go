@@ -157,7 +157,7 @@ func TestAPITradeSummary(t *testing.T) {
 		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
 	}
 	parsed := decodeBody(t, rec)
-	for _, key := range []string{"records", "countries", "commodities", "total_value_usd"} {
+	for _, key := range []string{"source", "real_trade_data", "records", "countries", "commodities", "total_value_usd", "available_commodities"} {
 		if _, ok := parsed[key]; !ok {
 			t.Errorf("trade summary JSON missing %q", key)
 		}

@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -301,17 +303,27 @@ func distinctCountryCodes(records []gdelt.GDELTEventRecord) []string {
 func ingestTrade(args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("ingest trade", flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	file := fs.String("file", "", "path to a trade-flow CSV to ingest")
+	file := fs.String("file", "", "path to a trade-flow or UN Comtrade CSV to ingest")
+	dir := fs.String("dir", "", "directory of UN Comtrade CSV files to ingest")
+	source := fs.String("source", "", "ingest source: un-comtrade for downloaded UN Comtrade CSV exports")
 	outDir := fs.String("out", "data/processed/trade", "directory to write normalized output to")
 	fs.Usage = func() {
 		fmt.Fprintln(errOut, "Usage: atlas ingest trade --file <csv> [--out dir]")
+		fmt.Fprintln(errOut, "       atlas ingest trade --dir <dir> --source un-comtrade [--out dir]")
+		fmt.Fprintln(errOut, "       atlas ingest trade --file <csv> --source un-comtrade [--out dir]")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
+
+	sourceName := strings.ToLower(strings.TrimSpace(*source))
+	if sourceName == "un-comtrade" || strings.TrimSpace(*dir) != "" {
+		return ingestUNComtradeTrade(*file, *dir, *outDir, out, errOut)
+	}
+
 	if strings.TrimSpace(*file) == "" {
-		fmt.Fprintln(errOut, "error: --file is required (path to a trade-flow CSV)")
+		fmt.Fprintln(errOut, "error: --file is required (path to a trade-flow CSV), or use --dir --source un-comtrade")
 		fs.Usage()
 		return 2
 	}
@@ -340,6 +352,47 @@ func ingestTrade(args []string, out, errOut io.Writer) int {
 	}
 
 	renderTradeIngestReport(out, *file, path, res, trade.BuildSummary(tf, 0))
+	return 0
+}
+
+func ingestUNComtradeTrade(file, dir, outDir string, out, errOut io.Writer) int {
+	var paths []string
+	if strings.TrimSpace(dir) != "" {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			fmt.Fprintf(errOut, "error: %v\n", err)
+			return 1
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if strings.EqualFold(filepath.Ext(e.Name()), ".csv") {
+				paths = append(paths, filepath.Join(dir, e.Name()))
+			}
+		}
+		if len(paths) == 0 {
+			fmt.Fprintf(errOut, "error: no CSV files found in %s\n", dir)
+			return 1
+		}
+	} else if strings.TrimSpace(file) != "" {
+		paths = []string{file}
+	} else {
+		fmt.Fprintln(errOut, "error: --file or --dir is required for --source un-comtrade")
+		return 2
+	}
+
+	deps, stats, err := trade.IngestUNComtradeFiles(paths)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+	path, err := trade.SaveDependencies(outDir, deps)
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+	renderUNComtradeIngestReport(out, paths, path, deps, stats)
 	return 0
 }
 

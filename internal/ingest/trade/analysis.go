@@ -23,6 +23,9 @@ type Summary struct {
 	TopExporters  []NamedValue `json:"top_exporters"`
 	TopImporters  []NamedValue `json:"top_importers"`
 	TopCommodities []NamedValue `json:"top_commodities"`
+	// AvailableCommodities lists every commodity name in the trade file, sorted
+	// alphabetically. Unlike TopCommodities, this is not capped to a preview size.
+	AvailableCommodities []string `json:"available_commodities"`
 }
 
 // BuildSummary aggregates a TradeFile into a Summary, keeping the top n entries
@@ -74,6 +77,7 @@ func BuildSummary(file TradeFile, n int) Summary {
 	s.TopExporters = topNamed(exporters, n)
 	s.TopImporters = topNamed(importers, n)
 	s.TopCommodities = topNamed(commodities, n)
+	s.AvailableCommodities = commodityNames(commodities)
 	return s
 }
 
@@ -135,10 +139,11 @@ func BuildDependency(file TradeFile, importer, commodity string) Dependency {
 		dep.Commodity = r.CommodityName
 		dep.TotalImportsUSD += r.TradeValueUSD
 
-		sup, ok := byExporter[r.ExporterCode]
+		key := exporterGroupKey(r.ExporterCode, r.ExporterName)
+		sup, ok := byExporter[key]
 		if !ok {
 			sup = &Supplier{ExporterCode: r.ExporterCode, ExporterName: r.ExporterName}
-			byExporter[r.ExporterCode] = sup
+			byExporter[key] = sup
 		}
 		if sup.ExporterName == "" {
 			sup.ExporterName = r.ExporterName
@@ -169,7 +174,10 @@ func BuildDependency(file TradeFile, importer, commodity string) Dependency {
 // BuildConcentration derives the Herfindahl-Hirschman Index (sum of squared
 // supplier shares) and a qualitative risk band from a Dependency.
 func BuildConcentration(file TradeFile, importer, commodity string) Concentration {
-	dep := BuildDependency(file, importer, commodity)
+	return concentrationFromDependency(BuildDependency(file, importer, commodity))
+}
+
+func concentrationFromDependency(dep Dependency) Concentration {
 	con := Concentration{
 		ImporterCode: dep.ImporterCode,
 		ImporterName: dep.ImporterName,
@@ -225,7 +233,19 @@ func commodityKey(r TradeFlowRecord) string {
 }
 
 func matchImporter(r TradeFlowRecord, q string) bool {
-	return matchesCode(r.ImporterCode, q) || strings.EqualFold(r.ImporterName, q)
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return false
+	}
+	if matchesCode(r.ImporterCode, q) || strings.EqualFold(r.ImporterName, q) {
+		return true
+	}
+	canonQ := NormalizeImporterQuery(q)
+	canonR := NormalizeImporterQuery(r.ImporterName)
+	if canonQ != "" && strings.EqualFold(canonQ, canonR) {
+		return true
+	}
+	return strings.EqualFold(NormalizeCountryName(q), NormalizeCountryName(r.ImporterName))
 }
 
 func matchCommodity(r TradeFlowRecord, q string) bool {
@@ -234,6 +254,30 @@ func matchCommodity(r TradeFlowRecord, q string) bool {
 
 func matchesCode(code, q string) bool {
 	return strings.EqualFold(code, q)
+}
+
+// exporterGroupKey groups supplier rows by ISO code when present, otherwise by
+// normalized exporter name. UN Comtrade dependency rows often omit codes.
+func exporterGroupKey(code, name string) string {
+	if c := strings.ToUpper(strings.TrimSpace(code)); c != "" {
+		return "c:" + c
+	}
+	return "n:" + strings.ToLower(strings.TrimSpace(name))
+}
+
+func commodityNames(m map[string]*NamedValue) []string {
+	out := make([]string, 0, len(m))
+	for _, nv := range m {
+		name := strings.TrimSpace(nv.Name)
+		if name == "" {
+			name = strings.TrimSpace(nv.Code)
+		}
+		if name != "" {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func topNamed(m map[string]*NamedValue, n int) []NamedValue {

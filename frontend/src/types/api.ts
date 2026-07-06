@@ -291,6 +291,50 @@ export interface EventRiskResponse {
   scores: EventRiskScore[]
 }
 
+export interface TradeSummaryResponse {
+  source: string
+  real_trade_data: boolean
+  records: number
+  years: number[]
+  countries: number
+  commodities: number
+  total_value_usd: number
+  top_exporters: Array<{ code: string; name: string; value_usd: number }>
+  top_importers: Array<{ code: string; name: string; value_usd: number }>
+  top_commodities: Array<{ code: string; name: string; value_usd: number }>
+  available_commodities?: string[]
+}
+
+export interface TradeSupplier {
+  exporter_code: string
+  exporter_name: string
+  value_usd: number
+  share: number
+  share_pct?: number
+  dependency: string
+}
+
+export interface TradeDependencyResponse {
+  source: string
+  real_trade_data: boolean
+  importer: string
+  importer_code: string
+  commodity: string
+  total_imports_usd: number
+  suppliers: TradeSupplier[]
+}
+
+export interface TradeConcentrationResponse {
+  source: string
+  real_trade_data: boolean
+  importer: string
+  importer_code: string
+  commodity: string
+  hhi: number
+  concentration_risk: string
+  top_supplier: TradeSupplier
+}
+
 // JSON error envelope returned by the API on failure.
 export interface ApiError {
   error: string

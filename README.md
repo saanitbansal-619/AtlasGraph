@@ -206,6 +206,67 @@ go run ./cmd/atlas ingest gdelt --fixture data/examples/gdelt_events_sample.json
 
 ---
 
+## Real Trade Data Pipeline
+
+GFIP can ingest **manually downloaded UN Comtrade CSV exports** and compute supplier dependency shares for strategic commodities.
+
+### Raw data folder
+
+Place downloaded Comtrade CSV files here:
+
+```
+data/raw/un_comtrade/
+```
+
+See [`data/raw/un_comtrade/README.md`](data/raw/un_comtrade/README.md).
+
+### Ingest
+
+```bash
+go run ./cmd/atlas ingest trade \
+  --dir data/raw/un_comtrade \
+  --out data/processed/trade \
+  --source un-comtrade
+```
+
+Single file:
+
+```bash
+go run ./cmd/atlas ingest trade \
+  --file data/raw/un_comtrade/usa_wheat_1001_2024.csv \
+  --out data/processed/trade \
+  --source un-comtrade
+```
+
+For offline testing:
+
+```bash
+go run ./cmd/atlas ingest trade \
+  --file data/examples/un_comtrade_sample.csv \
+  --out data/processed/trade \
+  --source un-comtrade
+```
+
+Output: `data/processed/trade/trade_dependencies.json`
+
+### API
+
+```bash
+curl http://localhost:8080/api/trade/summary
+curl "http://localhost:8080/api/trade/dependency?importer=United%20States&commodity=wheat"
+curl "http://localhost:8080/api/trade/concentration?importer=USA&commodity=semiconductors"
+```
+
+Responses include `source` and `real_trade_data`. Importer aliases such as `USA` and `United States` are supported.
+
+When no processed dependency file exists, endpoints fall back to legacy demo `trade_flows.json`.
+
+### Data note
+
+v1 uses **manually downloaded** UN Comtrade CSV exports for **USA 2024 imports** across selected HS-coded commodities. This is not a live Comtrade API integration — refresh by downloading new exports and re-running ingest.
+
+---
+
 ## Quickstart
 
 ### Backend validation

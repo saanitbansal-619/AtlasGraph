@@ -367,6 +367,28 @@ func renderComtradeIngestReport(out io.Writer, srcFile, outPath string, res trad
 	fmt.Fprintf(out, "  Total trade value : %s\n", usdShort(s.TotalValueUSD))
 }
 
+func renderUNComtradeIngestReport(out io.Writer, srcFiles []string, outPath string, deps trade.DependencyFile, stats trade.ComtradeV2LoadResult) {
+	section(out, "UN COMTRADE TRADE INGESTION")
+	fmt.Fprintf(out, "  Files processed         : %d\n", stats.FilesProcessed)
+	if len(srcFiles) == 1 {
+		fmt.Fprintf(out, "  Source file             : %s\n", srcFiles[0])
+	} else {
+		fmt.Fprintf(out, "  Source files            : %d CSV files\n", len(srcFiles))
+	}
+	fmt.Fprintf(out, "  Output                  : %s\n", outPath)
+	fmt.Fprintf(out, "  Raw rows                : %d\n", stats.RawRows)
+	fmt.Fprintf(out, "  Valid rows              : %d\n", stats.ValidRows)
+	fmt.Fprintf(out, "  Skipped aggregate rows  : %d\n", stats.SkippedAggregateRows)
+	fmt.Fprintf(out, "  Skipped unmapped rows   : %d\n", stats.SkippedUnmapped)
+	fmt.Fprintf(out, "  Commodities mapped      : %d\n", len(stats.CommoditiesMapped))
+	fmt.Fprintf(out, "  Importers               : %d\n", len(stats.Importers))
+	fmt.Fprintf(out, "  Exporters               : %d\n", len(stats.Exporters))
+	fmt.Fprintf(out, "  Dependencies written    : %d\n", len(deps.Dependencies))
+	if stats.YearMin > 0 && stats.YearMax > 0 {
+		fmt.Fprintf(out, "  Year range              : %d-%d\n", stats.YearMin, stats.YearMax)
+	}
+}
+
 // --- GDELT event risk ------------------------------------------------------
 
 // renderGDELTLiveReport prints the live-ingestion report: what was requested,

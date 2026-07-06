@@ -21,8 +21,8 @@ func loadFragilitySources(graphData, tradeData, macroData, processedEventData, l
 		src.Scenarios = ds.Scenarios
 	}
 	if tradeData != "" {
-		if f, err := trade.Load(tradeData); err == nil {
-			src.Trade = &f
+		if resolved, err := trade.ResolveTrade(tradeData); err == nil {
+			src.Trade = &resolved.File
 		}
 	}
 	if macroData != "" {

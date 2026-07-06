@@ -56,6 +56,18 @@ func TestBuildSummary(t *testing.T) {
 	if s.TopCommodities[0].Code != "8542" {
 		t.Errorf("top commodity unexpected: %+v", s.TopCommodities[0])
 	}
+	wantCommodities := []string{"crude oil", "semiconductors"}
+	if len(s.AvailableCommodities) != len(wantCommodities) {
+		t.Fatalf("available_commodities = %v, want %v", s.AvailableCommodities, wantCommodities)
+	}
+	for i, want := range wantCommodities {
+		if s.AvailableCommodities[i] != want {
+			t.Errorf("available_commodities[%d] = %q, want %q", i, s.AvailableCommodities[i], want)
+		}
+	}
+	if len(s.TopCommodities) != 2 {
+		t.Errorf("top_commodities = %d, want 2 (all commodities in sample)", len(s.TopCommodities))
+	}
 }
 
 func TestBuildDependencyShares(t *testing.T) {
@@ -143,5 +155,62 @@ func TestSupplierDependencyBands(t *testing.T) {
 		if got := SupplierDependencyBand(c.share); got != c.want {
 			t.Errorf("SupplierDependencyBand(%.3f) = %q, want %q", c.share, got, c.want)
 		}
+	}
+}
+
+func TestBuildDependencyGroupsByExporterNameWhenCodeMissing(t *testing.T) {
+	file := TradeFile{Records: []TradeFlowRecord{
+		{Year: 2024, ExporterName: "China", ImporterName: "United States", CommodityName: "semiconductors", TradeValueUSD: 60},
+		{Year: 2024, ExporterName: "Taiwan", ImporterName: "United States", CommodityName: "semiconductors", TradeValueUSD: 30},
+		{Year: 2024, ExporterName: "Japan", ImporterName: "United States", CommodityName: "semiconductors", TradeValueUSD: 10},
+	}}
+	dep := BuildDependency(file, "United States", "semiconductors")
+	if len(dep.Suppliers) != 3 {
+		t.Fatalf("suppliers = %d, want 3", len(dep.Suppliers))
+	}
+	approx(t, "total imports", dep.TotalImportsUSD, 100)
+	approx(t, "hhi", concentrationFromDependency(dep).HHI, 0.46)
+}
+
+func TestBuildDependencyFromDependenciesThreeSuppliers(t *testing.T) {
+	df := DependencyFile{
+		Source: ComtradeRealSourceName,
+		Dependencies: []TradeDependency{
+			{Importer: "United States", Exporter: "China", Commodity: "semiconductors", HSCode: "8542", Year: 2024, TradeValueUSD: 60, Share: 0.6},
+			{Importer: "United States", Exporter: "Taiwan", Commodity: "semiconductors", HSCode: "8542", Year: 2024, TradeValueUSD: 30, Share: 0.3},
+			{Importer: "United States", Exporter: "Japan", Commodity: "semiconductors", HSCode: "8542", Year: 2024, TradeValueUSD: 10, Share: 0.1},
+		},
+	}
+	dep := BuildDependencyFromDependencies(df, "United States", "semiconductors")
+	if len(dep.Suppliers) != 3 {
+		t.Fatalf("suppliers = %d, want 3", len(dep.Suppliers))
+	}
+	approx(t, "total imports", dep.TotalImportsUSD, 100)
+	if dep.Suppliers[0].ExporterName != "China" {
+		t.Fatalf("top supplier = %q, want China", dep.Suppliers[0].ExporterName)
+	}
+	con := concentrationFromDependency(dep)
+	approx(t, "hhi", con.HHI, 0.46)
+	if con.TopSupplier.ExporterName != "China" {
+		t.Fatalf("top supplier = %q, want China", con.TopSupplier.ExporterName)
+	}
+}
+
+func TestBuildDependencyResolvedUsesDependencyFile(t *testing.T) {
+	df := DependencyFile{
+		Source: ComtradeRealSourceName,
+		Dependencies: []TradeDependency{
+			{Importer: "United States", Exporter: "China", Commodity: "semiconductors", TradeValueUSD: 60, Share: 0.6},
+			{Importer: "United States", Exporter: "Taiwan", Commodity: "semiconductors", TradeValueUSD: 30, Share: 0.3},
+			{Importer: "United States", Exporter: "Japan", Commodity: "semiconductors", TradeValueUSD: 10, Share: 0.1},
+		},
+	}
+	resolved := ResolvedTrade{
+		Source: ComtradeRealSourceName, RealTradeData: true, DependencyFile: &df,
+		File: DependenciesToTradeFile(df),
+	}
+	dep := BuildDependencyResolved(resolved, "USA", "semiconductors")
+	if len(dep.Suppliers) != 3 {
+		t.Fatalf("suppliers = %d, want 3", len(dep.Suppliers))
 	}
 }

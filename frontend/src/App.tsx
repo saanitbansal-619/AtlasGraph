@@ -12,6 +12,7 @@ import type {
   CommodityStressResponse,
   CommodityHistoryIndexResponse,
   EventRiskResponse,
+  TradeSummaryResponse,
 } from './types/api'
 import {
   DEFAULT_META,
@@ -25,6 +26,7 @@ import { OverviewCards } from './components/OverviewCards'
 import { CommodityStressPanel } from './components/CommodityStressPanel'
 import { CommodityPriceHistory } from './components/CommodityPriceHistory'
 import { EventRiskPanel } from './components/EventRiskPanel'
+import { TradeSignalsPanel } from './components/TradeSignalsPanel'
 import { UnifiedFragility } from './components/UnifiedFragility'
 import { ShockSimulator, toRequest, type ShockForm } from './components/ShockSimulator'
 import { ShockResults } from './components/ShockResults'
@@ -96,6 +98,11 @@ export default function App() {
   const [eventRisk, setEventRisk] = useState<EventRiskResponse | null>(null)
   const [eventRiskErr, setEventRiskErr] = useState<UiError | null>(null)
   const [eventRiskLoading, setEventRiskLoading] = useState(true)
+
+  // Trade dependency signals
+  const [tradeSummary, setTradeSummary] = useState<TradeSummaryResponse | null>(null)
+  const [tradeErr, setTradeErr] = useState<UiError | null>(null)
+  const [tradeLoading, setTradeLoading] = useState(true)
 
   // Scenarios
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -223,6 +230,29 @@ export default function App() {
     }
   }, [])
 
+  const loadTradeSummary = useCallback(async () => {
+    setTradeLoading(true)
+    try {
+      setTradeSummary(await api.tradeSummary())
+      setTradeErr(null)
+    } catch (e) {
+      setTradeSummary(null)
+      setTradeErr(toUiError(e))
+    } finally {
+      setTradeLoading(false)
+    }
+  }, [])
+
+  const fetchTradeDependency = useCallback(
+    (importer: string, commodity: string) => api.tradeDependency(importer, commodity),
+    [],
+  )
+
+  const fetchTradeConcentration = useCallback(
+    (importer: string, commodity: string) => api.tradeConcentration(importer, commodity),
+    [],
+  )
+
   const fetchCommodityHistory = useCallback(
     (commodity: string) => api.commodityHistory(commodity),
     [],
@@ -247,11 +277,12 @@ export default function App() {
     void loadSummary()
     void loadFragility()
     void loadEventRisk()
+    void loadTradeSummary()
     void loadCommodityStress()
     void loadCommodityHistoryIndex()
     void loadScenarios()
     void loadGuidance()
-  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance])
+  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadTradeSummary, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance])
 
   // Initial load.
   useEffect(() => {
@@ -347,6 +378,14 @@ export default function App() {
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 
         <EventRiskPanel data={eventRisk} loading={eventRiskLoading} error={eventRiskErr} />
+
+        <TradeSignalsPanel
+          summary={tradeSummary}
+          summaryLoading={tradeLoading}
+          summaryError={tradeErr}
+          fetchDependency={fetchTradeDependency}
+          fetchConcentration={fetchTradeConcentration}
+        />
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <CommodityStressPanel
