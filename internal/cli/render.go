@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/graphfusion"
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
@@ -897,6 +898,24 @@ func renderGraphSummary(out io.Writer, g *graph.Graph, top int) {
 	fmt.Fprintln(tw, "  ENTITY\tTYPE\tDEGREE\tIN\tOUT")
 	for _, d := range ds {
 		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\t%d\n", d.node.Name, d.node.Type, d.combined, d.in, d.out)
+	}
+	flush(tw)
+}
+
+func renderGraphFusionSummary(out io.Writer, meta graphfusion.Meta) {
+	section(out, "REAL DATA GRAPH FUSION")
+	tw := newTable(out)
+	fmt.Fprintf(tw, "  Fusion enabled\t%v\n", meta.FusionEnabled)
+	fmt.Fprintf(tw, "  Base entities\t%d\n", meta.BaseEntities)
+	fmt.Fprintf(tw, "  Base dependencies\t%d\n", meta.BaseDependencies)
+	fmt.Fprintf(tw, "  Fused entities\t%d\n", meta.FusedEntities)
+	fmt.Fprintf(tw, "  Fused dependencies\t%d\n", meta.FusedDependencies)
+	fmt.Fprintf(tw, "  Real trade edges\t%d\n", meta.RealTradeEdges)
+	fmt.Fprintf(tw, "  Real trade edges used\t%v\n", meta.RealTradeEdgesUsed)
+	fmt.Fprintf(tw, "  Real event risk used\t%v\n", meta.RealEventRiskUsed)
+	fmt.Fprintf(tw, "  Real price stress used\t%v\n", meta.RealPriceStressUsed)
+	if len(meta.DataSources) > 0 {
+		fmt.Fprintf(tw, "  Data sources\t%s\n", strings.Join(meta.DataSources, ", "))
 	}
 	flush(tw)
 }

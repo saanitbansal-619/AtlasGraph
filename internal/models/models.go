@@ -59,6 +59,10 @@ const (
 	RelCompanyDependency EdgeType = "company_dependency"
 	// RelMacroExposure: a broad macroeconomic exposure.
 	RelMacroExposure EdgeType = "macro_exposure"
+	// RelRealExports: a country supplies a commodity per UN Comtrade dependency data.
+	RelRealExports EdgeType = "real_exports"
+	// RelRealImportDependency: an importer depends on a commodity per UN Comtrade data.
+	RelRealImportDependency EdgeType = "real_import_dependency"
 	// RelShippingDependency: a dependency on shipping/logistics capacity.
 	RelShippingDependency EdgeType = "shipping_dependency"
 )
@@ -68,7 +72,7 @@ var validRelationships = map[EdgeType]struct{}{
 	RelExports: {}, RelImports: {}, RelSupplies: {}, RelDependsOn: {},
 	RelUsedBy: {}, RelRouteExposure: {}, RelPriceExposure: {},
 	RelIndustryDependency: {}, RelCompanyDependency: {}, RelMacroExposure: {},
-	RelShippingDependency: {},
+	RelShippingDependency: {}, RelRealExports: {}, RelRealImportDependency: {},
 }
 
 // IsValidRelationship reports whether t is a recognised relationship type.
@@ -123,6 +127,10 @@ type Node struct {
 	ID   NodeID
 	Name string
 	Type NodeType
+	// Source labels the provenance of a node when it was added from real data.
+	Source string
+	// GeneratedFromRealData marks nodes created during graph fusion from processed panels.
+	GeneratedFromRealData bool
 }
 
 // NewNode constructs a Node with a derived, namespaced ID.
@@ -157,6 +165,14 @@ type Edge struct {
 	PropagationEnabled bool
 	AllowedShockTypes  []string
 	CrossCommodity     bool
+
+	// Real-data fusion metadata (zero values = not set / demo edge).
+	RealData      bool
+	DataSource    string
+	TradeValueUSD float64
+	Year          int
+	HSCode        string
+	Importer      string
 }
 
 // slug normalizes a display name into a lowercase, space-free token suitable

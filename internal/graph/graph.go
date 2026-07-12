@@ -50,6 +50,23 @@ func (g *Graph) AddEdge(e models.Edge) {
 	g.in[e.To] = append(g.in[e.To], e)
 }
 
+// Clone returns a deep copy of the graph for non-destructive fusion overlays.
+func (g *Graph) Clone() *Graph {
+	if g == nil {
+		return New()
+	}
+	ng := New()
+	for _, n := range g.Nodes() {
+		ng.AddNode(n)
+	}
+	for _, n := range g.Nodes() {
+		for _, e := range g.OutEdges(n.ID) {
+			ng.AddEdge(e)
+		}
+	}
+	return ng
+}
+
 // Node returns the node for an ID and whether it exists.
 func (g *Graph) Node(id models.NodeID) (models.Node, bool) {
 	n, ok := g.nodes[id]

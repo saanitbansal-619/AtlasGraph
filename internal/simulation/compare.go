@@ -63,9 +63,14 @@ const compareTopN = 5
 // impact. A scenario that fails to run is included with RunError set; the
 // comparison as a whole still succeeds.
 func CompareScenarios(g *graph.Graph, cfg config.Config, scenarios []CompareScenario) ComparisonResult {
+	return CompareScenariosWithContext(g, cfg, scenarios, nil)
+}
+
+// CompareScenariosWithContext runs comparisons with optional real-data context.
+func CompareScenariosWithContext(g *graph.Graph, cfg config.Config, scenarios []CompareScenario, ctx *Context) ComparisonResult {
 	results := make([]ScenarioComparison, 0, len(scenarios))
 	for _, sc := range scenarios {
-		results = append(results, runOneComparison(g, cfg, sc))
+		results = append(results, runOneComparisonWithContext(g, cfg, sc, ctx))
 	}
 	sort.SliceStable(results, func(i, j int) bool {
 		return compareRank(results[i]) > compareRank(results[j])
@@ -77,6 +82,10 @@ func CompareScenarios(g *graph.Graph, cfg config.Config, scenarios []CompareScen
 }
 
 func runOneComparison(g *graph.Graph, cfg config.Config, sc CompareScenario) ScenarioComparison {
+	return runOneComparisonWithContext(g, cfg, sc, nil)
+}
+
+func runOneComparisonWithContext(g *graph.Graph, cfg config.Config, sc CompareScenario, ctx *Context) ScenarioComparison {
 	req := sc.Request
 	label := sc.Label
 	if label == "" {
@@ -92,7 +101,13 @@ func runOneComparison(g *graph.Graph, cfg config.Config, sc CompareScenario) Sce
 		Depth:     req.Depth,
 	}
 
-	res, err := Run(g, cfg, req)
+	var res Result
+	var err error
+	if ctx != nil {
+		res, err = RunWithContext(g, cfg, req, ctx)
+	} else {
+		res, err = Run(g, cfg, req)
+	}
 	if err != nil {
 		out.RunError = err.Error()
 		return out

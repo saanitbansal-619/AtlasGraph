@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Save writes a RiskFile to dir/OutputFileName.
@@ -30,8 +31,8 @@ func Load(dir string) (RiskFile, error) {
 	if err != nil {
 		return RiskFile{}, fmt.Errorf("reading %s: %w", path, err)
 	}
-	var file RiskFile
-	if err := json.Unmarshal(b, &file); err != nil {
+	file, err := ParseRiskFileJSON(b)
+	if err != nil {
 		return RiskFile{}, fmt.Errorf("decoding %s: %w", path, err)
 	}
 	return file, nil
@@ -58,9 +59,13 @@ func RecentEventsForCountry(file RiskFile, country string, n int) []NormalizedEv
 
 // CountryRiskFor returns one country's risk row when present.
 func CountryRiskFor(file RiskFile, country string) (CountryRisk, bool) {
-	q := normalizeKey(country)
+	q := strings.ToLower(strings.TrimSpace(NormalizeCountryName(country)))
+	if q == "" {
+		q = normalizeKey(country)
+	}
 	for _, c := range file.Countries {
-		if normalizeKey(c.Country) == q {
+		canon := strings.ToLower(strings.TrimSpace(NormalizeCountryName(c.Country)))
+		if canon == q || normalizeKey(c.Country) == q {
 			return c, true
 		}
 	}

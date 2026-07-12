@@ -72,17 +72,28 @@ func graphSummary(args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("graph summary", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	dataDir := fs.String("data", "", "dataset directory (default: embedded sample)")
+	tradeData := fs.String("trade-data", "", "processed trade directory for graph fusion (optional)")
+	eventData := fs.String("event-data", "", "processed event-risk directory for graph fusion (optional)")
+	commodityData := fs.String("commodity-data", "", "processed commodity price directory for graph fusion (optional)")
 	top := fs.Int("top", config.Default().TopN, "how many highest-degree nodes to show")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	ds, err := loadDataset(*dataDir)
+	fused, err := loadFusedDataset(fusionConfig{
+		GraphData:          *dataDir,
+		TradeData:          *tradeData,
+		ProcessedEventData: *eventData,
+		CommodityData:      *commodityData,
+	})
 	if err != nil {
 		fmt.Fprintf(errOut, "error: %v\n", err)
 		return 1
 	}
-	renderGraphSummary(out, ds.Graph, *top)
+	renderGraphSummary(out, fused.Dataset.Graph, *top)
+	if fused.Meta.FusionEnabled || fused.Meta.RealEventRiskUsed || fused.Meta.RealPriceStressUsed {
+		renderGraphFusionSummary(out, fused.Meta)
+	}
 	return 0
 }
 

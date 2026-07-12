@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/atlasgraph/atlas/internal/scoring/events"
 )
 
 func TestLoadSampleCSV(t *testing.T) {
@@ -75,6 +77,81 @@ func TestScoreEventsRecencyAndRiskTypes(t *testing.T) {
 	}
 	if scores[0].EventRiskScore <= scores[1].EventRiskScore {
 		t.Fatalf("expected Ukraine to outrank United States: %.1f vs %.1f", scores[0].EventRiskScore, scores[1].EventRiskScore)
+	}
+	assertScoreScale0To100(t, scores[0])
+}
+
+func TestUkraineConflictNotLowRisk(t *testing.T) {
+	now := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
+	scores := ScoreEvents([]NormalizedEvent{{
+		Country: "Ukraine", Date: "2024-03-05", EventType: "conflict",
+		Severity: 0.9, Tone: -8.2,
+	}}, now)
+	if len(scores) != 1 {
+		t.Fatalf("scores = %d, want 1", len(scores))
+	}
+	s := scores[0]
+	if s.EventRiskScore <= 30 {
+		t.Fatalf("Ukraine event_risk_score = %.1f, want > 30", s.EventRiskScore)
+	}
+	if s.RiskLevel == "Low" {
+		t.Fatalf("RiskLevel = %q, want above Low for severity 0.9 and tone -8.2", s.RiskLevel)
+	}
+}
+
+func TestSevereNegativeEventMeaningfulScore(t *testing.T) {
+	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	scores := ScoreEvents([]NormalizedEvent{{
+		Country: "Ukraine", Date: "2026-05-20", EventType: "conflict",
+		Severity: 0.95, Tone: -9.0,
+	}}, now)
+	if scores[0].EventRiskScore <= 30 {
+		t.Fatalf("score = %.1f, want > 30 for severe recent event", scores[0].EventRiskScore)
+	}
+}
+
+func TestComponentScoresAre0To100(t *testing.T) {
+	now := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
+	scores := ScoreEvents([]NormalizedEvent{{
+		Country: "Russia", Date: "2024-02-18", EventType: "energy disruption",
+		Severity: 0.81, Tone: -7.1,
+	}}, now)
+	assertScoreScale0To100(t, scores[0])
+	for _, c := range scores[0].Components {
+		if c.Score < 0 || c.Score > 100 {
+			t.Fatalf("component %q score = %.1f, want 0..100", c.Key, c.Score)
+		}
+		if c.Contribution < 0 || c.Contribution > 100 {
+			t.Fatalf("component %q contribution = %.2f, want 0..100", c.Key, c.Contribution)
+		}
+	}
+}
+
+func TestToLegacyCountryScoresUsesStoredComponents(t *testing.T) {
+	file := RiskFile{
+		Countries: []CountryRisk{{
+			Country: "Ukraine", CountryCode: "UKR", EventRiskScore: 80, RiskLevel: "Critical",
+			EventCount: 3, RecentEventCount: 2, AverageTone: -5, TopEventTypes: []string{"conflict"},
+			Components: []events.Component{
+				{Key: "recent_events", Name: "recent events", Score: 70, Weight: 0.4, Contribution: 28},
+				{Key: "negative_tone", Name: "negative tone", Score: 82, Weight: 0.35, Contribution: 28.7},
+				{Key: "event_severity", Name: "event severity", Score: 90, Weight: 0.25, Contribution: 22.5},
+			},
+		}},
+	}
+	legacy := ToLegacyCountryScores(file)
+	if len(legacy) != 1 || legacy[0].CountryCode != "UKR" {
+		t.Fatalf("legacy scores = %+v", legacy)
+	}
+	if legacy[0].Components[1].Score != 82 {
+		t.Fatalf("negative_tone component = %.1f, want 82", legacy[0].Components[1].Score)
+	}
+}
+
+func assertScoreScale0To100(t *testing.T, s CountryRisk) {
+	t.Helper()
+	if s.EventRiskScore < 0 || s.EventRiskScore > 100 {
+		t.Fatalf("event_risk_score = %.1f, want 0..100", s.EventRiskScore)
 	}
 }
 

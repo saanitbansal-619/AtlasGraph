@@ -117,6 +117,12 @@ func (r Result) BlockedCommodities() []string {
 
 // Run executes a shock scenario against the graph and returns a Result.
 func Run(g *graph.Graph, cfg config.Config, req ShockRequest) (Result, error) {
+	return RunWithContext(g, cfg, req, nil)
+}
+
+// RunWithContext is like Run but applies optional real-data vulnerability
+// multipliers from event risk and commodity price stress when ctx is non-nil.
+func RunWithContext(g *graph.Graph, cfg config.Config, req ShockRequest, ctx *Context) (Result, error) {
 	profile, ok := ProfileFor(req.ShockType)
 	if !ok {
 		return Result{}, fmt.Errorf("unknown shock type %q (valid: %v)", req.ShockType, ProfileTypes())
@@ -142,12 +148,13 @@ func Run(g *graph.Graph, cfg config.Config, req ShockRequest) (Result, error) {
 
 	activeCommodity := commodity.Name
 
-	// The disruption that actually hits the commodity market is the export/flow
-	// drop scaled by the source's share (concentration) of that commodity.
 	drop := req.DropPct / 100.0
-	initialImpact := clamp01(drop * originEdge.Concentration)
+	initialImpact := initialImpactFromEdge(drop, originEdge)
 
 	impact, dist, blocked := propagate(g, cfg, profile, commodity.ID, activeCommodity, initialImpact, req.Depth)
+	if ctx != nil {
+		ctx.applyVulnerability(g, impact)
+	}
 
 	res := Result{
 		Request:         req,
@@ -348,4 +355,15 @@ func clamp01(v float64) float64 {
 		return 1
 	}
 	return v
+}
+
+func initialImpactFromEdge(dropFraction float64, e models.Edge) float64 {
+	if e.RealData || e.Type == models.RelRealExports || e.Type == models.RelSupplies {
+		share := e.Concentration
+		if share <= 0 {
+			share = e.Weight
+		}
+		return clamp01(dropFraction * share)
+	}
+	return clamp01(dropFraction * e.Concentration)
 }

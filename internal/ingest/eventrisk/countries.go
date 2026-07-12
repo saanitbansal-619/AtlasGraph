@@ -58,6 +58,9 @@ var countryAliases = map[string]string{
 	"congo dem rep":                    "Congo, Dem. Rep.",
 	"ukraine":                          "Ukraine",
 	"taiwan":                           "Taiwan",
+	"turkey":                           "Turkey",
+	"türkiye":                          "Turkey",
+	"turkiye":                          "Turkey",
 	"japan":                            "Japan",
 	"germany":                          "Germany",
 	"saudi arabia":                     "Saudi Arabia",
@@ -103,6 +106,7 @@ var isoByCanonical = map[string]string{
 	"Netherlands":          "NLD",
 	"Singapore":            "SGP",
 	"Malaysia":             "MYS",
+	"Turkey":               "TUR",
 }
 
 var isoByCanonicalName map[string]string

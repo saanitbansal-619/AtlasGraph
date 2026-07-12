@@ -23,6 +23,7 @@ import {
 } from './types/scenario'
 import { Header } from './components/Header'
 import { OverviewCards } from './components/OverviewCards'
+import { DataSourcesCard } from './components/DataSourcesCard'
 import { CommodityStressPanel } from './components/CommodityStressPanel'
 import { CommodityPriceHistory } from './components/CommodityPriceHistory'
 import { EventRiskPanel } from './components/EventRiskPanel'
@@ -374,6 +375,7 @@ export default function App() {
         )}
 
         <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
+        <DataSourcesCard summary={summary} loading={healthLoading} />
 
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 

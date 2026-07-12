@@ -22,10 +22,18 @@ type resolvedEventRisk struct {
 
 func resolveEventRisk(processedDir, legacyDir string) (resolvedEventRisk, error) {
 	if processedDir != "" {
-		if file, err := eventrisk.Load(processedDir); err == nil && len(file.Countries) > 0 {
+		if file, ok := eventrisk.TryLoadProcessed(processedDir); ok {
+			real := eventrisk.IsRealProcessedEventRisk(file)
+			source := file.Source
+			if source == "" {
+				source = eventrisk.SourceName
+			}
+			if real {
+				source = eventrisk.SourceName
+			}
 			return resolvedEventRisk{
-				Source:        file.Source,
-				RealEventData: strings.EqualFold(file.Source, eventrisk.SourceName) || strings.EqualFold(file.Source, "gdelt"),
+				Source:        source,
+				RealEventData: real,
 				DateFrom:      file.DateFrom,
 				DateTo:        file.DateTo,
 				Scores:        eventrisk.ToLegacyCountryScores(file),

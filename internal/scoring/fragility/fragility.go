@@ -113,6 +113,7 @@ type Sources struct {
 	ProcessedEventRisk *eventrisk.RiskFile
 	Commodities        *commodityprices.PriceFile
 	Config      config.Config
+	SimContext  *simulation.Context
 }
 
 // Score computes unified country and commodity fragility from the provided
@@ -124,7 +125,7 @@ func Score(src Sources) Result {
 	macroByKey := indexMacro(src.Macro)
 	eventByKey := indexEvents(src.ProcessedEventRisk, src.Events)
 	tradeConcByKey := tradeConcentrationByImporter(src.Trade)
-	shockByName, shockOK := shockExposureByCountry(src.Graph, src.Scenarios, src.Config)
+	shockByName, shockOK := shockExposureByCountry(src.Graph, src.Scenarios, src.Config, src.SimContext)
 
 	commodityStress := indexCommodityStress(src.Commodities)
 	supplierConcByKey := supplierConcentrationByCommodity(src.Trade)
@@ -502,7 +503,7 @@ func indexCommodityStress(file *commodityprices.PriceFile) map[string]commoditie
 	return out
 }
 
-func shockExposureByCountry(g *graph.Graph, scenarios []data.Scenario, cfg config.Config) (map[string]float64, bool) {
+func shockExposureByCountry(g *graph.Graph, scenarios []data.Scenario, cfg config.Config, ctx *simulation.Context) (map[string]float64, bool) {
 	if g == nil || len(scenarios) == 0 {
 		return nil, false
 	}
@@ -510,13 +511,20 @@ func shockExposureByCountry(g *graph.Graph, scenarios []data.Scenario, cfg confi
 	if !ok {
 		return nil, false
 	}
-	res, err := simulation.Run(g, cfg, simulation.ShockRequest{
+	req := simulation.ShockRequest{
 		Source:    sc.Source,
 		Commodity: sc.Commodity,
 		ShockType: sc.ShockType,
 		DropPct:   sc.ShockPercent,
 		Depth:     sc.Depth,
-	})
+	}
+	var res simulation.Result
+	var err error
+	if ctx != nil {
+		res, err = simulation.RunWithContext(g, cfg, req, ctx)
+	} else {
+		res, err = simulation.Run(g, cfg, req)
+	}
 	if err != nil {
 		return nil, false
 	}

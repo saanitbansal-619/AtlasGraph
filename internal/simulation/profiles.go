@@ -52,6 +52,7 @@ var shockProfiles = buildProfiles(
 			models.RelExports, models.RelImports, models.RelSupplies,
 			models.RelDependsOn, models.RelUsedBy,
 			models.RelIndustryDependency, models.RelCompanyDependency,
+			models.RelRealExports, models.RelRealImportDependency,
 		},
 		Attenuation:      0.85,
 		RecommendedDepth: 3,
@@ -64,6 +65,7 @@ var shockProfiles = buildProfiles(
 		AllowedRelationships: []models.EdgeType{
 			models.RelExports, models.RelImports, models.RelSupplies,
 			models.RelDependsOn, models.RelUsedBy,
+			models.RelRealExports, models.RelRealImportDependency,
 		},
 		Attenuation:      0.80,
 		RecommendedDepth: 3,

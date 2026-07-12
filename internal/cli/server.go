@@ -10,6 +10,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/config"
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/graphfusion"
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
@@ -143,27 +144,23 @@ func (s *apiServer) handleGraphSummary(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	ds, err := loadDataset(s.cfg.GraphData)
-	if err != nil {
-		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"build a graph with `atlas graph build-trade` or pass an existing --data dir")
+	fused, ok := s.loadFused(w)
+	if !ok {
 		return
 	}
-	writeJSONStatus(w, http.StatusOK, buildGraphSummaryJSON(ds.Graph, config.Default().TopN))
+	writeJSONStatus(w, http.StatusOK, buildGraphSummaryJSON(fused.Dataset.Graph, config.Default().TopN, &fused.Meta))
 }
 
 func (s *apiServer) handleScenarios(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	ds, err := loadDataset(s.cfg.GraphData)
-	if err != nil {
-		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"build a graph with `atlas graph build-trade` or pass an existing --data dir")
+	fused, ok := s.loadFused(w)
+	if !ok {
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, map[string]any{
-		"scenarios": data.SortScenarios(ds.Scenarios),
+		"scenarios": data.SortScenarios(fused.Dataset.Scenarios),
 	})
 }
 
@@ -171,26 +168,22 @@ func (s *apiServer) handleGraphEntities(w http.ResponseWriter, r *http.Request) 
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	ds, err := loadDataset(s.cfg.GraphData)
-	if err != nil {
-		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"build a graph with `atlas graph build-trade` or pass an existing --data dir")
+	fused, ok := s.loadFused(w)
+	if !ok {
 		return
 	}
-	writeJSONStatus(w, http.StatusOK, buildGraphEntitiesJSON(ds.Graph))
+	writeJSONStatus(w, http.StatusOK, buildGraphEntitiesJSON(fused.Dataset.Graph))
 }
 
 func (s *apiServer) handleShockOptions(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	ds, err := loadDataset(s.cfg.GraphData)
-	if err != nil {
-		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"build a graph with `atlas graph build-trade` or pass an existing --data dir")
+	fused, ok := s.loadFused(w)
+	if !ok {
 		return
 	}
-	writeJSONStatus(w, http.StatusOK, buildShockOptionsJSON(ds))
+	writeJSONStatus(w, http.StatusOK, buildShockOptionsJSON(fused.Dataset))
 }
 
 // shockRequestBody is the POST /api/shock payload. Drop and Depth are pointers
@@ -241,14 +234,13 @@ func (s *apiServer) handleShock(w http.ResponseWriter, r *http.Request) {
 		req.Depth = *body.Depth
 	}
 
-	ds, err := loadDataset(s.cfg.GraphData)
-	if err != nil {
-		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"build a graph with `atlas graph build-trade` or pass an existing --data dir")
+	fused, ok := s.loadFused(w)
+	if !ok {
 		return
 	}
 
-	res, err := simulation.Run(ds.Graph, cfg, req)
+	simCtx := fused.SimCtx
+	res, err := simulation.RunWithContext(fused.Dataset.Graph, cfg, req, &simCtx)
 	if err != nil {
 		// Run's failures are client-driven (unknown entity, bad ranges, …).
 		writeAPIError(w, http.StatusBadRequest, err.Error(),
@@ -256,8 +248,9 @@ func (s *apiServer) handleShock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := buildJSONResult(res, nil, body.Explain)
+	attachDataFusion(&out, fused.Meta, fused.SimCtx)
 	// Attach non-fatal, graph-aware warnings (suboptimal but still-valid combos).
-	out.Warnings = shockWarnings(ds.Graph, res.Profile, req.Source, req.Commodity)
+	out.Warnings = shockWarnings(fused.Dataset.Graph, res.Profile, req.Source, req.Commodity)
 	writeJSONStatus(w, http.StatusOK, out)
 }
 
@@ -321,16 +314,15 @@ func (s *apiServer) handleScenariosCompare(w http.ResponseWriter, r *http.Reques
 		inputs = append(inputs, simulation.CompareScenario{Label: sc.Label, Request: req})
 	}
 
-	ds, err := loadDataset(s.cfg.GraphData)
-	if err != nil {
-		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"build a graph with `atlas graph build-trade` or pass an existing --data dir")
+	fused, ok := s.loadFused(w)
+	if !ok {
 		return
 	}
 
-	cmp := simulation.CompareScenarios(ds.Graph, cfg, inputs)
+	simCtx := fused.SimCtx
+	cmp := simulation.CompareScenariosWithContext(fused.Dataset.Graph, cfg, inputs, &simCtx)
 	out := buildCompareJSON(cmp, func(p simulation.ShockProfile, source, commodity string) []string {
-		return shockWarnings(ds.Graph, p, source, commodity)
+		return shockWarnings(fused.Dataset.Graph, p, source, commodity)
 	})
 	writeJSONStatus(w, http.StatusOK, out)
 }
@@ -487,7 +479,8 @@ func (s *apiServer) handleFragilityCountries(w http.ResponseWriter, r *http.Requ
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	res := fragility.Score(s.fragilitySources())
+	src, _ := s.fusedFragilitySources()
+	res := fragility.Score(src)
 	writeJSONStatus(w, http.StatusOK, buildFragilityJSON(res).Countries)
 }
 
@@ -495,7 +488,8 @@ func (s *apiServer) handleFragilityCommodities(w http.ResponseWriter, r *http.Re
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	res := fragility.Score(s.fragilitySources())
+	src, _ := s.fusedFragilitySources()
+	res := fragility.Score(src)
 	writeJSONStatus(w, http.StatusOK, buildFragilityJSON(res).Commodities)
 }
 
@@ -503,12 +497,18 @@ func (s *apiServer) handleFragilitySummary(w http.ResponseWriter, r *http.Reques
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	res := fragility.Score(s.fragilitySources())
-	writeJSONStatus(w, http.StatusOK, buildFragilitySummaryJSON(res, 5))
+	src, meta := s.fusedFragilitySources()
+	res := fragility.Score(src)
+	writeJSONStatus(w, http.StatusOK, buildFragilitySummaryJSON(res, 5, meta))
+}
+
+func (s *apiServer) fusedFragilitySources() (fragility.Sources, graphfusion.Meta) {
+	return loadFusedFragilitySources(s.cfg.fusionConfig())
 }
 
 func (s *apiServer) fragilitySources() fragility.Sources {
-	return loadFragilitySources(s.cfg.GraphData, s.cfg.TradeData, s.cfg.MacroData, s.cfg.ProcessedEventData, s.cfg.EventData, s.cfg.CommodityData)
+	src, _ := s.fusedFragilitySources()
+	return src
 }
 
 // loadTrade loads processed trade data, preferring trade_dependencies.json.
@@ -541,11 +541,22 @@ type jsonGraphSummary struct {
 	Companies    int             `json:"companies"`
 	Dependencies int             `json:"dependencies"`
 	TopNodes     []jsonGraphNode `json:"top_nodes"`
+
+	FusionEnabled       bool     `json:"fusion_enabled"`
+	BaseEntities        int      `json:"base_entities"`
+	BaseDependencies    int      `json:"base_dependencies"`
+	FusedEntities       int      `json:"fused_entities"`
+	FusedDependencies   int      `json:"fused_dependencies"`
+	RealTradeEdges      int      `json:"real_trade_edges"`
+	RealTradeEdgesUsed  bool     `json:"real_trade_edges_used"`
+	RealEventRiskUsed   bool     `json:"real_event_risk_used"`
+	RealPriceStressUsed bool     `json:"real_price_stress_used"`
+	DataSources         []string `json:"data_sources"`
 }
 
 // buildGraphSummaryJSON mirrors the text `graph summary` view as JSON: entity
 // counts plus the highest-degree nodes.
-func buildGraphSummaryJSON(g *graph.Graph, top int) jsonGraphSummary {
+func buildGraphSummaryJSON(g *graph.Graph, top int, meta *graphfusion.Meta) jsonGraphSummary {
 	out := jsonGraphSummary{
 		Nodes:        g.NodeCount(),
 		Countries:    g.CountByType(models.Country),
@@ -578,6 +589,21 @@ func buildGraphSummaryJSON(g *graph.Graph, top int) jsonGraphSummary {
 		ranked = ranked[:top]
 	}
 	out.TopNodes = ranked
+	if meta != nil {
+		out.FusionEnabled = meta.FusionEnabled
+		out.BaseEntities = meta.BaseEntities
+		out.BaseDependencies = meta.BaseDependencies
+		out.FusedEntities = meta.FusedEntities
+		out.FusedDependencies = meta.FusedDependencies
+		out.RealTradeEdges = meta.RealTradeEdges
+		out.RealTradeEdgesUsed = meta.RealTradeEdgesUsed
+		out.RealEventRiskUsed = meta.RealEventRiskUsed
+		out.RealPriceStressUsed = meta.RealPriceStressUsed
+		out.DataSources = meta.DataSources
+		if out.DataSources == nil {
+			out.DataSources = []string{}
+		}
+	}
 	return out
 }
 

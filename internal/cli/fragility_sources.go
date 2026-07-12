@@ -31,7 +31,7 @@ func loadFragilitySources(graphData, tradeData, macroData, processedEventData, l
 		}
 	}
 	if processedEventData != "" {
-		if f, err := eventrisk.Load(processedEventData); err == nil && len(f.Countries) > 0 {
+		if f, ok := eventrisk.TryLoadProcessed(processedEventData); ok && eventrisk.IsRealProcessedEventRisk(f) {
 			src.ProcessedEventRisk = &f
 		}
 	}

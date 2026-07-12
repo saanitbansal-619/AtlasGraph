@@ -11,6 +11,14 @@ import (
 
 const recentWindowDays = 30
 
+// Component weights for processed GDELT event risk. Sum to 1.0 so the blended
+// score stays on a 0..100 scale.
+const (
+	weightRecentEvents = 0.40
+	weightNegativeTone = 0.35
+	weightSeverity     = 0.25
+)
+
 // ScoreEvents computes country-level event risk from normalized events.
 func ScoreEvents(records []NormalizedEvent, now time.Time) []CountryRisk {
 	type group struct {
@@ -43,9 +51,8 @@ func ScoreEvents(records []NormalizedEvent, now time.Time) []CountryRisk {
 }
 
 func scoreCountry(country string, evs []NormalizedEvent, now time.Time) CountryRisk {
-	var impactSum float64
-	var toneSum float64
 	recent := 0
+	var toneSum float64
 	typeCounts := map[string]int{}
 
 	for _, e := range evs {
@@ -53,7 +60,6 @@ func scoreCountry(country string, evs []NormalizedEvent, now time.Time) CountryR
 		if days >= 0 && days <= recentWindowDays {
 			recent++
 		}
-		impactSum += eventImpact(e, days)
 		toneSum += e.Tone
 		typeCounts[e.EventType]++
 	}
@@ -64,34 +70,80 @@ func scoreCountry(country string, evs []NormalizedEvent, now time.Time) CountryR
 		avgTone = toneSum / float64(count)
 	}
 
-	score := math.Min(100, impactSum*14+float64(recent)*1.8+float64(count)*0.35)
+	recentScore := recentEventsScore(recent, count)
+	toneScore := negativeToneScore(avgTone)
+	severityScore := eventSeverityScore(evs)
+
+	comps := []events.Component{
+		makeComponent("recent_events", "recent events", weightRecentEvents, recentScore),
+		makeComponent("negative_tone", "negative tone", weightNegativeTone, toneScore),
+		makeComponent("event_severity", "event severity", weightSeverity, severityScore),
+	}
+
+	final := 0.0
+	for _, c := range comps {
+		final += c.Contribution
+	}
+	final = math.Min(100, final)
+
 	return CountryRisk{
 		Country:          country,
 		CountryCode:      ISO3ForCountry(country),
-		EventRiskScore:   round1(score),
-		RiskLevel:        events.RiskLevel(score),
+		EventRiskScore:   round1(final),
+		RiskLevel:        events.RiskLevel(final),
 		EventCount:       count,
 		RecentEventCount: recent,
 		AverageTone:      round2(avgTone),
 		TopEventTypes:    topEventTypes(typeCounts, 3),
 		Source:           SourceName,
+		Components:       comps,
 	}
 }
 
-func eventImpact(e NormalizedEvent, daysAgo int) float64 {
-	if daysAgo < 0 {
-		daysAgo = 0
+func makeComponent(key, name string, weight, score float64) events.Component {
+	return events.Component{
+		Key:          key,
+		Name:         name,
+		Score:        round1(score),
+		Weight:       weight,
+		Contribution: round2(weight * score),
 	}
-	recency := math.Exp(-float64(daysAgo) / 30.0)
+}
 
-	tone := 0.0
-	if e.Tone < 0 {
-		tone = math.Min(-e.Tone/10.0, 1.0)
+// recentEventsScore maps recent-window activity and overall event volume to 0..100.
+func recentEventsScore(recent, total int) float64 {
+	recentPart := scaleLinear100(float64(recent), 0, 3)
+	volumePart := scaleLinear100(float64(total), 0, 5)
+	if recentPart > volumePart {
+		return recentPart
 	}
-	sev := clamp01(e.Severity)
-	typeMult := eventTypeWeight(e.EventType)
-	base := 0.35*sev + 0.35*tone + 0.30*typeMult
-	return recency * base * typeMult
+	return volumePart
+}
+
+// negativeToneScore maps average GDELT tone to 0..100. Neutral/positive tone is 0;
+// increasingly negative tone approaches 100 (tone -10 saturates).
+func negativeToneScore(avgTone float64) float64 {
+	if avgTone >= 0 {
+		return 0
+	}
+	return math.Min(100, scaleLinear100(-avgTone, 0, 10))
+}
+
+// eventSeverityScore maps CSV severity (0..1) and event type to 0..100 using the
+// highest-risk event in the country group.
+func eventSeverityScore(evs []NormalizedEvent) float64 {
+	max := 0.0
+	for _, e := range evs {
+		sev := severityTo100(e.Severity) * eventTypeWeight(e.EventType)
+		if sev > max {
+			max = sev
+		}
+	}
+	return math.Min(100, max)
+}
+
+func severityTo100(v float64) float64 {
+	return clamp01(normalizeSeverity(v)) * 100
 }
 
 func eventTypeWeight(eventType string) float64 {
@@ -148,6 +200,14 @@ func normalizeSeverity(v float64) float64 {
 		return clamp01(v / 100.0)
 	}
 	return clamp01(v)
+}
+
+func scaleLinear100(v, lo, hi float64) float64 {
+	if hi <= lo {
+		return 0
+	}
+	x := (v - lo) / (hi - lo)
+	return clamp01(x) * 100
 }
 
 func topEventTypes(counts map[string]int, n int) []string {

@@ -1,6 +1,10 @@
 package eventrisk
 
-import "time"
+import (
+	"time"
+
+	"github.com/atlasgraph/atlas/internal/scoring/events"
+)
 
 // SourceName is the provenance label for ingested public GDELT-style event files.
 const SourceName = "GDELT"
@@ -28,8 +32,9 @@ type CountryRisk struct {
 	EventCount       int      `json:"event_count"`
 	RecentEventCount int      `json:"recent_event_count"`
 	AverageTone      float64  `json:"average_tone"`
-	TopEventTypes    []string `json:"top_event_types"`
-	Source           string   `json:"source"`
+	TopEventTypes    []string            `json:"top_event_types"`
+	Source           string              `json:"source"`
+	Components       []events.Component  `json:"components,omitempty"`
 }
 
 // RiskFile is the processed event-risk panel written to disk.

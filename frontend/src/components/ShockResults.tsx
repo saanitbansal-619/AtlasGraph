@@ -218,6 +218,10 @@ function ResultBanner({
         </div>
       )}
 
+      {result.data_fusion?.propagation_note && (
+        <p className="text-[11px] text-emerald-400/90">{result.data_fusion.propagation_note}</p>
+      )}
+
       <p className="text-[11px] italic text-slate-500">{ASSUMPTION_NOTE}</p>
     </div>
   )

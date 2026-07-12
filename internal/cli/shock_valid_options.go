@@ -47,13 +47,11 @@ func (s *apiServer) handleShockValidOptions(w http.ResponseWriter, r *http.Reque
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	ds, err := loadDataset(s.cfg.GraphData)
-	if err != nil {
-		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"build a graph with `atlas graph build-trade` or pass an existing --data dir")
+	fused, ok := s.loadFused(w)
+	if !ok {
 		return
 	}
 	filter := strings.TrimSpace(r.URL.Query().Get("source"))
-	opts := shockguide.BuildValidOptions(ds.Graph, filter)
+	opts := shockguide.BuildValidOptions(fused.Dataset.Graph, filter)
 	writeJSONStatus(w, http.StatusOK, buildShockValidOptionsJSON(opts))
 }

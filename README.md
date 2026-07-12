@@ -267,6 +267,43 @@ v1 uses **manually downloaded** UN Comtrade CSV exports for **USA 2024 imports**
 
 ---
 
+## Real Data Graph Fusion
+
+v1 **augments** the strategic demo graph (`data/strategic_global`) with local processed real-data panels. The base graph is preserved; fusion adds edges and vulnerability metadata when processed files exist.
+
+| Signal | Source | Fusion effect |
+|--------|--------|---------------|
+| Trade dependencies | `data/processed/trade/trade_dependencies.json` | `real_exports` and `real_import_dependency` edges weighted by supplier share |
+| Commodity price stress | `data/processed/commodity_prices` | Commodity vulnerability multiplier during shock propagation (capped at 1.20×) |
+| Event risk | `data/processed/events/event_risk.json` | Country vulnerability multiplier during shock propagation (capped at 1.25×) |
+
+**Important:** Not all graph edges are real yet. Demo strategic edges remain; real UN Comtrade edges are additive and marked `real_data: true`.
+
+When processed data is missing, behaviour matches the pre-fusion demo graph.
+
+### Fusion CLI
+
+```bash
+go run ./cmd/atlas graph summary \
+  --data data/strategic_global \
+  --trade-data data/processed/trade \
+  --event-data data/processed/events \
+  --commodity-data data/processed/commodity_prices
+```
+
+Shows fused entity/dependency counts and data sources when real panels are present.
+
+### Fusion API transparency
+
+`GET /api/graph/summary`, `GET /api/fragility/summary`, and `POST /api/shock` include fields such as:
+
+- `fusion_enabled`, `real_trade_edges_used`, `real_event_risk_used`, `real_price_stress_used`
+- `data_sources`: e.g. `["Strategic demo graph", "UN Comtrade", "World Bank Pink Sheet", "GDELT"]`
+
+Shock results may include `data_fusion.propagation_note`, e.g. `Real-data-backed propagation: trade + commodity prices + event risk`.
+
+---
+
 ## Quickstart
 
 ### Backend validation

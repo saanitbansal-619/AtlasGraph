@@ -25,6 +25,16 @@ export interface GraphSummaryResponse {
   companies: number
   dependencies: number
   top_nodes: GraphNode[]
+  fusion_enabled?: boolean
+  base_entities?: number
+  base_dependencies?: number
+  fused_entities?: number
+  fused_dependencies?: number
+  real_trade_edges?: number
+  real_trade_edges_used?: boolean
+  real_event_risk_used?: boolean
+  real_price_stress_used?: boolean
+  data_sources?: string[]
 }
 
 export interface Scenario {
@@ -143,6 +153,17 @@ export interface ShockResponse {
   blocked_edges?: BlockedEdge[]
   // Non-fatal, graph-aware advisories for suboptimal but still-valid combos.
   warnings?: string[]
+  data_fusion?: DataFusionInfo
+}
+
+export interface DataFusionInfo {
+  fusion_enabled: boolean
+  real_trade_edges_used: boolean
+  real_event_risk_used: boolean
+  real_price_stress_used: boolean
+  event_risk_multiplier_applied?: boolean
+  data_sources: string[]
+  propagation_note?: string
 }
 
 // GET /api/graph/entities — graph nodes grouped by type.
@@ -200,6 +221,11 @@ export interface ShockValidOptionsResponse {
 export interface FragilitySummaryResponse {
   countries: CountryFragilityScore[]
   commodities: CommodityFragilityScore[]
+  fusion_enabled?: boolean
+  real_trade_edges_used?: boolean
+  real_event_risk_used?: boolean
+  real_price_stress_used?: boolean
+  data_sources?: string[]
 }
 
 export interface FragilityComponent {

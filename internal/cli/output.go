@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/data"
 	"github.com/atlasgraph/atlas/internal/graph"
+	"github.com/atlasgraph/atlas/internal/graphfusion"
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
 	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
@@ -37,6 +38,37 @@ type jsonResult struct {
 	// Warnings are non-fatal, graph-aware advisories for suboptimal but still
 	// valid shock combinations. Omitted (and never set) for the CLI path.
 	Warnings []string `json:"warnings,omitempty"`
+
+	DataFusion *jsonDataFusion `json:"data_fusion,omitempty"`
+}
+
+type jsonDataFusion struct {
+	FusionEnabled              bool     `json:"fusion_enabled"`
+	RealTradeEdgesUsed         bool     `json:"real_trade_edges_used"`
+	RealEventRiskUsed          bool     `json:"real_event_risk_used"`
+	RealPriceStressUsed        bool     `json:"real_price_stress_used"`
+	EventRiskMultiplierApplied bool     `json:"event_risk_multiplier_applied,omitempty"`
+	DataSources                []string `json:"data_sources"`
+	PropagationNote            string   `json:"propagation_note,omitempty"`
+}
+
+func attachDataFusion(jr *jsonResult, meta graphfusion.Meta, simCtx simulation.Context) {
+	note := graphfusion.PropagationNote(meta, simCtx)
+	if !meta.FusionEnabled && !simCtx.RealEventRiskUsed && !simCtx.RealPriceStressUsed && note == "" {
+		return
+	}
+	jr.DataFusion = &jsonDataFusion{
+		FusionEnabled:              meta.FusionEnabled,
+		RealTradeEdgesUsed:         meta.RealTradeEdgesUsed,
+		RealEventRiskUsed:          simCtx.RealEventRiskUsed || meta.RealEventRiskUsed,
+		RealPriceStressUsed:        simCtx.RealPriceStressUsed || meta.RealPriceStressUsed,
+		EventRiskMultiplierApplied: simCtx.EventRiskMultiplierApplied,
+		DataSources:                meta.DataSources,
+		PropagationNote:            note,
+	}
+	if jr.DataFusion.DataSources == nil {
+		jr.DataFusion.DataSources = []string{graphfusion.SourceStrategic}
+	}
 }
 
 type jsonShockProfile struct {
@@ -844,6 +876,12 @@ type jsonFragilityComponent struct {
 type jsonFragilitySummary struct {
 	Countries   []jsonFragilityCountry   `json:"countries"`
 	Commodities []jsonFragilityCommodity `json:"commodities"`
+
+	FusionEnabled       bool     `json:"fusion_enabled"`
+	RealTradeEdgesUsed  bool     `json:"real_trade_edges_used"`
+	RealEventRiskUsed   bool     `json:"real_event_risk_used"`
+	RealPriceStressUsed bool     `json:"real_price_stress_used"`
+	DataSources         []string `json:"data_sources"`
 }
 
 func buildFragilityJSON(res fragility.Result) jsonFragilityFile {
@@ -865,7 +903,7 @@ func buildFragilityJSON(res fragility.Result) jsonFragilityFile {
 	return out
 }
 
-func buildFragilitySummaryJSON(res fragility.Result, topN int) jsonFragilitySummary {
+func buildFragilitySummaryJSON(res fragility.Result, topN int, meta graphfusion.Meta) jsonFragilitySummary {
 	out := jsonFragilitySummary{
 		Countries:   make([]jsonFragilityCountry, 0, topN),
 		Commodities: make([]jsonFragilityCommodity, 0, topN),
@@ -881,6 +919,14 @@ func buildFragilitySummaryJSON(res fragility.Result, topN int) jsonFragilitySumm
 			break
 		}
 		out.Commodities = append(out.Commodities, commodityToJSON(s))
+	}
+	out.FusionEnabled = meta.FusionEnabled
+	out.RealTradeEdgesUsed = meta.RealTradeEdgesUsed
+	out.RealEventRiskUsed = meta.RealEventRiskUsed
+	out.RealPriceStressUsed = meta.RealPriceStressUsed
+	out.DataSources = meta.DataSources
+	if out.DataSources == nil {
+		out.DataSources = []string{graphfusion.SourceStrategic}
 	}
 	return out
 }
