@@ -374,8 +374,19 @@ export default function App() {
           <BackendDownNotice message={healthErr?.message} onRetry={loadAll} />
         )}
 
-        <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
-        <DataSourcesCard summary={summary} loading={healthLoading} />
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
+          <div className="min-w-0">
+            <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
+          </div>
+          <div className="min-w-0 lg:h-full">
+            <DataSourcesCard
+              summary={summary}
+              fragility={fragility}
+              loading={healthLoading || fragilityLoading}
+              compact
+            />
+          </div>
+        </div>
 
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 

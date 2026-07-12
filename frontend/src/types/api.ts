@@ -226,6 +226,8 @@ export interface FragilitySummaryResponse {
   real_event_risk_used?: boolean
   real_price_stress_used?: boolean
   data_sources?: string[]
+  trade_concentration_source?: string
+  trade_concentration_note?: string
 }
 
 export interface FragilityComponent {
@@ -235,6 +237,8 @@ export interface FragilityComponent {
   weight: number
   contribution: number
   available: boolean
+  source?: string
+  note?: string
 }
 
 export interface CountryFragilityScore {

@@ -20,11 +20,11 @@ export function OverviewCards({
 
   if (!summary) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid h-full grid-cols-2 gap-2 sm:grid-cols-3">
         {SKELETON.map((label) => (
-          <div key={label} className="panel px-4 py-3">
+          <div key={label} className="panel px-3 py-2">
             <div className="label">{label}</div>
-            <div className="mt-2 h-7 w-16 animate-pulse rounded bg-slate-800" />
+            <div className="mt-1 h-6 w-12 animate-pulse rounded bg-slate-800" />
           </div>
         ))}
       </div>
@@ -40,9 +40,15 @@ export function OverviewCards({
   ]
 
   return (
-    <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 ${loading ? 'opacity-70' : ''}`}>
+    <div className={`grid h-full grid-cols-2 gap-2 sm:grid-cols-3 ${loading ? 'opacity-70' : ''}`}>
       {cards.map((c) => (
-        <Stat key={c.label} label={c.label} value={compactInt(c.value)} accent={c.accent} />
+        <Stat
+          key={c.label}
+          label={c.label}
+          value={compactInt(c.value)}
+          accent={c.accent}
+          compact
+        />
       ))}
     </div>
   )

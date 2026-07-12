@@ -86,10 +86,7 @@
   .exposure-td-entity {
     @apply break-words px-3 py-2 text-sm font-medium leading-snug text-slate-100;
   }
-  .exposure-td-type {
-    @apply px-2 py-2;
-  }
   .exposure-td-mono {
-    @apply whitespace-nowrap px-2 py-2 text-xs text-slate-300;
+    @apply whitespace-nowrap px-3 py-2 text-xs text-slate-300;
   }
 }

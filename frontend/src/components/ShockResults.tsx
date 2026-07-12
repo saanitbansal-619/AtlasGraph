@@ -9,10 +9,12 @@ import {
   pct,
   signed,
 } from '../lib/format'
-import { EmptyHint, Panel, Spinner, TypeBadge } from './ui'
+import { selectTopImpactedEntity } from '../lib/shockEntities'
+import { EmptyHint, Panel, Spinner } from './ui'
 import { InlineError } from './States'
 import { AdaptiveRankingChart } from './charts/AdaptiveRankingChart'
 import { CommodityPriceContext } from './CommodityPriceContext'
+import { ExecutiveImpactBrief } from './ExecutiveImpactBrief'
 
 export function ShockResults({
   result,
@@ -56,10 +58,13 @@ export function ShockResults({
   }
 
   const s = result.graph_impact_summary
+  const topImpacted = selectTopImpactedEntity(result)
 
   return (
     <div className={`space-y-4 ${running ? 'opacity-60' : ''}`}>
       <ResultBanner result={result} submitted={submitted} />
+
+      <ExecutiveImpactBrief result={result} />
 
       <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-5">
         <MetricCard label="Affected nodes" value={String(s.affected_nodes)} />
@@ -76,7 +81,10 @@ export function ShockResults({
         />
         <MetricCard
           label="Top impacted"
-          value={s.largest_single_impact_entity || '—'}
+          value={topImpacted.label}
+          valueClassName={
+            topImpacted.isDirectCommodityFallback ? 'text-slate-400' : undefined
+          }
           small
           wrapperClassName="col-span-2 min-[480px]:col-span-1"
         />
@@ -115,7 +123,10 @@ export function ShockResults({
 
       <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
         <Panel title="Direct Exposure" noPad className="min-w-0">
-          <ExposureTable items={result.direct_exposure} emptyLabel="No direct exposure within depth." />
+          <ExposureTable
+            items={result.direct_exposure}
+            emptyLabel="No direct exposure within depth."
+          />
         </Panel>
         <Panel title="Second-Order Exposure" noPad className="min-w-0">
           <ExposureTable
@@ -278,42 +289,39 @@ function ExposureTable({
   }
 
   const scrollable = items.length > 8
+  const groups = groupExposureItems(items)
 
   return (
     <div className={scrollable ? 'max-h-80 overflow-y-auto' : ''}>
       <table className="w-full table-fixed border-collapse">
         <colgroup>
-          <col className="w-[36%]" />
+          <col className="w-[46%]" />
+          <col className="w-[16%]" />
+          <col className="w-[24%]" />
           <col className="w-[14%]" />
-          <col className="w-[13%]" />
-          <col className="w-[25%]" />
-          <col className="w-[12%]" />
         </colgroup>
         <thead className={scrollable ? 'sticky top-0 z-10 bg-slate-900/95 backdrop-blur' : ''}>
           <tr className="border-b border-slate-800">
             <th className="th">Entity</th>
-            <th className="th w-[14%]">Type</th>
             <th className="th text-right">Impact</th>
             <th className="th text-right">Base → Shock</th>
             <th className="th text-right">Δ</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((it, i) => (
-            <tr key={`${it.entity}-${i}`} className="border-b border-slate-800/60 hover:bg-slate-800/30">
-              <td className="exposure-td-entity">{it.entity}</td>
-              <td className="exposure-td-type">
-                <TypeBadge type={it.type} />
-              </td>
-              <td className="exposure-td-mono text-right">{pct(it.impact)}</td>
-              <td className="exposure-td-mono text-right text-slate-400">
-                {fixed(it.base_fragility)} →{' '}
-                <span className="text-slate-200">{fixed(it.shock_fragility)}</span>
-              </td>
-              <td className={`exposure-td-mono text-right font-semibold ${deltaClass(it.delta)}`}>
-                {signed(it.delta)}
-              </td>
-            </tr>
+          {groups.map((group) => (
+            <Fragment key={group.key}>
+              <tr className="border-b border-slate-800/80 bg-slate-950/80">
+                <td colSpan={4} className="px-4 py-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    {group.label}
+                  </span>
+                </td>
+              </tr>
+              {group.items.map((it, i) => (
+                <ExposureRow key={`${group.key}-${it.entity}-${i}`} item={it} />
+              ))}
+            </Fragment>
           ))}
         </tbody>
       </table>
@@ -323,6 +331,53 @@ function ExposureTable({
         </p>
       )}
     </div>
+  )
+}
+
+const EXPOSURE_GROUP_ORDER = [
+  { key: 'country', label: 'Countries' },
+  { key: 'sector', label: 'Sectors' },
+  { key: 'commodity', label: 'Commodities' },
+  { key: 'route', label: 'Routes' },
+  { key: 'other', label: 'Other' },
+] as const
+
+function groupExposureItems(items: ExposureItem[]): { key: string; label: string; items: ExposureItem[] }[] {
+  const buckets = new Map<string, ExposureItem[]>()
+  for (const g of EXPOSURE_GROUP_ORDER) {
+    buckets.set(g.key, [])
+  }
+
+  for (const it of items) {
+    const t = (it.type || '').trim().toLowerCase()
+    const key =
+      t === 'country' || t === 'sector' || t === 'commodity' || t === 'route' ? t : 'other'
+    buckets.get(key)!.push(it)
+  }
+
+  const sortByImpact = (a: ExposureItem, b: ExposureItem) =>
+    b.impact - a.impact || b.delta - a.delta || a.entity.localeCompare(b.entity)
+
+  return EXPOSURE_GROUP_ORDER.flatMap((g) => {
+    const list = buckets.get(g.key) ?? []
+    if (list.length === 0) return []
+    return [{ key: g.key, label: g.label, items: [...list].sort(sortByImpact) }]
+  })
+}
+
+function ExposureRow({ item: it }: { item: ExposureItem }) {
+  return (
+    <tr className="border-b border-slate-800/60 hover:bg-slate-800/30">
+      <td className="exposure-td-entity">{it.entity}</td>
+      <td className="exposure-td-mono text-right">{pct(it.impact)}</td>
+      <td className="exposure-td-mono text-right text-slate-400">
+        {fixed(it.base_fragility)} →{' '}
+        <span className="text-slate-200">{fixed(it.shock_fragility)}</span>
+      </td>
+      <td className={`exposure-td-mono text-right font-semibold ${deltaClass(it.delta)}`}>
+        {signed(it.delta)}
+      </td>
+    </tr>
   )
 }
 

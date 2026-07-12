@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { FragilitySummaryResponse } from '../types/api'
+import type { FragilityComponent, FragilitySummaryResponse } from '../types/api'
 import { fixed, riskBadgeClass } from '../lib/format'
 import { HorizontalBarChartCard } from './charts/HorizontalBarChartCard'
 import { Panel, Spinner } from './ui'
@@ -38,6 +38,11 @@ export function UnifiedFragility({
   return (
     <Panel title="Unified Fragility" right={<span className="text-[11px] text-slate-500">top 5 by score</span>}>
       <div className={`space-y-3 ${loading ? 'opacity-70' : ''}`}>
+        <p className="text-xs text-slate-400">
+          Scores combine strategic dependency modeling with real trade, event-risk, and
+          commodity-price signals.
+        </p>
+
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <HorizontalBarChartCard
             title="Top Fragile Countries"
@@ -84,6 +89,19 @@ export function UnifiedFragility({
 
         {showDetails && (
           <div className="space-y-3 border-t border-slate-800/60 pt-3">
+            {(summary.trade_concentration_source || summary.trade_concentration_note) && (
+              <p className="text-[11px] text-slate-500">
+                {summary.trade_concentration_source && (
+                  <span>Trade concentration source: {summary.trade_concentration_source}</span>
+                )}
+                {summary.trade_concentration_note && (
+                  <span>
+                    {summary.trade_concentration_source ? ' · ' : ''}
+                    {summary.trade_concentration_note}
+                  </span>
+                )}
+              </p>
+            )}
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               Score Breakdown
             </div>
@@ -95,6 +113,7 @@ export function UnifiedFragility({
                   score: c.score,
                   risk: c.risk_level,
                   drivers: c.top_drivers,
+                  components: c.components,
                 }))}
                 empty="No country fragility scores available."
               />
@@ -105,6 +124,7 @@ export function UnifiedFragility({
                   score: c.score,
                   risk: c.risk_level,
                   drivers: c.top_drivers,
+                  components: c.components,
                 }))}
                 empty="No commodity fragility scores available."
               />
@@ -122,7 +142,13 @@ function FragilityTable({
   empty,
 }: {
   label: string
-  rows: Array<{ name: string; score: number; risk: string; drivers: string[] }>
+  rows: Array<{
+    name: string
+    score: number
+    risk: string
+    drivers: string[]
+    components?: FragilityComponent[]
+  }>
   empty: string
 }) {
   if (rows.length === 0) {
@@ -145,17 +171,40 @@ function FragilityTable({
           <tbody>
             {rows.map((row) => (
               <tr key={row.name} className="border-b border-slate-800/60 hover:bg-slate-800/30">
-                <td className="td font-medium text-slate-100">{row.name}</td>
-                <td className="td text-right font-mono tabular-nums text-slate-200">{fixed(row.score, 1)}</td>
-                <td className="td text-center">
+                <td className="td align-top">
+                  <div className="font-medium text-slate-100">{row.name}</div>
+                  <ComponentProvenance components={row.components} />
+                </td>
+                <td className="td align-top text-right font-mono tabular-nums text-slate-200">
+                  {fixed(row.score, 1)}
+                </td>
+                <td className="td align-top text-center">
                   <span className={`badge ${riskBadgeClass(row.risk)}`}>{row.risk}</span>
                 </td>
-                <td className="td text-xs text-slate-400">{row.drivers.join(', ') || '—'}</td>
+                <td className="td align-top text-xs text-slate-400">{row.drivers.join(', ') || '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+function ComponentProvenance({ components }: { components?: FragilityComponent[] }) {
+  if (!components?.length) return null
+  const labeled = components.filter((c) => c.available && (c.source || c.note))
+  if (labeled.length === 0) return null
+
+  return (
+    <div className="mt-1.5 space-y-0.5">
+      {labeled.map((c) => (
+        <div key={c.key} className="text-[10px] leading-snug text-slate-500">
+          <span className="text-slate-400">{c.name}</span>
+          {c.source && <span> · source: {c.source}</span>}
+          {c.note && <span> · note: {c.note}</span>}
+        </div>
+      ))}
     </div>
   )
 }
