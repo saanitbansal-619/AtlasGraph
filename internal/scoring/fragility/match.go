@@ -117,8 +117,17 @@ func lookupTradeConcentration(ref countryRef, byKey map[string]float64) (float64
 			return v, true
 		}
 	}
+	nameKey := strings.ToLower(strings.TrimSpace(trade.NormalizeImporterQuery(ref.name)))
+	if nameKey != "" {
+		if v, ok := byKey[nameKey]; ok {
+			return v, true
+		}
+	}
 	for k, v := range byKey {
 		if countryRefsMatch(ref, countryRef{code: k, name: importerDisplayName(k)}) {
+			return v, true
+		}
+		if namesMatch(ref.name, k) || namesMatch(trade.NormalizeImporterQuery(ref.name), trade.NormalizeImporterQuery(k)) {
 			return v, true
 		}
 	}
@@ -240,31 +249,38 @@ func namesMatch(a, b string) bool {
 
 // tradeConcentrationByImporter returns the average supplier HHI (scaled to
 // 0..100) across every commodity an importer purchases.
-func tradeConcentrationByImporter(file *trade.TradeFile) map[string]float64 {
+func tradeConcentrationByImporter(file *trade.TradeFile, deps *trade.DependencyFile) map[string]float64 {
+	if deps != nil && len(deps.Dependencies) > 0 {
+		return tradeConcentrationFromDeps(deps)
+	}
 	out := map[string]float64{}
 	if file == nil {
 		return out
 	}
 	importers := map[string]map[string]struct{}{}
 	for _, r := range file.Records {
-		code := strings.ToUpper(strings.TrimSpace(r.ImporterCode))
-		if code == "" {
+		key := importerKey(r.ImporterCode, r.ImporterName)
+		if key == "" {
 			continue
 		}
 		com := strings.TrimSpace(r.CommodityName)
 		if com == "" {
 			com = strings.TrimSpace(r.CommodityCode)
 		}
-		if importers[code] == nil {
-			importers[code] = map[string]struct{}{}
+		if com == "" {
+			continue
 		}
-		importers[code][com] = struct{}{}
+		if importers[key] == nil {
+			importers[key] = map[string]struct{}{}
+		}
+		importers[key][com] = struct{}{}
 	}
-	for code, commodities := range importers {
+	for key, commodities := range importers {
 		var sum float64
 		var n int
+		query := concentrationQuery(key)
 		for com := range commodities {
-			con := trade.BuildConcentration(*file, code, com)
+			con := trade.BuildConcentration(*file, query, com)
 			if !con.HasData {
 				continue
 			}
@@ -272,7 +288,46 @@ func tradeConcentrationByImporter(file *trade.TradeFile) map[string]float64 {
 			n++
 		}
 		if n > 0 {
-			out[code] = sum / float64(n)
+			out[key] = sum / float64(n)
+			storeImporterAliases(out, key, out[key])
+		}
+	}
+	return out
+}
+
+func tradeConcentrationFromDeps(deps *trade.DependencyFile) map[string]float64 {
+	out := map[string]float64{}
+	importers := map[string]map[string]struct{}{}
+	for _, d := range deps.Dependencies {
+		key := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
+		if key == "" {
+			continue
+		}
+		com := strings.TrimSpace(d.Commodity)
+		if com == "" {
+			continue
+		}
+		if importers[key] == nil {
+			importers[key] = map[string]struct{}{}
+		}
+		importers[key][com] = struct{}{}
+	}
+	for key, commodities := range importers {
+		var sum float64
+		var n int
+		query := concentrationQuery(key)
+		for com := range commodities {
+			con := trade.BuildConcentrationResolved(trade.ResolvedTrade{DependencyFile: deps}, query, com)
+			if !con.HasData {
+				continue
+			}
+			sum += hhiToScore(con.HHI)
+			n++
+		}
+		if n > 0 {
+			avg := sum / float64(n)
+			out[key] = avg
+			storeImporterAliases(out, key, avg)
 		}
 	}
 	return out
@@ -280,7 +335,10 @@ func tradeConcentrationByImporter(file *trade.TradeFile) map[string]float64 {
 
 // supplierConcentrationByCommodity returns the average importer-side HHI
 // (scaled to 0..100) for each commodity across all importing countries.
-func supplierConcentrationByCommodity(file *trade.TradeFile) map[string]float64 {
+func supplierConcentrationByCommodity(file *trade.TradeFile, deps *trade.DependencyFile) map[string]float64 {
+	if deps != nil && len(deps.Dependencies) > 0 {
+		return supplierConcentrationFromDeps(deps)
+	}
 	out := map[string]float64{}
 	if file == nil {
 		return out
@@ -291,22 +349,22 @@ func supplierConcentrationByCommodity(file *trade.TradeFile) map[string]float64 
 		if com == "" {
 			com = strings.TrimSpace(r.CommodityCode)
 		}
-		code := strings.ToUpper(strings.TrimSpace(r.ImporterCode))
-		if com == "" || code == "" {
+		ikey := importerKey(r.ImporterCode, r.ImporterName)
+		if com == "" || ikey == "" {
 			continue
 		}
 		key := commodityKey("", com)
 		if commodities[key] == nil {
 			commodities[key] = map[string]struct{}{}
 		}
-		commodities[key][code] = struct{}{}
+		commodities[key][ikey] = struct{}{}
 	}
 	for key, importers := range commodities {
 		var sum float64
 		var n int
-		for code := range importers {
-			comName := commodityDisplayName(*file, key)
-			con := trade.BuildConcentration(*file, code, comName)
+		comName := commodityDisplayName(*file, key)
+		for ikey := range importers {
+			con := trade.BuildConcentration(*file, concentrationQuery(ikey), comName)
 			if !con.HasData {
 				continue
 			}
@@ -318,6 +376,128 @@ func supplierConcentrationByCommodity(file *trade.TradeFile) map[string]float64 
 		}
 	}
 	return out
+}
+
+func supplierConcentrationFromDeps(deps *trade.DependencyFile) map[string]float64 {
+	out := map[string]float64{}
+	commodities := map[string]map[string]struct{}{}
+	for _, d := range deps.Dependencies {
+		com := strings.TrimSpace(d.Commodity)
+		ikey := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
+		if com == "" || ikey == "" {
+			continue
+		}
+		key := commodityKey("", com)
+		if commodities[key] == nil {
+			commodities[key] = map[string]struct{}{}
+		}
+		commodities[key][ikey] = struct{}{}
+	}
+	for key, importers := range commodities {
+		var sum float64
+		var n int
+		comName := key
+		for _, d := range deps.Dependencies {
+			if commodityKey("", d.Commodity) == key && d.Commodity != "" {
+				comName = d.Commodity
+				break
+			}
+		}
+		for ikey := range importers {
+			con := trade.BuildConcentrationResolved(trade.ResolvedTrade{DependencyFile: deps}, concentrationQuery(ikey), comName)
+			if !con.HasData {
+				continue
+			}
+			sum += hhiToScore(con.HHI)
+			n++
+		}
+		if n > 0 {
+			out[key] = sum / float64(n)
+		}
+	}
+	return out
+}
+
+func importerKey(code, name string) string {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code != "" {
+		return code
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	if resolved := trade.CountryCodeForName(name); resolved != "" {
+		return resolved
+	}
+	return strings.ToLower(trade.NormalizeImporterQuery(name))
+}
+
+func concentrationQuery(key string) string {
+	key = strings.TrimSpace(key)
+	if len(key) == 3 && key == strings.ToUpper(key) {
+		return key
+	}
+	return trade.NormalizeImporterQuery(key)
+}
+
+func storeImporterAliases(out map[string]float64, key string, score float64) {
+	out[key] = score
+	if len(key) == 3 && key == strings.ToUpper(key) {
+		if n, ok := gdelt.CountryName(key); ok {
+			out[strings.ToLower(n)] = score
+			out[strings.ToLower(trade.NormalizeImporterQuery(n))] = score
+		}
+		return
+	}
+	if code := trade.CountryCodeForName(key); code != "" {
+		out[code] = score
+	}
+}
+
+func tradeConcentrationMeta(file *trade.TradeFile, deps *trade.DependencyFile) (source, note string) {
+	importers := map[string]struct{}{}
+	real := false
+	if deps != nil && len(deps.Dependencies) > 0 {
+		if strings.EqualFold(deps.Source, trade.ComtradeRealSourceName) || strings.Contains(strings.ToLower(deps.Source), "comtrade") {
+			real = true
+		}
+		for _, d := range deps.Dependencies {
+			key := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
+			if key != "" {
+				importers[key] = struct{}{}
+			}
+		}
+	} else if file != nil {
+		if strings.Contains(strings.ToLower(file.Source), "comtrade") {
+			real = true
+		}
+		for _, r := range file.Records {
+			key := importerKey(r.ImporterCode, r.ImporterName)
+			if key != "" {
+				importers[key] = struct{}{}
+			}
+		}
+	}
+	if len(importers) == 0 {
+		return "", ""
+	}
+	if real {
+		source = trade.ComtradeRealSourceName
+	} else {
+		source = "demo trade"
+	}
+	onlyUSA := true
+	for k := range importers {
+		if k != "USA" && !strings.EqualFold(trade.NormalizeImporterQuery(k), "United States") {
+			onlyUSA = false
+			break
+		}
+	}
+	if onlyUSA {
+		note = "US import-based concentration"
+	}
+	return source, note
 }
 
 func commodityDisplayName(file trade.TradeFile, key string) string {
@@ -346,6 +526,9 @@ func eventExposureByCommodity(file *trade.TradeFile, eventByKey map[string]event
 			com = strings.TrimSpace(r.CommodityCode)
 		}
 		code := strings.ToUpper(strings.TrimSpace(r.ExporterCode))
+		if code == "" {
+			code = trade.CountryCodeForName(r.ExporterName)
+		}
 		if com == "" || code == "" {
 			continue
 		}

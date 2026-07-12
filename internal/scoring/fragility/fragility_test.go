@@ -1,6 +1,7 @@
 package fragility
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/atlasgraph/atlas/internal/config"
@@ -168,7 +169,7 @@ func TestMissingComponentNormalization(t *testing.T) {
 
 func TestTradeConcentrationByImporter(t *testing.T) {
 	file := sampleTradeFile()
-	byImporter := tradeConcentrationByImporter(&file)
+	byImporter := tradeConcentrationByImporter(&file, nil)
 	if len(byImporter) == 0 {
 		t.Fatal("expected importer concentration scores")
 	}
@@ -177,9 +178,140 @@ func TestTradeConcentrationByImporter(t *testing.T) {
 	}
 }
 
+func TestTradeConcentrationFromNameOnlyDeps(t *testing.T) {
+	deps := &trade.DependencyFile{
+		Source: trade.ComtradeRealSourceName,
+		Dependencies: []trade.TradeDependency{
+			{Importer: "United States", Exporter: "Taiwan", Commodity: "semiconductors", Share: 0.60, TradeValueUSD: 60},
+			{Importer: "United States", Exporter: "Korea, Rep.", Commodity: "semiconductors", Share: 0.30, TradeValueUSD: 30},
+			{Importer: "United States", Exporter: "Japan", Commodity: "semiconductors", Share: 0.10, TradeValueUSD: 10},
+			{Importer: "United States", Exporter: "Saudi Arabia", Commodity: "crude oil", Share: 0.50, TradeValueUSD: 50},
+			{Importer: "United States", Exporter: "Canada", Commodity: "crude oil", Share: 0.50, TradeValueUSD: 50},
+		},
+	}
+	byImporter := tradeConcentrationByImporter(nil, deps)
+	if _, ok := byImporter["USA"]; !ok {
+		t.Fatalf("expected USA concentration from name-only deps, got %v", byImporter)
+	}
+	byCommodity := supplierConcentrationByCommodity(nil, deps)
+	if _, ok := byCommodity[commodityKey("", "semiconductors")]; !ok {
+		t.Fatalf("expected semiconductors supplier concentration, got %v", byCommodity)
+	}
+	// HHI semiconductors = 0.36+0.09+0.01 = 0.46 -> 46; crude oil = 0.25+0.25 = 0.50 -> 50; avg = 48
+	approx := byImporter["USA"]
+	if approx < 40 || approx > 55 {
+		t.Errorf("USA trade concentration = %v, want ~48", approx)
+	}
+}
+
+func TestSupplierConcentrationByCommodity(t *testing.T) {
+	file := sampleTradeFile()
+	byCommodity := supplierConcentrationByCommodity(&file, nil)
+	key := commodityKey("", "semiconductors")
+	score, ok := byCommodity[key]
+	if !ok {
+		t.Fatalf("expected semiconductors concentration, got %v", byCommodity)
+	}
+	// HHI = 0.46 -> 46
+	if score < 45 || score > 47 {
+		t.Errorf("supplier concentration = %v, want ~46", score)
+	}
+}
+
+func TestTradeConcentrationMissingDataNoCrash(t *testing.T) {
+	byImporter := tradeConcentrationByImporter(nil, nil)
+	if len(byImporter) != 0 {
+		t.Fatalf("expected empty map, got %v", byImporter)
+	}
+	byCommodity := supplierConcentrationByCommodity(nil, nil)
+	if len(byCommodity) != 0 {
+		t.Fatalf("expected empty map, got %v", byCommodity)
+	}
+	res := Score(Sources{Config: config.Default()})
+	_ = res
+}
+
+func TestCountryTradeConcentrationAvailableFromDeps(t *testing.T) {
+	g := graph.New()
+	g.AddNode(models.NewNode(models.Country, "United States"))
+	g.AddNode(models.NewNode(models.Commodity, "semiconductors"))
+
+	deps := &trade.DependencyFile{
+		Source: trade.ComtradeRealSourceName,
+		Dependencies: []trade.TradeDependency{
+			{Importer: "United States", Exporter: "Taiwan", Commodity: "semiconductors", Share: 0.60, TradeValueUSD: 60},
+			{Importer: "United States", Exporter: "Korea, Rep.", Commodity: "semiconductors", Share: 0.40, TradeValueUSD: 40},
+		},
+	}
+	file := trade.DependenciesToTradeFile(*deps)
+	res := Score(Sources{
+		Graph:     g,
+		Trade:     &file,
+		TradeDeps: deps,
+		Config:    config.Default(),
+	})
+	if res.TradeConcentrationSource != trade.ComtradeRealSourceName {
+		t.Errorf("source = %q, want UN Comtrade", res.TradeConcentrationSource)
+	}
+	if res.TradeConcentrationNote != "US import-based concentration" {
+		t.Errorf("note = %q, want US import-based concentration", res.TradeConcentrationNote)
+	}
+
+	var usa *CountryScore
+	for i := range res.Countries {
+		if res.Countries[i].CountryName == "United States" || res.Countries[i].CountryCode == "USA" {
+			usa = &res.Countries[i]
+			break
+		}
+	}
+	if usa == nil {
+		t.Fatal("expected United States country score")
+	}
+	found := false
+	for _, c := range usa.Components {
+		if c.Key != "trade_concentration_score" {
+			continue
+		}
+		found = true
+		if !c.Available {
+			t.Fatal("expected trade_concentration_score available")
+		}
+		if c.Source != trade.ComtradeRealSourceName {
+			t.Errorf("component source = %q", c.Source)
+		}
+	}
+	if !found {
+		t.Fatal("missing trade_concentration_score component")
+	}
+	for _, m := range usa.MissingComponents {
+		if m == "trade_concentration_score" {
+			t.Fatal("trade_concentration_score should not be in missing_components")
+		}
+	}
+
+	var semi *CommodityScore
+	for i := range res.Commodities {
+		if strings.EqualFold(res.Commodities[i].CommodityName, "semiconductors") {
+			semi = &res.Commodities[i]
+			break
+		}
+	}
+	if semi == nil {
+		t.Fatal("expected semiconductors commodity score")
+	}
+	for _, c := range semi.Components {
+		if c.Key == "supplier_concentration_score" && !c.Available {
+			t.Fatal("expected supplier_concentration_score available")
+		}
+	}
+}
+
 func TestHhiToScore(t *testing.T) {
 	if hhiToScore(0.42) != 42 {
 		t.Errorf("hhiToScore(0.42) = %v, want 42", hhiToScore(0.42))
+	}
+	if hhiToScore(1.5) != 100 {
+		t.Errorf("hhiToScore(1.5) = %v, want 100", hhiToScore(1.5))
 	}
 }
 

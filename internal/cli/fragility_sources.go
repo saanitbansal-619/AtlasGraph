@@ -23,6 +23,7 @@ func loadFragilitySources(graphData, tradeData, macroData, processedEventData, l
 	if tradeData != "" {
 		if resolved, err := trade.ResolveTrade(tradeData); err == nil {
 			src.Trade = &resolved.File
+			src.TradeDeps = resolved.DependencyFile
 		}
 	}
 	if macroData != "" {

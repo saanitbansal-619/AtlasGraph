@@ -99,10 +99,14 @@ func DependenciesToTradeFile(df DependencyFile) TradeFile {
 }
 
 func TradeDependencyToRecord(d TradeDependency) TradeFlowRecord {
+	importerName := strings.TrimSpace(d.Importer)
+	exporterName := strings.TrimSpace(d.Exporter)
 	return TradeFlowRecord{
 		Year:          d.Year,
-		ExporterName:  d.Exporter,
-		ImporterName:  d.Importer,
+		ExporterCode:  CountryCodeForName(exporterName),
+		ExporterName:  exporterName,
+		ImporterCode:  CountryCodeForName(importerName),
+		ImporterName:  importerName,
 		CommodityCode: d.HSCode,
 		CommodityName: d.Commodity,
 		TradeValueUSD: d.TradeValueUSD,

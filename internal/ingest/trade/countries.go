@@ -61,6 +61,49 @@ func NormalizeImporterQuery(q string) string {
 	return NormalizeCountryName(q)
 }
 
+// CountryCodeForName returns a best-effort ISO3 code for a display country name.
+func CountryCodeForName(name string) string {
+	canon := NormalizeCountryName(name)
+	key := strings.ToLower(strings.TrimSpace(canon))
+	if key == "" {
+		return ""
+	}
+	if code, ok := countryISO3[key]; ok {
+		return code
+	}
+	return ""
+}
+
+var countryISO3 = map[string]string{
+	"united states":            "USA",
+	"china":                    "CHN",
+	"taiwan":                   "TWN",
+	"japan":                    "JPN",
+	"korea, rep.":              "KOR",
+	"germany":                  "DEU",
+	"canada":                   "CAN",
+	"mexico":                   "MEX",
+	"united kingdom":           "GBR",
+	"great britain":            "GBR",
+	"france":                   "FRA",
+	"india":                    "IND",
+	"brazil":                   "BRA",
+	"australia":                "AUS",
+	"italy":                    "ITA",
+	"spain":                    "ESP",
+	"netherlands":              "NLD",
+	"singapore":                "SGP",
+	"malaysia":                 "MYS",
+	"turkey":                   "TUR",
+	"russia":                   "RUS",
+	"russian federation":       "RUS",
+	"saudi arabia":             "SAU",
+	"ukraine":                  "UKR",
+	"iran":                     "IRN",
+	"united arab emirates":     "ARE",
+	"congo, dem. rep.":         "COD",
+}
+
 // isAggregatePartner reports whether a partner label is a Comtrade aggregate row.
 func isAggregatePartner(partner string) bool {
 	key := strings.ToLower(strings.TrimSpace(partner))

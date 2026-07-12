@@ -71,6 +71,8 @@ type Component struct {
 	Weight       float64 `json:"weight"`
 	Contribution float64 `json:"contribution"`
 	Available    bool    `json:"available"`
+	Source       string  `json:"source,omitempty"`
+	Note         string  `json:"note,omitempty"`
 }
 
 // CountryScore is the explainable unified fragility result for one country.
@@ -99,6 +101,12 @@ type CommodityScore struct {
 type Result struct {
 	Countries  []CountryScore  `json:"countries"`
 	Commodities []CommodityScore `json:"commodities"`
+
+	// TradeConcentrationSource labels the provenance of concentration scores
+	// when UN Comtrade (or demo trade) data contributed them.
+	TradeConcentrationSource string `json:"trade_concentration_source,omitempty"`
+	// TradeConcentrationNote clarifies coverage scope (e.g. US-import-based).
+	TradeConcentrationNote string `json:"trade_concentration_note,omitempty"`
 }
 
 // Sources are the optional upstream datasets the scorer may draw from. Nil
@@ -108,12 +116,14 @@ type Sources struct {
 	Graph       *graph.Graph
 	Scenarios   []data.Scenario
 	Trade       *trade.TradeFile
-	Macro       *worldbank.IndicatorFile
+	// TradeDeps is the preferred processed UN Comtrade dependency panel when present.
+	TradeDeps          *trade.DependencyFile
+	Macro              *worldbank.IndicatorFile
 	Events             *gdelt.EventFile
 	ProcessedEventRisk *eventrisk.RiskFile
 	Commodities        *commodityprices.PriceFile
-	Config      config.Config
-	SimContext  *simulation.Context
+	Config             config.Config
+	SimContext         *simulation.Context
 }
 
 // Score computes unified country and commodity fragility from the provided
@@ -124,18 +134,24 @@ func Score(src Sources) Result {
 
 	macroByKey := indexMacro(src.Macro)
 	eventByKey := indexEvents(src.ProcessedEventRisk, src.Events)
-	tradeConcByKey := tradeConcentrationByImporter(src.Trade)
+	tradeConcByKey := tradeConcentrationByImporter(src.Trade, src.TradeDeps)
 	shockByName, shockOK := shockExposureByCountry(src.Graph, src.Scenarios, src.Config, src.SimContext)
 
 	commodityStress := indexCommodityStress(src.Commodities)
-	supplierConcByKey := supplierConcentrationByCommodity(src.Trade)
+	supplierConcByKey := supplierConcentrationByCommodity(src.Trade, src.TradeDeps)
 	eventExpByKey := eventExposureByCommodity(src.Trade, eventByKey)
 	centralityByName := commodityCentrality(src.Graph)
 
-	countries := scoreCountries(src, cw, macroByKey, eventByKey, tradeConcByKey, shockByName, shockOK)
-	commodities := scoreCommodities(kw, commodityStress, supplierConcByKey, eventExpByKey, centralityByName, src.Graph)
+	tradeSrc, tradeNote := tradeConcentrationMeta(src.Trade, src.TradeDeps)
+	countries := scoreCountries(src, cw, macroByKey, eventByKey, tradeConcByKey, shockByName, shockOK, tradeSrc, tradeNote)
+	commodities := scoreCommodities(kw, commodityStress, supplierConcByKey, eventExpByKey, centralityByName, src.Graph, tradeSrc, tradeNote)
 
-	return Result{Countries: countries, Commodities: commodities}
+	return Result{
+		Countries:                countries,
+		Commodities:              commodities,
+		TradeConcentrationSource: tradeSrc,
+		TradeConcentrationNote:   tradeNote,
+	}
 }
 
 func scoreCountries(
@@ -146,6 +162,7 @@ func scoreCountries(
 	tradeConcByKey map[string]float64,
 	shockByName map[string]float64,
 	shockOK bool,
+	tradeSrc, tradeNote string,
 ) []CountryScore {
 	seen := map[string]countryRef{}
 	add := func(code, name string) {
@@ -185,7 +202,7 @@ func scoreCountries(
 	out := make([]CountryScore, 0, len(keys))
 	for _, key := range keys {
 		ref := seen[key]
-		out = append(out, scoreCountry(ref, w, macroByKey, eventByKey, tradeConcByKey, shockByName, shockOK))
+		out = append(out, scoreCountry(ref, w, macroByKey, eventByKey, tradeConcByKey, shockByName, shockOK, tradeSrc, tradeNote))
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
@@ -210,6 +227,7 @@ func scoreCountry(
 	tradeConcByKey map[string]float64,
 	shockByName map[string]float64,
 	shockOK bool,
+	tradeSrc, tradeNote string,
 ) CountryScore {
 	ref = mergeCountryRef(countryRef{}, ref)
 	code, name := ref.code, ref.name
@@ -241,7 +259,12 @@ func scoreCountry(
 	}
 
 	tradeScore, tradeAvail := lookupTradeConcentration(ref, tradeConcByKey)
-	comps = append(comps, makeComponent("trade_concentration_score", "trade concentration", w.TradeConcentration, tradeScore, tradeAvail))
+	tradeComp := makeComponent("trade_concentration_score", "trade concentration", w.TradeConcentration, tradeScore, tradeAvail)
+	if tradeAvail {
+		tradeComp.Source = tradeSrc
+		tradeComp.Note = tradeNote
+	}
+	comps = append(comps, tradeComp)
 	if !tradeAvail {
 		missing = append(missing, "trade_concentration_score")
 	}
@@ -277,6 +300,7 @@ func scoreCommodities(
 	eventExpByKey map[string]float64,
 	centralityByName map[string]float64,
 	g *graph.Graph,
+	tradeSrc, tradeNote string,
 ) []CommodityScore {
 	seen := map[string]commodityRef{}
 	add := func(code, name string) {
@@ -314,7 +338,7 @@ func scoreCommodities(
 
 	out := make([]CommodityScore, 0, len(keys))
 	for _, key := range keys {
-		out = append(out, scoreCommodity(seen[key], w, stressByKey, supplierConcByKey, eventExpByKey, centralityByName))
+		out = append(out, scoreCommodity(seen[key], w, stressByKey, supplierConcByKey, eventExpByKey, centralityByName, tradeSrc, tradeNote))
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
@@ -338,6 +362,7 @@ func scoreCommodity(
 	supplierConcByKey map[string]float64,
 	eventExpByKey map[string]float64,
 	centralityByName map[string]float64,
+	tradeSrc, tradeNote string,
 ) CommodityScore {
 	ref = mergeCommodityRef(commodityRef{}, ref)
 	code, name := ref.code, ref.name
@@ -361,7 +386,12 @@ func scoreCommodity(
 	}
 
 	supplierScore, supplierAvail := lookupSupplierConcentration(ref, supplierConcByKey)
-	comps = append(comps, makeComponent("supplier_concentration_score", "supplier concentration", w.SupplierConcentration, supplierScore, supplierAvail))
+	supplierComp := makeComponent("supplier_concentration_score", "supplier concentration", w.SupplierConcentration, supplierScore, supplierAvail)
+	if supplierAvail {
+		supplierComp.Source = tradeSrc
+		supplierComp.Note = tradeNote
+	}
+	comps = append(comps, supplierComp)
 	if !supplierAvail {
 		missing = append(missing, "supplier_concentration_score")
 	}

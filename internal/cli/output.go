@@ -871,6 +871,8 @@ type jsonFragilityComponent struct {
 	Weight       float64 `json:"weight"`
 	Contribution float64 `json:"contribution"`
 	Available    bool    `json:"available"`
+	Source       string  `json:"source,omitempty"`
+	Note         string  `json:"note,omitempty"`
 }
 
 type jsonFragilitySummary struct {
@@ -882,6 +884,9 @@ type jsonFragilitySummary struct {
 	RealEventRiskUsed   bool     `json:"real_event_risk_used"`
 	RealPriceStressUsed bool     `json:"real_price_stress_used"`
 	DataSources         []string `json:"data_sources"`
+
+	TradeConcentrationSource string `json:"trade_concentration_source,omitempty"`
+	TradeConcentrationNote   string `json:"trade_concentration_note,omitempty"`
 }
 
 func buildFragilityJSON(res fragility.Result) jsonFragilityFile {
@@ -928,6 +933,8 @@ func buildFragilitySummaryJSON(res fragility.Result, topN int, meta graphfusion.
 	if out.DataSources == nil {
 		out.DataSources = []string{graphfusion.SourceStrategic}
 	}
+	out.TradeConcentrationSource = res.TradeConcentrationSource
+	out.TradeConcentrationNote = res.TradeConcentrationNote
 	return out
 }
 
@@ -983,6 +990,8 @@ func fragilityComponentToJSON(c fragility.Component) jsonFragilityComponent {
 		Weight:       c.Weight,
 		Contribution: round(c.Contribution, 2),
 		Available:    c.Available,
+		Source:       c.Source,
+		Note:         c.Note,
 	}
 }
 
