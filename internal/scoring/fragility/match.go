@@ -297,40 +297,92 @@ func tradeConcentrationByImporter(file *trade.TradeFile, deps *trade.DependencyF
 
 func tradeConcentrationFromDeps(deps *trade.DependencyFile) map[string]float64 {
 	out := map[string]float64{}
-	importers := map[string]map[string]struct{}{}
+	if deps == nil || len(deps.Dependencies) == 0 {
+		return out
+	}
+
+	// importer -> commodity -> exporter -> trade value (or share fallback)
+	byImporter := map[string]map[string]map[string]float64{}
+	importerNames := map[string]string{}
+
 	for _, d := range deps.Dependencies {
-		key := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
-		if key == "" {
+		ikey := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
+		if ikey == "" {
 			continue
 		}
 		com := strings.TrimSpace(d.Commodity)
 		if com == "" {
 			continue
 		}
-		if importers[key] == nil {
-			importers[key] = map[string]struct{}{}
+		exporter := strings.TrimSpace(d.Exporter)
+		if exporter == "" {
+			continue
 		}
-		importers[key][com] = struct{}{}
+		ekey := exporterGroupKey(trade.CountryCodeForName(exporter), exporter)
+		val := d.TradeValueUSD
+		if val <= 0 {
+			val = d.Share
+		}
+		if val <= 0 {
+			continue
+		}
+		if byImporter[ikey] == nil {
+			byImporter[ikey] = map[string]map[string]float64{}
+		}
+		if byImporter[ikey][com] == nil {
+			byImporter[ikey][com] = map[string]float64{}
+		}
+		byImporter[ikey][com][ekey] += val
+		importerNames[ikey] = d.Importer
 	}
-	for key, commodities := range importers {
-		var sum float64
-		var n int
-		query := concentrationQuery(key)
-		for com := range commodities {
-			con := trade.BuildConcentrationResolved(trade.ResolvedTrade{DependencyFile: deps}, query, com)
-			if !con.HasData {
+
+	for ikey, commodities := range byImporter {
+		var weightedSum, totalWeight float64
+		for _, exporters := range commodities {
+			var total float64
+			for _, v := range exporters {
+				total += v
+			}
+			if total <= 0 {
 				continue
 			}
-			sum += hhiToScore(con.HHI)
-			n++
+			var hhi float64
+			for _, v := range exporters {
+				s := v / total
+				hhi += s * s
+			}
+			score := hhiToScore(hhi)
+			weightedSum += score * total
+			totalWeight += total
 		}
-		if n > 0 {
-			avg := sum / float64(n)
-			out[key] = avg
-			storeImporterAliases(out, key, avg)
+		if totalWeight <= 0 {
+			continue
+		}
+		avg := weightedSum / totalWeight
+		if avg > 100 {
+			avg = 100
+		}
+		out[ikey] = avg
+		storeImporterAliases(out, ikey, avg)
+		if name := strings.TrimSpace(importerNames[ikey]); name != "" {
+			out[strings.ToLower(name)] = avg
+			out[strings.ToLower(trade.NormalizeImporterQuery(name))] = avg
+			out[strings.ToLower(trade.NormalizeCountryName(name))] = avg
 		}
 	}
 	return out
+}
+
+// exporterGroupKey groups exporters by ISO code when known, else normalized name.
+func exporterGroupKey(code, name string) string {
+	if c := strings.ToUpper(strings.TrimSpace(code)); c != "" {
+		return "c:" + c
+	}
+	n := strings.ToLower(strings.TrimSpace(trade.NormalizeCountryName(name)))
+	if n == "" {
+		n = strings.ToLower(strings.TrimSpace(name))
+	}
+	return "n:" + n
 }
 
 // supplierConcentrationByCommodity returns the average importer-side HHI
@@ -496,6 +548,8 @@ func tradeConcentrationMeta(file *trade.TradeFile, deps *trade.DependencyFile) (
 	}
 	if onlyUSA {
 		note = "US import-based concentration"
+	} else if real {
+		note = "importer-side concentration from UN Comtrade reporters"
 	}
 	return source, note
 }

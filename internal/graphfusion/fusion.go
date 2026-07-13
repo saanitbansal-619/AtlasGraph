@@ -160,8 +160,14 @@ func fuseTradeEdges(g *graph.Graph, deps *trade.DependencyFile) int {
 	}
 
 	for _, d := range deps.Dependencies {
-		exporter := strings.TrimSpace(d.Exporter)
-		importer := strings.TrimSpace(d.Importer)
+		exporter := trade.NormalizeCountryName(strings.TrimSpace(d.Exporter))
+		if exporter == "" {
+			exporter = strings.TrimSpace(d.Exporter)
+		}
+		importer := trade.NormalizeCountryName(strings.TrimSpace(d.Importer))
+		if importer == "" {
+			importer = strings.TrimSpace(d.Importer)
+		}
 		commodity := strings.TrimSpace(d.Commodity)
 		if exporter == "" || importer == "" || commodity == "" {
 			continue
@@ -228,13 +234,26 @@ func dedupKey(from, to models.NodeID, rel models.EdgeType, commodity, importer, 
 }
 
 func ensureCountry(g *graph.Graph, name, source string) models.Node {
-	if n, ok := g.NodeByName(models.Country, name); ok {
+	canon := trade.NormalizeCountryName(name)
+	if canon == "" {
+		canon = strings.TrimSpace(name)
+	}
+	if n, ok := g.NodeByName(models.Country, canon); ok {
 		return n
 	}
-	if n, ok := g.FindByName(name); ok && n.Type == models.Country {
+	if n, ok := g.FindByName(canon); ok && n.Type == models.Country {
 		return n
 	}
-	n := models.NewNode(models.Country, name)
+	// Fall back to raw name for already-present graph nodes with alternate labels.
+	if canon != name {
+		if n, ok := g.NodeByName(models.Country, name); ok {
+			return n
+		}
+		if n, ok := g.FindByName(name); ok && n.Type == models.Country {
+			return n
+		}
+	}
+	n := models.NewNode(models.Country, canon)
 	n.Source = source
 	n.GeneratedFromRealData = true
 	g.AddNode(n)

@@ -59,11 +59,29 @@ func BuildSummary(file TradeFile, n int) Summary {
 	for _, r := range file.Records {
 		s.TotalValueUSD += r.TradeValueUSD
 		yearSet[r.Year] = struct{}{}
-		countrySet[r.ExporterCode] = struct{}{}
-		countrySet[r.ImporterCode] = struct{}{}
+		exporterCode := ResolveCountryCode(r.ExporterCode, r.ExporterName)
+		importerCode := ResolveCountryCode(r.ImporterCode, r.ImporterName)
+		exporterName := NormalizeCountryName(r.ExporterName)
+		if exporterName == "" {
+			exporterName = r.ExporterName
+		}
+		importerName := NormalizeCountryName(r.ImporterName)
+		if importerName == "" {
+			importerName = r.ImporterName
+		}
+		if exporterCode != "" {
+			countrySet[exporterCode] = struct{}{}
+		} else if exporterName != "" {
+			countrySet[exporterName] = struct{}{}
+		}
+		if importerCode != "" {
+			countrySet[importerCode] = struct{}{}
+		} else if importerName != "" {
+			countrySet[importerName] = struct{}{}
+		}
 		commoditySet[commodityKey(r)] = struct{}{}
-		add(exporters, r.ExporterCode, r.ExporterName, r.TradeValueUSD)
-		add(importers, r.ImporterCode, r.ImporterName, r.TradeValueUSD)
+		add(exporters, exporterCode, exporterName, r.TradeValueUSD)
+		add(importers, importerCode, importerName, r.TradeValueUSD)
 		add(commodities, r.CommodityCode, r.CommodityName, r.TradeValueUSD)
 	}
 
@@ -245,7 +263,18 @@ func matchImporter(r TradeFlowRecord, q string) bool {
 	if canonQ != "" && strings.EqualFold(canonQ, canonR) {
 		return true
 	}
-	return strings.EqualFold(NormalizeCountryName(q), NormalizeCountryName(r.ImporterName))
+	if strings.EqualFold(NormalizeCountryName(q), NormalizeCountryName(r.ImporterName)) {
+		return true
+	}
+	codeR := ResolveCountryCode(r.ImporterCode, r.ImporterName)
+	codeQ := strings.ToUpper(q)
+	if len(codeQ) == 3 && codeR != "" && codeR == codeQ {
+		return true
+	}
+	if resolved := CountryCodeForName(q); resolved != "" && codeR != "" && resolved == codeR {
+		return true
+	}
+	return false
 }
 
 func matchCommodity(r TradeFlowRecord, q string) bool {

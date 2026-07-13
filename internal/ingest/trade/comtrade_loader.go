@@ -192,8 +192,14 @@ func normalizeComtradeRow(row []string, index map[string]int, ingestedAt time.Ti
 		return TradeFlowRecord{}, isImport, qreason
 	}
 
-	reporterName := get("reporterDesc")
-	partnerName := get("partnerDesc")
+	reporterName := NormalizeCountryName(get("reporterDesc"))
+	if reporterName == "" {
+		reporterName = get("reporterDesc")
+	}
+	partnerName := NormalizeCountryName(get("partnerDesc"))
+	if partnerName == "" {
+		partnerName = get("partnerDesc")
+	}
 
 	var exporterCode, exporterName, importerCode, importerName string
 	if isImport {
@@ -203,6 +209,8 @@ func normalizeComtradeRow(row []string, index map[string]int, ingestedAt time.Ti
 		exporterCode, exporterName = reporterISO, reporterName
 		importerCode, importerName = partnerISO, partnerName
 	}
+	exporterCode = ResolveCountryCode(exporterCode, exporterName)
+	importerCode = ResolveCountryCode(importerCode, importerName)
 
 	commodityName := normalizeComtradeCommodity(get("cmdDesc"), cmdCode)
 

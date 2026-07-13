@@ -67,6 +67,10 @@ func BuildDependencyFromDependencies(df DependencyFile, importer, commodity stri
 }
 
 func matchDependencyImporter(d TradeDependency, q string) bool {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return false
+	}
 	if strings.EqualFold(d.Importer, q) {
 		return true
 	}
@@ -75,7 +79,18 @@ func matchDependencyImporter(d TradeDependency, q string) bool {
 	if canonQ != "" && strings.EqualFold(canonQ, canonD) {
 		return true
 	}
-	return strings.EqualFold(NormalizeCountryName(q), NormalizeCountryName(d.Importer))
+	if strings.EqualFold(NormalizeCountryName(q), NormalizeCountryName(d.Importer)) {
+		return true
+	}
+	codeD := CountryCodeForName(d.Importer)
+	codeQ := strings.ToUpper(q)
+	if len(codeQ) == 3 && codeD != "" && codeD == codeQ {
+		return true
+	}
+	if resolved := CountryCodeForName(q); resolved != "" && codeD != "" && resolved == codeD {
+		return true
+	}
+	return false
 }
 
 func matchDependencyCommodity(d TradeDependency, q string) bool {

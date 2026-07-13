@@ -197,10 +197,38 @@ func TestTradeConcentrationFromNameOnlyDeps(t *testing.T) {
 	if _, ok := byCommodity[commodityKey("", "semiconductors")]; !ok {
 		t.Fatalf("expected semiconductors supplier concentration, got %v", byCommodity)
 	}
-	// HHI semiconductors = 0.36+0.09+0.01 = 0.46 -> 46; crude oil = 0.25+0.25 = 0.50 -> 50; avg = 48
+	// Weighted HHI: semiconductors (46)*100 + crude oil (50)*100 / 200 = 48
 	approx := byImporter["USA"]
 	if approx < 40 || approx > 55 {
 		t.Errorf("USA trade concentration = %v, want ~48", approx)
+	}
+}
+
+func TestTradeConcentrationWeightedHHIStable(t *testing.T) {
+	deps := &trade.DependencyFile{
+		Source: trade.ComtradeRealSourceName,
+		Dependencies: []trade.TradeDependency{
+			// semiconductors HHI = 0.46 → 46, value 900
+			{Importer: "Germany", Exporter: "Taiwan", Commodity: "semiconductors", TradeValueUSD: 540},
+			{Importer: "Germany", Exporter: "Korea, Rep.", Commodity: "semiconductors", TradeValueUSD: 270},
+			{Importer: "Germany", Exporter: "Japan", Commodity: "semiconductors", TradeValueUSD: 90},
+			// crude oil HHI = 1.0 → 100, value 100
+			{Importer: "Germany", Exporter: "Saudi Arabia", Commodity: "crude oil", TradeValueUSD: 100},
+		},
+	}
+	byImporter := tradeConcentrationFromDeps(deps)
+	got, ok := byImporter["DEU"]
+	if !ok {
+		t.Fatalf("expected DEU concentration, got %v", byImporter)
+	}
+	// (46*900 + 100*100) / 1000 = 51.4
+	if got < 50.5 || got > 52.5 {
+		t.Errorf("weighted concentration = %v, want ~51.4", got)
+	}
+	// Deterministic across calls.
+	again := tradeConcentrationFromDeps(deps)["DEU"]
+	if again != got {
+		t.Errorf("unstable score: %v then %v", got, again)
 	}
 }
 
@@ -215,6 +243,71 @@ func TestSupplierConcentrationByCommodity(t *testing.T) {
 	// HHI = 0.46 -> 46
 	if score < 45 || score > 47 {
 		t.Errorf("supplier concentration = %v, want ~46", score)
+	}
+}
+
+func TestMultiCountryTradeConcentrationFromDeps(t *testing.T) {
+	deps := &trade.DependencyFile{
+		Source: trade.ComtradeRealSourceName,
+		Dependencies: []trade.TradeDependency{
+			{Importer: "China", Exporter: "Australia", Commodity: "iron ore", TradeValueUSD: 70, Share: 0.7},
+			{Importer: "China", Exporter: "Brazil", Commodity: "iron ore", TradeValueUSD: 30, Share: 0.3},
+			{Importer: "Germany", Exporter: "Norway", Commodity: "natural gas", TradeValueUSD: 55, Share: 0.55},
+			{Importer: "Germany", Exporter: "Netherlands", Commodity: "natural gas", TradeValueUSD: 45, Share: 0.45},
+			{Importer: "India", Exporter: "Saudi Arabia", Commodity: "crude oil", TradeValueUSD: 60, Share: 0.6},
+			{Importer: "India", Exporter: "Iraq", Commodity: "crude oil", TradeValueUSD: 40, Share: 0.4},
+			{Importer: "United States", Exporter: "Taiwan", Commodity: "semiconductors", TradeValueUSD: 60, Share: 0.6},
+			{Importer: "United States", Exporter: "Korea, Rep.", Commodity: "semiconductors", TradeValueUSD: 40, Share: 0.4},
+			{Importer: "Korea, Rep.", Exporter: "Japan", Commodity: "semiconductors", TradeValueUSD: 50, Share: 0.5},
+			{Importer: "Korea, Rep.", Exporter: "Taiwan", Commodity: "semiconductors", TradeValueUSD: 50, Share: 0.5},
+			{Importer: "Taiwan", Exporter: "Japan", Commodity: "semiconductors", TradeValueUSD: 80, Share: 0.8},
+			{Importer: "Taiwan", Exporter: "United States", Commodity: "semiconductors", TradeValueUSD: 20, Share: 0.2},
+		},
+	}
+	byImporter := tradeConcentrationFromDeps(deps)
+	for _, code := range []string{"CHN", "DEU", "IND", "USA", "KOR", "TWN"} {
+		if _, ok := byImporter[code]; !ok {
+			t.Errorf("expected trade concentration for %s, got %v", code, byImporter)
+		}
+	}
+
+	g := graph.New()
+	for _, name := range []string{"China", "Germany", "India", "United States", "Korea, Rep.", "Taiwan"} {
+		g.AddNode(models.NewNode(models.Country, name))
+	}
+	res := Score(Sources{
+		Graph:     g,
+		TradeDeps: deps,
+		Config:    config.Default(),
+	})
+	if res.TradeConcentrationSource != trade.ComtradeRealSourceName {
+		t.Errorf("source = %q", res.TradeConcentrationSource)
+	}
+	if res.TradeConcentrationNote == "US import-based concentration" {
+		t.Errorf("note should reflect multi-country coverage, got %q", res.TradeConcentrationNote)
+	}
+
+	found := map[string]bool{}
+	for i := range res.Countries {
+		c := &res.Countries[i]
+		var avail bool
+		for _, comp := range c.Components {
+			if comp.Key == "trade_concentration_score" && comp.Available {
+				avail = true
+				if comp.Source != trade.ComtradeRealSourceName {
+					t.Errorf("%s component source = %q", c.CountryName, comp.Source)
+				}
+			}
+		}
+		key := countryKey(c.CountryCode, c.CountryName)
+		if avail {
+			found[key] = true
+		}
+	}
+	for _, code := range []string{"CHN", "DEU", "IND", "USA", "KOR", "TWN"} {
+		if !found[code] {
+			t.Errorf("expected available trade_concentration_score for %s", code)
+		}
 	}
 }
 

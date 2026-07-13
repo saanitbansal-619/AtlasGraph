@@ -18,28 +18,38 @@ func NormalizeCountryName(raw string) string {
 }
 
 var countryAliases = map[string]string{
-	"usa":                      "United States",
-	"us":                       "United States",
-	"u.s.":                     "United States",
-	"u.s.a.":                   "United States",
-	"united states":            "United States",
-	"united states of america": "United States",
-	"korea, rep.":              "Korea, Rep.",
-	"korea rep":                "Korea, Rep.",
-	"korea rep.":               "Korea, Rep.",
-	"south korea":              "Korea, Rep.",
-	"republic of korea":        "Korea, Rep.",
-	"china":                    "China",
-	"germany":                  "Germany",
-	"japan":                    "Japan",
-	"canada":                   "Canada",
-	"mexico":                   "Mexico",
-	"türkiye":                  "Turkey",
-	"turkiye":                  "Turkey",
-	"turkey":                   "Turkey",
-	"united kingdom":           "United Kingdom",
-	"uk":                       "United Kingdom",
-	"great britain":            "Great Britain",
+	"usa":                                 "United States",
+	"us":                                  "United States",
+	"u.s.":                                "United States",
+	"u.s.a.":                              "United States",
+	"united states":                       "United States",
+	"united states of america":            "United States",
+	"korea, rep.":                         "Korea, Rep.",
+	"korea rep":                           "Korea, Rep.",
+	"korea rep.":                          "Korea, Rep.",
+	"south korea":                         "Korea, Rep.",
+	"republic of korea":                   "Korea, Rep.",
+	"rep. of korea":                       "Korea, Rep.",
+	"rep of korea":                        "Korea, Rep.",
+	"taiwan":                              "Taiwan",
+	"taiwan, china":                       "Taiwan",
+	"taiwan china":                        "Taiwan",
+	"other asia, nes":                     "Taiwan",
+	"other asia nes":                      "Taiwan",
+	"other asia, n.e.s.":                  "Taiwan",
+	"other asia, not elsewhere specified": "Taiwan",
+	"other asia not elsewhere specified":  "Taiwan",
+	"china":                               "China",
+	"germany":                             "Germany",
+	"japan":                               "Japan",
+	"canada":                              "Canada",
+	"mexico":                              "Mexico",
+	"türkiye":                             "Turkey",
+	"turkiye":                             "Turkey",
+	"turkey":                              "Turkey",
+	"united kingdom":                      "United Kingdom",
+	"uk":                                  "United Kingdom",
+	"great britain":                       "Great Britain",
 }
 
 // importerAliases maps query aliases to canonical importer names used in data.
@@ -63,45 +73,70 @@ func NormalizeImporterQuery(q string) string {
 
 // CountryCodeForName returns a best-effort ISO3 code for a display country name.
 func CountryCodeForName(name string) string {
-	canon := NormalizeCountryName(name)
-	key := strings.ToLower(strings.TrimSpace(canon))
-	if key == "" {
+	raw := strings.TrimSpace(name)
+	if raw == "" {
 		return ""
 	}
-	if code, ok := countryISO3[key]; ok {
-		return code
+	// Prefer alias → canonical → ISO3 so Comtrade variants resolve consistently.
+	canon := NormalizeCountryName(raw)
+	for _, candidate := range []string{canon, raw} {
+		key := strings.ToLower(strings.TrimSpace(candidate))
+		if key == "" {
+			continue
+		}
+		if code, ok := countryISO3[key]; ok {
+			return code
+		}
 	}
 	return ""
 }
 
+// ResolveCountryCode returns code if non-empty, otherwise derives ISO3 from name.
+func ResolveCountryCode(code, name string) string {
+	if c := strings.ToUpper(strings.TrimSpace(code)); c != "" {
+		return c
+	}
+	return CountryCodeForName(name)
+}
+
 var countryISO3 = map[string]string{
-	"united states":            "USA",
-	"china":                    "CHN",
-	"taiwan":                   "TWN",
-	"japan":                    "JPN",
-	"korea, rep.":              "KOR",
-	"germany":                  "DEU",
-	"canada":                   "CAN",
-	"mexico":                   "MEX",
-	"united kingdom":           "GBR",
-	"great britain":            "GBR",
-	"france":                   "FRA",
-	"india":                    "IND",
-	"brazil":                   "BRA",
-	"australia":                "AUS",
-	"italy":                    "ITA",
-	"spain":                    "ESP",
-	"netherlands":              "NLD",
-	"singapore":                "SGP",
-	"malaysia":                 "MYS",
-	"turkey":                   "TUR",
-	"russia":                   "RUS",
-	"russian federation":       "RUS",
-	"saudi arabia":             "SAU",
-	"ukraine":                  "UKR",
-	"iran":                     "IRN",
-	"united arab emirates":     "ARE",
-	"congo, dem. rep.":         "COD",
+	"united states":                       "USA",
+	"china":                               "CHN",
+	"taiwan":                              "TWN",
+	"taiwan, china":                       "TWN",
+	"other asia, nes":                     "TWN",
+	"other asia nes":                      "TWN",
+	"other asia, n.e.s.":                  "TWN",
+	"other asia, not elsewhere specified": "TWN",
+	"other asia not elsewhere specified":  "TWN",
+	"japan":                               "JPN",
+	"korea, rep.":                         "KOR",
+	"rep. of korea":                       "KOR",
+	"rep of korea":                        "KOR",
+	"republic of korea":                   "KOR",
+	"south korea":                         "KOR",
+	"germany":                             "DEU",
+	"canada":                              "CAN",
+	"mexico":                              "MEX",
+	"united kingdom":                      "GBR",
+	"great britain":                       "GBR",
+	"france":                              "FRA",
+	"india":                               "IND",
+	"brazil":                              "BRA",
+	"australia":                           "AUS",
+	"italy":                               "ITA",
+	"spain":                               "ESP",
+	"netherlands":                         "NLD",
+	"singapore":                           "SGP",
+	"malaysia":                            "MYS",
+	"turkey":                              "TUR",
+	"russia":                              "RUS",
+	"russian federation":                  "RUS",
+	"saudi arabia":                        "SAU",
+	"ukraine":                             "UKR",
+	"iran":                                "IRN",
+	"united arab emirates":                "ARE",
+	"congo, dem. rep.":                    "COD",
 }
 
 // isAggregatePartner reports whether a partner label is a Comtrade aggregate row.
