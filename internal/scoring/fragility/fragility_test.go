@@ -209,11 +209,11 @@ func TestTradeConcentrationWeightedHHIStable(t *testing.T) {
 		Source: trade.ComtradeRealSourceName,
 		Dependencies: []trade.TradeDependency{
 			// semiconductors HHI = 0.46 → 46, value 900
-			{Importer: "Germany", Exporter: "Taiwan", Commodity: "semiconductors", TradeValueUSD: 540},
-			{Importer: "Germany", Exporter: "Korea, Rep.", Commodity: "semiconductors", TradeValueUSD: 270},
-			{Importer: "Germany", Exporter: "Japan", Commodity: "semiconductors", TradeValueUSD: 90},
+			{Importer: "Germany", Exporter: "Taiwan", Commodity: "semiconductors", TradeValueUSD: 540, Flow: trade.FlowImport},
+			{Importer: "Germany", Exporter: "Korea, Rep.", Commodity: "semiconductors", TradeValueUSD: 270, Flow: trade.FlowImport},
+			{Importer: "Germany", Exporter: "Japan", Commodity: "semiconductors", TradeValueUSD: 90, Flow: trade.FlowImport},
 			// crude oil HHI = 1.0 → 100, value 100
-			{Importer: "Germany", Exporter: "Saudi Arabia", Commodity: "crude oil", TradeValueUSD: 100},
+			{Importer: "Germany", Exporter: "Saudi Arabia", Commodity: "crude oil", TradeValueUSD: 100, Flow: trade.FlowImport},
 		},
 	}
 	byImporter := tradeConcentrationFromDeps(deps)
@@ -229,6 +229,121 @@ func TestTradeConcentrationWeightedHHIStable(t *testing.T) {
 	again := tradeConcentrationFromDeps(deps)["DEU"]
 	if again != got {
 		t.Errorf("unstable score: %v then %v", got, again)
+	}
+}
+
+func TestExportFlowsDoNotCreateImporterTradeConcentration(t *testing.T) {
+	deps := &trade.DependencyFile{
+		Source: trade.ComtradeRealSourceName,
+		Dependencies: []trade.TradeDependency{
+			// Export reporter Algeria → partner Ukraine (Ukraine appears as "importer").
+			{Importer: "Ukraine", Exporter: "Algeria", Commodity: "crude oil", TradeValueUSD: 100, Share: 1, Flow: trade.FlowExport},
+			{Importer: "Argentina", Exporter: "Australia", Commodity: "wheat", TradeValueUSD: 80, Share: 1, Flow: trade.FlowExport},
+			{Importer: "Russian Federation", Exporter: "Saudi Arabia", Commodity: "crude oil", TradeValueUSD: 50, Share: 1, Flow: trade.FlowExport},
+		},
+	}
+	byImporter := tradeConcentrationFromDeps(deps)
+	if len(byImporter) != 0 {
+		t.Fatalf("export-only deps must not create importer concentration, got %v", byImporter)
+	}
+
+	g := graph.New()
+	g.AddNode(models.NewNode(models.Country, "United States"))
+	res := Score(Sources{Graph: g, TradeDeps: deps, Config: config.Default()})
+	for _, c := range res.Countries {
+		for _, comp := range c.Components {
+			if comp.Key == "trade_concentration_score" && comp.Available {
+				t.Fatalf("%s should not have trade_concentration from export-only deps", c.CountryName)
+			}
+		}
+		if c.CountryCode == "" && (strings.EqualFold(c.CountryName, "Ukraine") ||
+			strings.EqualFold(c.CountryName, "Argentina") ||
+			strings.EqualFold(c.CountryName, "Russian Federation") ||
+			strings.EqualFold(c.CountryName, "Algeria")) {
+			t.Fatalf("blank-code export partner %q should not appear in fragility", c.CountryName)
+		}
+	}
+}
+
+func TestImportFlowsCreateImporterTradeConcentration(t *testing.T) {
+	deps := &trade.DependencyFile{
+		Source: trade.ComtradeRealSourceName,
+		Dependencies: []trade.TradeDependency{
+			{Importer: "Germany", Exporter: "Norway", Commodity: "natural gas", TradeValueUSD: 60, Share: 0.6, Flow: trade.FlowImport},
+			{Importer: "Germany", Exporter: "Netherlands", Commodity: "natural gas", TradeValueUSD: 40, Share: 0.4, Flow: trade.FlowImport},
+		},
+	}
+	byImporter := tradeConcentrationFromDeps(deps)
+	if _, ok := byImporter["DEU"]; !ok {
+		t.Fatalf("expected DEU import concentration, got %v", byImporter)
+	}
+
+	g := graph.New()
+	g.AddNode(models.NewNode(models.Country, "Germany"))
+	res := Score(Sources{Graph: g, TradeDeps: deps, Config: config.Default()})
+	var deu *CountryScore
+	for i := range res.Countries {
+		if res.Countries[i].CountryCode == "DEU" || res.Countries[i].CountryName == "Germany" {
+			deu = &res.Countries[i]
+			break
+		}
+	}
+	if deu == nil {
+		t.Fatal("expected Germany country score")
+	}
+	found := false
+	for _, c := range deu.Components {
+		if c.Key == "trade_concentration_score" && c.Available {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected available trade_concentration_score from import flows")
+	}
+}
+
+func TestExportPartnersDoNotDominateFragilityRanking(t *testing.T) {
+	deps := &trade.DependencyFile{
+		Source: trade.ComtradeRealSourceName,
+		Dependencies: []trade.TradeDependency{
+			// Real importer-side concentration for USA (diversified → lower score).
+			{Importer: "United States", Exporter: "Taiwan", Commodity: "semiconductors", TradeValueUSD: 50, Flow: trade.FlowImport},
+			{Importer: "United States", Exporter: "Korea, Rep.", Commodity: "semiconductors", TradeValueUSD: 30, Flow: trade.FlowImport},
+			{Importer: "United States", Exporter: "Japan", Commodity: "semiconductors", TradeValueUSD: 20, Flow: trade.FlowImport},
+			// Batch-2 style export destinations (would be HHI=100 if wrongly scored).
+			{Importer: "Ukraine", Exporter: "Algeria", Commodity: "crude oil", TradeValueUSD: 999, Share: 1, Flow: trade.FlowExport},
+			{Importer: "Argentina", Exporter: "Australia", Commodity: "wheat", TradeValueUSD: 999, Share: 1, Flow: trade.FlowExport},
+			{Importer: "Algeria", Exporter: "Russian Federation", Commodity: "wheat", TradeValueUSD: 999, Share: 1, Flow: trade.FlowExport},
+		},
+	}
+	g := graph.New()
+	g.AddNode(models.NewNode(models.Country, "United States"))
+	g.AddNode(models.NewNode(models.Country, "Taiwan"))
+
+	macro := sampleMacroFile()
+	res := Score(Sources{
+		Graph:     g,
+		TradeDeps: deps,
+		Macro:     &macro,
+		Config:    config.Default(),
+	})
+	if len(res.Countries) == 0 {
+		t.Fatal("expected countries")
+	}
+	top := res.Countries[0]
+	if top.CountryCode == "" {
+		t.Fatalf("top country has blank code: %+v", top)
+	}
+	for _, name := range []string{"Ukraine", "Argentina", "Algeria", "Russian Federation"} {
+		if strings.EqualFold(top.CountryName, name) {
+			t.Fatalf("export partner %q must not dominate fragility ranking", name)
+		}
+	}
+	// Export partners should not appear as blank-code trade-only rows.
+	for _, c := range res.Countries {
+		if c.CountryCode == "" {
+			t.Fatalf("unexpected blank country_code for %q", c.CountryName)
+		}
 	}
 }
 

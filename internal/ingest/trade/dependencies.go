@@ -1,6 +1,9 @@
 package trade
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // DependenciesOutputFileName is the canonical processed trade dependency file.
 const DependenciesOutputFileName = "trade_dependencies.json"
@@ -18,6 +21,52 @@ type TradeDependency struct {
 	QuantityUnit  string  `json:"quantity_unit,omitempty"`
 	Share         float64 `json:"share"`
 	Source        string  `json:"source"`
+	// Flow is "import" or "export" from the Comtrade reporter perspective.
+	// Import rows: reporter is the importer. Export rows: reporter is the exporter
+	// (partner appears as importer). Country trade concentration uses import only.
+	Flow string `json:"flow,omitempty"`
+}
+
+const (
+	FlowImport = "import"
+	FlowExport = "export"
+)
+
+// IsImportFlow reports whether a dependency row is reporter-side import data.
+// Legacy rows with an empty Flow are treated as import when the file has no
+// flow tags; callers that know the file is tagged should filter empty Flow out.
+func IsImportFlow(d TradeDependency) bool {
+	f := strings.ToLower(strings.TrimSpace(d.Flow))
+	if f == "" {
+		return true
+	}
+	return f == FlowImport || f == "m" || strings.Contains(f, "import")
+}
+
+// IsExportFlow reports whether a dependency row came from an export reporter flow.
+func IsExportFlow(d TradeDependency) bool {
+	f := strings.ToLower(strings.TrimSpace(d.Flow))
+	return f == FlowExport || f == "x" || strings.Contains(f, "export")
+}
+
+// DependencyFileHasFlowTags is true when any row records an explicit flow direction.
+func DependencyFileHasFlowTags(df DependencyFile) bool {
+	for _, d := range df.Dependencies {
+		if strings.TrimSpace(d.Flow) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// UseForImporterConcentration is true for rows that should drive country
+// trade_concentration_score (reporter-side imports only).
+func UseForImporterConcentration(d TradeDependency, fileHasFlowTags bool) bool {
+	if fileHasFlowTags {
+		f := strings.ToLower(strings.TrimSpace(d.Flow))
+		return f == FlowImport || f == "m" || strings.Contains(f, "import")
+	}
+	return IsImportFlow(d)
 }
 
 // DependencyFile is the processed trade dependency panel written to disk.
@@ -54,4 +103,5 @@ type aggregatedFlow struct {
 	netWeightKg   float64
 	quantity      float64
 	quantityUnit  string
+	flow          string // FlowImport or FlowExport
 }

@@ -301,11 +301,16 @@ func tradeConcentrationFromDeps(deps *trade.DependencyFile) map[string]float64 {
 		return out
 	}
 
+	hasFlowTags := trade.DependencyFileHasFlowTags(*deps)
+
 	// importer -> commodity -> exporter -> trade value (or share fallback)
 	byImporter := map[string]map[string]map[string]float64{}
 	importerNames := map[string]string{}
 
 	for _, d := range deps.Dependencies {
+		if !trade.UseForImporterConcentration(d, hasFlowTags) {
+			continue
+		}
 		ikey := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
 		if ikey == "" {
 			continue
@@ -432,8 +437,12 @@ func supplierConcentrationByCommodity(file *trade.TradeFile, deps *trade.Depende
 
 func supplierConcentrationFromDeps(deps *trade.DependencyFile) map[string]float64 {
 	out := map[string]float64{}
+	hasFlowTags := trade.DependencyFileHasFlowTags(*deps)
 	commodities := map[string]map[string]struct{}{}
 	for _, d := range deps.Dependencies {
+		if !trade.UseForImporterConcentration(d, hasFlowTags) {
+			continue
+		}
 		com := strings.TrimSpace(d.Commodity)
 		ikey := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
 		if com == "" || ikey == "" {
@@ -514,7 +523,11 @@ func tradeConcentrationMeta(file *trade.TradeFile, deps *trade.DependencyFile) (
 		if strings.EqualFold(deps.Source, trade.ComtradeRealSourceName) || strings.Contains(strings.ToLower(deps.Source), "comtrade") {
 			real = true
 		}
+		hasFlowTags := trade.DependencyFileHasFlowTags(*deps)
 		for _, d := range deps.Dependencies {
+			if !trade.UseForImporterConcentration(d, hasFlowTags) {
+				continue
+			}
 			key := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
 			if key != "" {
 				importers[key] = struct{}{}

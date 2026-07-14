@@ -24,9 +24,13 @@ func BuildConcentrationResolved(resolved ResolvedTrade, importer, commodity stri
 func BuildDependencyFromDependencies(df DependencyFile, importer, commodity string) Dependency {
 	importer = strings.TrimSpace(importer)
 	commodity = strings.TrimSpace(commodity)
+	hasFlowTags := DependencyFileHasFlowTags(df)
 
 	dep := Dependency{ImporterCode: strings.ToUpper(importer), Commodity: commodity}
 	for _, d := range df.Dependencies {
+		if hasFlowTags && !UseForImporterConcentration(d, true) {
+			continue
+		}
 		if !matchDependencyImporter(d, importer) || !matchDependencyCommodity(d, commodity) {
 			continue
 		}

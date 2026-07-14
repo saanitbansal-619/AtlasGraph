@@ -76,6 +76,37 @@ func TestBuildDependenciesWithShares(t *testing.T) {
 	}
 }
 
+func TestParseComtradeV2SetsFlowDirection(t *testing.T) {
+	body := unComtradeV2Header +
+		"202401,Import,Germany,Norway,2711,1000,0,0,kg\n" +
+		"202401,Export,Algeria,Ukraine,2709,2000,0,0,kg\n"
+	_, flows, err := ParseComtradeV2CSV(strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := buildDependenciesWithShares(flows, ComtradeRealSourceName)
+	var sawImport, sawExport bool
+	for _, d := range deps {
+		switch d.Flow {
+		case FlowImport:
+			sawImport = true
+			if d.Importer != "Germany" {
+				t.Errorf("import importer = %q, want Germany", d.Importer)
+			}
+		case FlowExport:
+			sawExport = true
+			if d.Importer != "Ukraine" || d.Exporter != "Algeria" {
+				t.Errorf("export row = %s←%s, want Ukraine←Algeria", d.Importer, d.Exporter)
+			}
+		default:
+			t.Errorf("unexpected flow %q", d.Flow)
+		}
+	}
+	if !sawImport || !sawExport {
+		t.Fatalf("expected both import and export rows, got %#v", deps)
+	}
+}
+
 func TestMatchImporterAliases(t *testing.T) {
 	rec := TradeFlowRecord{ImporterName: "United States", CommodityName: "wheat", TradeValueUSD: 1}
 	dep := BuildDependency(TradeFile{Records: []TradeFlowRecord{rec}}, "USA", "wheat")

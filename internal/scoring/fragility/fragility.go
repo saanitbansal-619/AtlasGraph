@@ -188,9 +188,14 @@ func scoreCountries(
 	for k, s := range eventByKey {
 		add(k, s.CountryName)
 	}
-	for k, v := range tradeConcByKey {
-		add(k, importerName(src.Trade, k))
-		_ = v
+	for k := range tradeConcByKey {
+		name := importerNameFromSources(src, k)
+		code := resolveImporterISOCode(k, name)
+		if code == "" {
+			// Do not invent blank-code fragility countries from unresolved trade keys.
+			continue
+		}
+		add(code, name)
 	}
 
 	keys := make([]string, 0, len(seen))
@@ -593,6 +598,51 @@ func importerName(file *trade.TradeFile, code string) string {
 		}
 	}
 	return code
+}
+
+func importerNameFromSources(src Sources, key string) string {
+	if src.TradeDeps != nil {
+		for _, d := range src.TradeDeps.Dependencies {
+			if !trade.UseForImporterConcentration(d, trade.DependencyFileHasFlowTags(*src.TradeDeps)) {
+				continue
+			}
+			icode := importerKey(trade.CountryCodeForName(d.Importer), d.Importer)
+			if strings.EqualFold(icode, key) || strings.EqualFold(d.Importer, key) {
+				return d.Importer
+			}
+			if strings.EqualFold(strings.ToLower(d.Importer), strings.ToLower(key)) {
+				return d.Importer
+			}
+		}
+	}
+	name := importerName(src.Trade, key)
+	if name != key {
+		return name
+	}
+	if n, ok := gdelt.CountryName(strings.ToUpper(strings.TrimSpace(key))); ok {
+		return n
+	}
+	return key
+}
+
+// resolveImporterISOCode returns a canonical ISO3 code for a trade-concentration
+// map key, or "" when the key cannot be resolved to a real country code.
+func resolveImporterISOCode(key, name string) string {
+	key = strings.TrimSpace(key)
+	name = strings.TrimSpace(name)
+	if len(key) == 3 && key == strings.ToUpper(key) {
+		return key
+	}
+	if code := trade.CountryCodeForName(key); code != "" {
+		return code
+	}
+	if code := trade.CountryCodeForName(name); code != "" {
+		return code
+	}
+	if canon := countryKey("", name); len(canon) == 3 && canon == strings.ToUpper(canon) {
+		return canon
+	}
+	return ""
 }
 
 func commodityNameFromKey(key string, stress map[string]commodities.CommodityScore) string {

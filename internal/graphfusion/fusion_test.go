@@ -81,22 +81,28 @@ func TestFuseDeduplicatesEdges(t *testing.T) {
 	}
 }
 
-func TestFuseCreatesMissingCountryNode(t *testing.T) {
+func TestFuseUsesExportFlowEdges(t *testing.T) {
 	g := graph.New()
-	g.AddNode(models.NewNode(models.Commodity, "semiconductors"))
+	g.AddNode(models.NewNode(models.Commodity, "crude oil"))
 	deps := &trade.DependencyFile{
 		Source: "UN Comtrade",
 		Dependencies: []trade.TradeDependency{
-			{Importer: "United States", Exporter: "Malaysia", Commodity: "semiconductors", Share: 0.5, Year: 2023},
+			// Export reporter Algeria → partner Ukraine still creates fusion edges.
+			{
+				Importer: "Ukraine", Exporter: "Algeria", Commodity: "crude oil",
+				Share: 0.8, TradeValueUSD: 80, Year: 2023, Flow: trade.FlowExport,
+			},
 		},
 	}
 	out := Fuse(Input{Base: &data.Dataset{Graph: g}, Trade: deps, TradeReal: true})
-	if _, ok := out.Dataset.Graph.NodeByName(models.Country, "Malaysia"); !ok {
-		t.Fatal("expected Malaysia country node")
+	if out.Meta.RealTradeEdges <= 0 {
+		t.Fatalf("expected export-flow edges in fusion, got %d", out.Meta.RealTradeEdges)
 	}
-	n, _ := out.Dataset.Graph.NodeByName(models.Country, "Malaysia")
-	if !n.GeneratedFromRealData {
-		t.Fatal("expected generated_from_real_data on fused country")
+	if _, ok := out.Dataset.Graph.NodeByName(models.Country, "Algeria"); !ok {
+		t.Fatal("expected Algeria exporter node from export flow")
+	}
+	if _, ok := out.Dataset.Graph.NodeByName(models.Country, "Ukraine"); !ok {
+		t.Fatal("expected Ukraine importer/partner node from export flow")
 	}
 }
 

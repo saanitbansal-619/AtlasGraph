@@ -221,19 +221,23 @@ func mergeAggregatedFlows(flows []aggregatedFlow) []aggregatedFlow {
 func buildDependenciesWithShares(flows []aggregatedFlow, source string) []TradeDependency {
 	totals := map[string]float64{}
 	for _, f := range flows {
-		totals[groupKey(f.importer, f.commodity, f.year)] += f.tradeValueUSD
+		totals[groupKey(f.importer, f.commodity, f.year, f.flow)] += f.tradeValueUSD
 	}
 	out := make([]TradeDependency, 0, len(flows))
 	for _, f := range flows {
 		share := 0.0
-		if total := totals[groupKey(f.importer, f.commodity, f.year)]; total > 0 {
+		if total := totals[groupKey(f.importer, f.commodity, f.year, f.flow)]; total > 0 {
 			share = f.tradeValueUSD / total
+		}
+		flow := f.flow
+		if flow == "" {
+			flow = FlowImport
 		}
 		out = append(out, TradeDependency{
 			Importer: f.importer, Exporter: f.exporter, Commodity: f.commodity,
 			HSCode: f.hsCode, Year: f.year, TradeValueUSD: f.tradeValueUSD,
 			NetWeightKg: f.netWeightKg, Quantity: f.quantity, QuantityUnit: f.quantityUnit,
-			Share: share, Source: source,
+			Share: share, Source: source, Flow: flow,
 		})
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -253,11 +257,11 @@ func buildDependenciesWithShares(flows []aggregatedFlow, source string) []TradeD
 }
 
 func flowKey(f aggregatedFlow) string {
-	return fmt.Sprintf("%s|%s|%s|%s|%d", f.importer, f.exporter, f.commodity, f.hsCode, f.year)
+	return fmt.Sprintf("%s|%s|%s|%s|%d|%s", f.importer, f.exporter, f.commodity, f.hsCode, f.year, f.flow)
 }
 
-func groupKey(importer, commodity string, year int) string {
-	return fmt.Sprintf("%s|%s|%d", importer, commodity, year)
+func groupKey(importer, commodity string, year int, flow string) string {
+	return fmt.Sprintf("%s|%s|%d|%s", importer, commodity, year, flow)
 }
 
 type v2HeaderIndex map[string]int
@@ -319,10 +323,13 @@ func parseComtradeV2Row(row []string, idx v2HeaderIndex, res *ComtradeV2LoadResu
 	}
 
 	var importer, exporter string
+	flow := FlowImport
 	if isImport {
 		importer, exporter = reporter, partner
+		flow = FlowImport
 	} else {
 		importer, exporter = partner, reporter
+		flow = FlowExport
 	}
 	if importer == "" || exporter == "" {
 		return aggregatedFlow{}, "missing importer or exporter"
@@ -361,6 +368,7 @@ func parseComtradeV2Row(row []string, idx v2HeaderIndex, res *ComtradeV2LoadResu
 	return aggregatedFlow{
 		importer: importer, exporter: exporter, commodity: commodity, hsCode: hsCode,
 		year: year, tradeValueUSD: value, netWeightKg: weight, quantity: qty, quantityUnit: qtyUnit,
+		flow: flow,
 	}, ""
 }
 
