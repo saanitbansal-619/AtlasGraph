@@ -333,6 +333,19 @@ export interface TradeSummaryResponse {
   top_importers: Array<{ code: string; name: string; value_usd: number }>
   top_commodities: Array<{ code: string; name: string; value_usd: number }>
   available_commodities?: string[]
+  available_importers?: string[]
+}
+
+export interface TradeImportOption {
+  name: string
+  code: string
+  commodities: string[]
+}
+
+export interface TradeOptionsResponse {
+  source: string
+  real_trade_data: boolean
+  importers: TradeImportOption[]
 }
 
 export interface TradeSupplier {

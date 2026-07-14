@@ -157,9 +157,34 @@ func TestAPITradeSummary(t *testing.T) {
 		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
 	}
 	parsed := decodeBody(t, rec)
-	for _, key := range []string{"source", "real_trade_data", "records", "countries", "commodities", "total_value_usd", "available_commodities"} {
+	for _, key := range []string{"source", "real_trade_data", "records", "countries", "commodities", "total_value_usd", "available_commodities", "available_importers"} {
 		if _, ok := parsed[key]; !ok {
 			t.Errorf("trade summary JSON missing %q", key)
+		}
+	}
+}
+
+func TestAPITradeOptions(t *testing.T) {
+	rec := do(fullTestServer(t), http.MethodGet, "/api/trade/options", "", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
+	}
+	parsed := decodeBody(t, rec)
+	for _, key := range []string{"source", "real_trade_data", "importers"} {
+		if _, ok := parsed[key]; !ok {
+			t.Errorf("trade options JSON missing %q", key)
+		}
+	}
+	var importers []map[string]any
+	if err := json.Unmarshal(parsed["importers"], &importers); err != nil {
+		t.Fatalf("decode importers: %v", err)
+	}
+	if len(importers) == 0 {
+		t.Fatal("expected non-empty importers")
+	}
+	for _, key := range []string{"name", "code", "commodities"} {
+		if _, ok := importers[0][key]; !ok {
+			t.Errorf("importer entry missing %q", key)
 		}
 	}
 }

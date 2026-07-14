@@ -76,6 +76,7 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 		"POST /api/shock",
 		"POST /api/scenarios/compare",
 		"GET  /api/trade/summary",
+		"GET  /api/trade/options",
 		"GET  /api/trade/dependency?importer=USA&commodity=semiconductors",
 		"GET  /api/trade/concentration?importer=USA&commodity=semiconductors",
 		"GET  /api/macro/scores",

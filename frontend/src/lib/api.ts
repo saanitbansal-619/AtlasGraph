@@ -15,6 +15,7 @@ import type {
   CommodityHistoryIndexResponse,
   EventRiskResponse,
   TradeSummaryResponse,
+  TradeOptionsResponse,
   TradeDependencyResponse,
   TradeConcentrationResponse,
   ApiError,
@@ -103,6 +104,7 @@ export const api = {
     return request<EventRiskResponse>(`/api/events/risk${q}`)
   },
   tradeSummary: () => request<TradeSummaryResponse>('/api/trade/summary'),
+  tradeOptions: () => request<TradeOptionsResponse>('/api/trade/options'),
   tradeDependency: (importer: string, commodity: string) =>
     request<TradeDependencyResponse>(
       `/api/trade/dependency?importer=${encodeURIComponent(importer)}&commodity=${encodeURIComponent(commodity)}`,

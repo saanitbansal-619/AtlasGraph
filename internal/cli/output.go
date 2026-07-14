@@ -798,10 +798,33 @@ func tradeSupplierToJSON(s trade.Supplier) jsonTradeSupplier {
 }
 
 func buildTradeSummaryJSON(resolved trade.ResolvedTrade, summary trade.Summary) jsonTradeSummary {
+	if resolved.DependencyFile != nil {
+		if reporters := trade.AvailableImportReporters(*resolved.DependencyFile); len(reporters) > 0 {
+			summary.AvailableImporters = reporters
+		}
+	}
 	return jsonTradeSummary{
 		Source:        resolved.Source,
 		RealTradeData: resolved.RealTradeData,
 		Summary:       summary,
+	}
+}
+
+type jsonTradeOptions struct {
+	Source        string               `json:"source"`
+	RealTradeData bool                 `json:"real_trade_data"`
+	Importers     []trade.ImportOption `json:"importers"`
+}
+
+func buildTradeOptionsJSON(resolved trade.ResolvedTrade, opts trade.TradeOptions) jsonTradeOptions {
+	importers := opts.Importers
+	if importers == nil {
+		importers = []trade.ImportOption{}
+	}
+	return jsonTradeOptions{
+		Source:        resolved.Source,
+		RealTradeData: resolved.RealTradeData,
+		Importers:     importers,
 	}
 }
 

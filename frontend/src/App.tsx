@@ -13,6 +13,7 @@ import type {
   CommodityHistoryIndexResponse,
   EventRiskResponse,
   TradeSummaryResponse,
+  TradeOptionsResponse,
 } from './types/api'
 import {
   DEFAULT_META,
@@ -102,8 +103,11 @@ export default function App() {
 
   // Trade dependency signals
   const [tradeSummary, setTradeSummary] = useState<TradeSummaryResponse | null>(null)
+  const [tradeOptions, setTradeOptions] = useState<TradeOptionsResponse | null>(null)
   const [tradeErr, setTradeErr] = useState<UiError | null>(null)
+  const [tradeOptionsErr, setTradeOptionsErr] = useState<UiError | null>(null)
   const [tradeLoading, setTradeLoading] = useState(true)
+  const [tradeOptionsLoading, setTradeOptionsLoading] = useState(true)
 
   // Scenarios
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -244,6 +248,19 @@ export default function App() {
     }
   }, [])
 
+  const loadTradeOptions = useCallback(async () => {
+    setTradeOptionsLoading(true)
+    try {
+      setTradeOptions(await api.tradeOptions())
+      setTradeOptionsErr(null)
+    } catch (e) {
+      setTradeOptions(null)
+      setTradeOptionsErr(toUiError(e))
+    } finally {
+      setTradeOptionsLoading(false)
+    }
+  }, [])
+
   const fetchTradeDependency = useCallback(
     (importer: string, commodity: string) => api.tradeDependency(importer, commodity),
     [],
@@ -279,11 +296,12 @@ export default function App() {
     void loadFragility()
     void loadEventRisk()
     void loadTradeSummary()
+    void loadTradeOptions()
     void loadCommodityStress()
     void loadCommodityHistoryIndex()
     void loadScenarios()
     void loadGuidance()
-  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadTradeSummary, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance])
+  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadTradeSummary, loadTradeOptions, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance])
 
   // Initial load.
   useEffect(() => {
@@ -375,9 +393,6 @@ export default function App() {
         )}
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
-          <div className="min-w-0">
-            <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
-          </div>
           <div className="min-w-0 lg:h-full">
             <DataSourcesCard
               summary={summary}
@@ -386,19 +401,30 @@ export default function App() {
               compact
             />
           </div>
+          <div className="min-w-0">
+            <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
+          </div>
         </div>
 
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 
-        <EventRiskPanel data={eventRisk} loading={eventRiskLoading} error={eventRiskErr} />
-
-        <TradeSignalsPanel
-          summary={tradeSummary}
-          summaryLoading={tradeLoading}
-          summaryError={tradeErr}
-          fetchDependency={fetchTradeDependency}
-          fetchConcentration={fetchTradeConcentration}
-        />
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <div className="min-w-0">
+            <EventRiskPanel data={eventRisk} loading={eventRiskLoading} error={eventRiskErr} />
+          </div>
+          <div className="min-w-0">
+            <TradeSignalsPanel
+              summary={tradeSummary}
+              summaryLoading={tradeLoading}
+              summaryError={tradeErr}
+              options={tradeOptions}
+              optionsLoading={tradeOptionsLoading}
+              optionsError={tradeOptionsErr}
+              fetchDependency={fetchTradeDependency}
+              fetchConcentration={fetchTradeConcentration}
+            />
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <CommodityStressPanel

@@ -60,6 +60,7 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/shock", s.handleShock)
 	mux.HandleFunc("/api/scenarios/compare", s.handleScenariosCompare)
 	mux.HandleFunc("/api/trade/summary", s.handleTradeSummary)
+	mux.HandleFunc("/api/trade/options", s.handleTradeOptions)
 	mux.HandleFunc("/api/trade/dependency", s.handleTradeDependency)
 	mux.HandleFunc("/api/trade/concentration", s.handleTradeConcentration)
 	mux.HandleFunc("/api/macro/scores", s.handleMacroScores)
@@ -336,6 +337,18 @@ func (s *apiServer) handleTradeSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, buildTradeSummaryJSON(resolved, trade.BuildSummary(resolved.File, 5)))
+}
+
+func (s *apiServer) handleTradeOptions(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	resolved, ok := s.loadTrade(w)
+	if !ok {
+		return
+	}
+	opts := trade.BuildTradeOptions(resolved)
+	writeJSONStatus(w, http.StatusOK, buildTradeOptionsJSON(resolved, opts))
 }
 
 func (s *apiServer) handleTradeDependency(w http.ResponseWriter, r *http.Request) {

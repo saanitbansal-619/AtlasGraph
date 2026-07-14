@@ -26,6 +26,9 @@ type Summary struct {
 	// AvailableCommodities lists every commodity name in the trade file, sorted
 	// alphabetically. Unlike TopCommodities, this is not capped to a preview size.
 	AvailableCommodities []string `json:"available_commodities"`
+	// AvailableImporters lists every importer country name, sorted alphabetically.
+	// Prefer import-reporter names when flow tags are present on dependency rows.
+	AvailableImporters []string `json:"available_importers"`
 }
 
 // BuildSummary aggregates a TradeFile into a Summary, keeping the top n entries
@@ -96,7 +99,146 @@ func BuildSummary(file TradeFile, n int) Summary {
 	s.TopImporters = topNamed(importers, n)
 	s.TopCommodities = topNamed(commodities, n)
 	s.AvailableCommodities = commodityNames(commodities)
+	s.AvailableImporters = namedCountryList(importers)
 	return s
+}
+
+// AvailableImportReporters returns sorted importer names from dependency rows that
+// are suitable for importer-side concentration / supplier queries (import flows).
+func AvailableImportReporters(df DependencyFile) []string {
+	hasFlowTags := DependencyFileHasFlowTags(df)
+	seen := map[string]string{}
+	for _, d := range df.Dependencies {
+		if !UseForImporterConcentration(d, hasFlowTags) {
+			continue
+		}
+		name := NormalizeCountryName(strings.TrimSpace(d.Importer))
+		if name == "" {
+			name = strings.TrimSpace(d.Importer)
+		}
+		if name == "" {
+			continue
+		}
+		seen[strings.ToLower(name)] = name
+	}
+	out := make([]string, 0, len(seen))
+	for _, name := range seen {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// ImportOption is one importer with the commodities it has import-side records for.
+type ImportOption struct {
+	Name        string   `json:"name"`
+	Code        string   `json:"code"`
+	Commodities []string `json:"commodities"`
+}
+
+// TradeOptions lists importer → commodity pairs available for supplier queries.
+type TradeOptions struct {
+	Importers []ImportOption `json:"importers"`
+}
+
+// BuildTradeOptions builds importer/commodity menus from processed trade data.
+// Prefer import-flow dependency rows; fall back to TradeFile records.
+func BuildTradeOptions(resolved ResolvedTrade) TradeOptions {
+	if resolved.DependencyFile != nil && len(resolved.DependencyFile.Dependencies) > 0 {
+		return tradeOptionsFromDeps(*resolved.DependencyFile)
+	}
+	return tradeOptionsFromFile(resolved.File)
+}
+
+func tradeOptionsFromDeps(df DependencyFile) TradeOptions {
+	hasFlowTags := DependencyFileHasFlowTags(df)
+	byKey := map[string]*importBucket{}
+	for _, d := range df.Dependencies {
+		if !UseForImporterConcentration(d, hasFlowTags) {
+			continue
+		}
+		name := NormalizeCountryName(strings.TrimSpace(d.Importer))
+		if name == "" {
+			name = strings.TrimSpace(d.Importer)
+		}
+		com := strings.TrimSpace(d.Commodity)
+		if name == "" || com == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		b, ok := byKey[key]
+		if !ok {
+			b = &importBucket{name: name, code: CountryCodeForName(name), coms: map[string]struct{}{}}
+			byKey[key] = b
+		}
+		b.coms[com] = struct{}{}
+	}
+	return finalizeImportOptions(byKey)
+}
+
+func tradeOptionsFromFile(file TradeFile) TradeOptions {
+	byKey := map[string]*importBucket{}
+	for _, r := range file.Records {
+		name := NormalizeCountryName(strings.TrimSpace(r.ImporterName))
+		if name == "" {
+			name = strings.TrimSpace(r.ImporterName)
+		}
+		code := ResolveCountryCode(r.ImporterCode, name)
+		com := strings.TrimSpace(r.CommodityName)
+		if com == "" {
+			com = strings.TrimSpace(r.CommodityCode)
+		}
+		if name == "" && code == "" {
+			continue
+		}
+		if name == "" {
+			name = code
+		}
+		if com == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if code != "" {
+			key = strings.ToLower(code)
+		}
+		b, ok := byKey[key]
+		if !ok {
+			b = &importBucket{name: name, code: code, coms: map[string]struct{}{}}
+			byKey[key] = b
+		}
+		if b.code == "" && code != "" {
+			b.code = code
+		}
+		b.coms[com] = struct{}{}
+	}
+	return finalizeImportOptions(byKey)
+}
+
+type importBucket struct {
+	name string
+	code string
+	coms map[string]struct{}
+}
+
+func finalizeImportOptions(byKey map[string]*importBucket) TradeOptions {
+	keys := make([]string, 0, len(byKey))
+	for k := range byKey {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := TradeOptions{Importers: make([]ImportOption, 0, len(keys))}
+	for _, k := range keys {
+		b := byKey[k]
+		coms := make([]string, 0, len(b.coms))
+		for c := range b.coms {
+			coms = append(coms, c)
+		}
+		sort.Strings(coms)
+		out.Importers = append(out.Importers, ImportOption{
+			Name: b.name, Code: b.code, Commodities: coms,
+		})
+	}
+	return out
 }
 
 // Supplier is one exporter's contribution to an importer's purchases of a
@@ -295,15 +437,26 @@ func exporterGroupKey(code, name string) string {
 }
 
 func commodityNames(m map[string]*NamedValue) []string {
+	return namedCountryList(m)
+}
+
+func namedCountryList(m map[string]*NamedValue) []string {
 	out := make([]string, 0, len(m))
+	seen := map[string]struct{}{}
 	for _, nv := range m {
 		name := strings.TrimSpace(nv.Name)
 		if name == "" {
 			name = strings.TrimSpace(nv.Code)
 		}
-		if name != "" {
-			out = append(out, name)
+		if name == "" {
+			continue
 		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, name)
 	}
 	sort.Strings(out)
 	return out

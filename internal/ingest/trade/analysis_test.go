@@ -65,8 +65,72 @@ func TestBuildSummary(t *testing.T) {
 			t.Errorf("available_commodities[%d] = %q, want %q", i, s.AvailableCommodities[i], want)
 		}
 	}
+	if len(s.AvailableImporters) < 2 {
+		t.Fatalf("available_importers = %v, want at least USA and Germany", s.AvailableImporters)
+	}
 	if len(s.TopCommodities) != 2 {
 		t.Errorf("top_commodities = %d, want 2 (all commodities in sample)", len(s.TopCommodities))
+	}
+}
+
+func TestAvailableImportReportersFiltersExports(t *testing.T) {
+	df := DependencyFile{
+		Source: ComtradeRealSourceName,
+		Dependencies: []TradeDependency{
+			{Importer: "Germany", Exporter: "Norway", Commodity: "natural gas", Flow: FlowImport},
+			{Importer: "China", Exporter: "Australia", Commodity: "iron ore", Flow: FlowImport},
+			{Importer: "Ukraine", Exporter: "Algeria", Commodity: "crude oil", Flow: FlowExport},
+		},
+	}
+	got := AvailableImportReporters(df)
+	want := []string{"China", "Germany"}
+	if len(got) != len(want) {
+		t.Fatalf("AvailableImportReporters = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestBuildTradeOptionsImporterCommodities(t *testing.T) {
+	resolved := ResolvedTrade{
+		DependencyFile: &DependencyFile{
+			Source: ComtradeRealSourceName,
+			Dependencies: []TradeDependency{
+				{Importer: "India", Exporter: "Saudi Arabia", Commodity: "crude oil", Flow: FlowImport},
+				{Importer: "India", Exporter: "Russia", Commodity: "fertilizer", Flow: FlowImport},
+				{Importer: "United States", Exporter: "Taiwan", Commodity: "semiconductors", Flow: FlowImport},
+				{Importer: "Ukraine", Exporter: "Algeria", Commodity: "crude oil", Flow: FlowExport},
+			},
+		},
+	}
+	opts := BuildTradeOptions(resolved)
+	if len(opts.Importers) != 2 {
+		t.Fatalf("importers = %d, want 2 (India, United States); got %+v", len(opts.Importers), opts.Importers)
+	}
+	byName := map[string][]string{}
+	for _, im := range opts.Importers {
+		byName[im.Name] = im.Commodities
+	}
+	india := byName["India"]
+	if len(india) != 2 || india[0] != "crude oil" || india[1] != "fertilizer" {
+		t.Errorf("India commodities = %v, want [crude oil fertilizer]", india)
+	}
+	if _, ok := byName["India"]; ok {
+		for _, c := range byName["India"] {
+			if c == "semiconductors" {
+				t.Fatal("India must not list semiconductors")
+			}
+		}
+	}
+	usa := byName["United States"]
+	if len(usa) != 1 || usa[0] != "semiconductors" {
+		t.Errorf("United States commodities = %v, want [semiconductors]", usa)
+	}
+	if _, ok := byName["Ukraine"]; ok {
+		t.Fatal("export-partner Ukraine must not appear as importer option")
 	}
 }
 
