@@ -54,4 +54,4 @@ export const DEFAULT_META: ScenarioMeta = {
 }
 
 export const ASSUMPTION_NOTE =
-  'Scenario assumptions are displayed for context; current propagation uses source, commodity, shock type, drop, and depth.'
+  'Model assumptions define propagation behavior; real trade, event-risk, and commodity-price data drive exposure scoring.'

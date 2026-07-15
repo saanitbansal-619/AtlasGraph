@@ -57,7 +57,9 @@ export function DataSourcesCard({
         fusionActive ? (
           <span className="badge border-cyan-500/40 bg-cyan-500/10 text-cyan-300">Fusion active</span>
         ) : (
-          <span className="badge border-slate-600/60 bg-slate-800/40 text-slate-400">Demo graph only</span>
+          <span className="badge border-slate-600/60 bg-slate-800/40 text-slate-400">
+            Baseline graph only
+          </span>
         )
       }
     >
@@ -69,16 +71,22 @@ export function DataSourcesCard({
         } ${loading ? 'opacity-70' : ''}`}
       >
         <p className="text-xs leading-snug text-slate-400">
-          Scores combine strategic dependency modeling with real trade, event-risk, and
-          commodity-price signals.
+          GFIP combines observed trade, event-risk, and commodity-price data with a baseline
+          dependency graph to estimate supply-chain exposure.
         </p>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge label="Strategic graph" active />
+          <StatusBadge label="Baseline dependency graph" active />
           <StatusBadge label="UN Comtrade" active={tradeActive} />
           <StatusBadge label="GDELT" active={eventActive} />
           <StatusBadge label="World Bank Pink Sheet" active={priceActive} />
         </div>
+
+        <p className="text-[11px] leading-snug text-slate-500">
+          Observed data: UN Comtrade trade flows, GDELT event-risk signals, and World Bank
+          commodity prices. Model-derived outputs: fragility scores, shock propagation, impact
+          deltas, and graph centrality.
+        </p>
 
         {showMeta && (
           <p className="text-[11px] leading-snug text-slate-500">

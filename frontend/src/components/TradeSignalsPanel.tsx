@@ -196,7 +196,7 @@ export function TradeSignalsPanel({
     </span>
   ) : (
     <span className="badge border-slate-600/60 bg-slate-800/40 text-slate-400">
-      Demo trade data
+      Sample trade data
     </span>
   )
 

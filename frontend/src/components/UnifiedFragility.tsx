@@ -39,8 +39,8 @@ export function UnifiedFragility({
     <Panel title="Unified Fragility" right={<span className="text-[11px] text-slate-500">top 5 by score</span>}>
       <div className={`space-y-3 ${loading ? 'opacity-70' : ''}`}>
         <p className="text-xs text-slate-400">
-          Scores combine strategic dependency modeling with real trade, event-risk, and
-          commodity-price signals.
+          Observed trade, event-risk, and commodity-price signals combine with baseline graph
+          structure to produce model-derived fragility scores.
         </p>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

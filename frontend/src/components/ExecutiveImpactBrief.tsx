@@ -57,7 +57,7 @@ function fusionDrivers(result: ShockResponse): string[] {
     drivers.push('World Bank price signals')
   }
   if (fusion.fusion_enabled || drivers.length > 0) {
-    drivers.push('strategic graph centrality')
+    drivers.push('baseline graph centrality')
   }
   return drivers
 }
@@ -143,8 +143,8 @@ export function buildExecutiveImpactBrief(result: ShockResponse): string {
 
   const exposureClause =
     exposed.length > 0
-      ? `creates elevated exposure across ${joinList(exposed)}`
-      : 'produces elevated exposure across connected downstream industries'
+      ? `creates elevated model-estimated exposure across ${joinList(exposed)}`
+      : 'produces elevated model-estimated exposure across connected downstream industries'
 
   const sentence1 = `A ${drop}% ${commodity} ${shockLabel} from ${source} ${exposureClause}.`
 
@@ -152,7 +152,7 @@ export function buildExecutiveImpactBrief(result: ShockResponse): string {
   const sentence2 =
     drivers.length > 0
       ? `Propagation is driven by ${joinList(drivers)}.`
-      : 'Propagation follows the strategic dependency graph under the selected shock profile.'
+      : 'Propagation follows the baseline dependency graph under the selected shock profile.'
 
   return `${sentence1} ${sentence2}`
 }

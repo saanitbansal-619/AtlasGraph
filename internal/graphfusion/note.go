@@ -21,5 +21,5 @@ func PropagationNote(meta Meta, simCtx simulation.Context) string {
 	if len(parts) == 0 {
 		return ""
 	}
-	return "Real-data-backed propagation: " + strings.Join(parts, " + ")
+    return "Real-data-backed model propagation: " + strings.Join(parts, " + ")
 }

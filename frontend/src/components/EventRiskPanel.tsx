@@ -27,7 +27,7 @@ export function EventRiskPanel({
     </span>
   ) : (
     <span className="badge border-slate-600/60 bg-slate-800/40 text-slate-400">
-      Demo event data
+      Sample event data
     </span>
   )
 

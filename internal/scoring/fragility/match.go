@@ -550,7 +550,7 @@ func tradeConcentrationMeta(file *trade.TradeFile, deps *trade.DependencyFile) (
 	if real {
 		source = trade.ComtradeRealSourceName
 	} else {
-		source = "demo trade"
+		source = "local trade"
 	}
 	onlyUSA := true
 	for k := range importers {

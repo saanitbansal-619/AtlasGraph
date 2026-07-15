@@ -7,7 +7,7 @@ that models how shocks to countries, commodities, and trade chokepoints propagat
 through global dependency networks.
 
 - **GFIP** — the user-facing intelligence platform (React dashboard for analyst-style exploration).
-- **AtlasGraph** — the Go backend engine powering graph modeling, shock simulation, scoring, and API serving.
+- **AtlasGraph** — the Go backend engine powering graph modeling, shock analysis, scoring, and API serving.
 
 ---
 
@@ -15,27 +15,31 @@ through global dependency networks.
 
 In plain terms, GFIP:
 
-1. **Builds a strategic dependency graph** — countries, commodities, sectors, and maritime routes linked by typed trade and industry relationships.
-2. **Simulates shocks** — export collapses, supply cuts, route disruptions, and price spikes propagate along relationship-aware paths.
-3. **Ranks impact** — affected countries, commodities, sectors, and dependency paths with fragility deltas.
-4. **Compares crisis scenarios** — run multiple shocks side-by-side and rank systemic impact.
+1. **Builds a baseline dependency graph** — countries, commodities, sectors, and maritime routes linked by typed trade and industry relationships.
+2. **Models shocks** — export collapses, supply cuts, route disruptions, and price spikes propagate along relationship-aware paths.
+3. **Ranks estimated impact** — affected countries, commodities, sectors, and dependency paths with fragility deltas.
+4. **Compares crisis scenarios** — run multiple shocks side-by-side and rank systemic estimated impact.
 5. **Computes unified fragility scores** — explainable composite scores blending macro, trade, event, commodity, and graph signals.
-6. **Provides a dashboard** — control-room UI for exploring graph size, fragility, shocks, paths, and scenario comparison.
+6. **Provides a dashboard** — analyst UI for exploring graph size, fragility, shocks, paths, and scenario comparison.
 
 ---
 
 ## Key Features
 
-- **Strategic global demo dataset** — curated synthetic graph for reproducible local demos (`data/strategic_global`)
+- **Baseline dependency graph dataset** — curated graph for reproducible local runs (`data/strategic_global`)
 - **Graph-based shock propagation engine** — typed shock profiles with relationship filtering and attenuation
 - **Graph-guided custom shock controls** — only valid source → commodity → shock-type combinations are offered
 - **Unified Fragility Score** — explainable country and commodity composite scores
 - **Scenario Comparison Mode** — compare multiple shocks and rank by average/max fragility delta
-- **Dependency path explanations** — readable paths with relationship labels, impact, and weight
+- **Dependency path explanations** — readable paths with relationship labels, estimated impact, and weight
 - **Frontend analytics charts** — adaptive bar charts and compact ranking lists
 - **REST API endpoints** — pure `net/http` JSON API with CORS for the dashboard
 - **CLI support** — same engine via `atlas` commands
 - **Tests and reproducible local workflow** — Go unit tests across core packages; frontend build validation
+
+**Observed data:** UN Comtrade trade flows, GDELT event-risk signals, and World Bank commodity prices.
+
+**Model-derived outputs:** fragility scores, shock propagation, impact deltas, and graph centrality.
 
 ---
 
@@ -66,7 +70,7 @@ AtlasGraph/
 ├── cmd/atlas/              # CLI entry point
 ├── frontend/               # GFIP dashboard (React + Vite)
 ├── data/
-│   ├── strategic_global/   # Curated synthetic demo dataset
+│   ├── strategic_global/   # Baseline dependency graph dataset
 │   ├── sample/             # Embedded small sample graph
 │   └── examples/           # Sample CSV/JSON fixtures
 ├── internal/
@@ -84,14 +88,17 @@ AtlasGraph/
 
 ## Data Note
 
-**Be explicit about what this demo uses.**
+**Be explicit about observed data vs model-derived outputs.**
 
-- `data/strategic_global` is a **synthetic but realistic strategic demo dataset** — designed for reproducible local demos and interviews, not live production intelligence.
-- It includes **24 countries**, **20 commodities**, **20 sectors**, **8 routes**, and **193 dependencies**, plus 10 named shock scenarios.
-- **World Bank macro ingestion** exists separately (`atlas ingest worldbank`) and can populate `data/raw/worldbank` from the real API.
-- Bundled **trade**, **GDELT event**, and **commodity price** demo files are synthetic or fixture-based — they should **not** be presented as live global intelligence.
-- **World Bank Pink Sheet** monthly XLSX ingestion provides **real public historical monthly prices** when you download and ingest `CMO-Historical-Data-Monthly.xlsx` locally (not live streaming).
-- **Future work** includes real UN Comtrade flows, a GDELT/news pipeline, and geospatial datasets.
+- `data/strategic_global` is the **baseline dependency graph** — a curated graph for reproducible local analysis (countries, commodities, sectors, routes, and typed dependencies). Folder name is unchanged.
+- It includes **24 countries**, **20 commodities**, **20 sectors**, **8 routes**, and **193 dependencies**, plus named shock scenarios.
+- **Observed panels** (when present under `data/processed/`) drive exposure scoring:
+  - **UN Comtrade** — trade flows, import dependencies, supplier concentration
+  - **GDELT** — event-risk signals
+  - **World Bank Pink Sheet** — commodity price history / stress
+- **Model-derived outputs** include fragility scores, shock propagation, impact deltas, and graph centrality. These are estimates under stated model assumptions, not raw observed facts.
+- **World Bank macro ingestion** (`atlas ingest worldbank`) can populate `data/raw/worldbank` from the real API.
+- Bundled fixture files under `data/sample` / examples are for local development when processed panels are absent.
 
 See also [`data/strategic_global/README.md`](data/strategic_global/README.md) and [`data/raw/worldbank_pinksheet/README.md`](data/raw/worldbank_pinksheet/README.md).
 
@@ -131,7 +138,7 @@ curl "http://localhost:8080/api/commodities/history?commodity=crude%20oil"
 curl http://localhost:8080/api/commodities/stress
 ```
 
-`GET /api/commodities/stress` includes `data_source` and `real_price_data` so the dashboard can show **Real price data** vs **Demo price data**.
+`GET /api/commodities/stress` includes `data_source` and `real_price_data` so the dashboard can show **Real price data** vs **Sample price data**.
 
 ### Data note
 
@@ -180,7 +187,7 @@ curl http://localhost:8080/api/events/risk
 curl "http://localhost:8080/api/events/risk?country=Ukraine"
 ```
 
-Responses include `source` and `real_event_data` so the dashboard can show **Real event data** vs **Demo event data**.
+Responses include `source` and `real_event_data` so the dashboard can show **Real event data** vs **Sample event data**.
 
 When no processed file exists, the API falls back to legacy demo GDELT fixture data from `--event-data` (typically `data/raw/gdelt`).
 
@@ -269,7 +276,7 @@ v1 uses **manually downloaded** UN Comtrade CSV exports for **USA 2024 imports**
 
 ## Real Data Graph Fusion
 
-v1 **augments** the strategic demo graph (`data/strategic_global`) with local processed real-data panels. The base graph is preserved; fusion adds edges and vulnerability metadata when processed files exist.
+v1 **augments** the baseline dependency graph (`data/strategic_global`) with local processed real-data panels. The base graph is preserved; fusion adds edges and vulnerability metadata when processed files exist.
 
 | Signal | Source | Fusion effect |
 |--------|--------|---------------|
@@ -277,9 +284,9 @@ v1 **augments** the strategic demo graph (`data/strategic_global`) with local pr
 | Commodity price stress | `data/processed/commodity_prices` | Commodity vulnerability multiplier during shock propagation (capped at 1.20×) |
 | Event risk | `data/processed/events/event_risk.json` | Country vulnerability multiplier during shock propagation (capped at 1.25×) |
 
-**Important:** Not all graph edges are real yet. Demo strategic edges remain; real UN Comtrade edges are additive and marked `real_data: true`.
+**Important:** Not all graph edges are observed trade. Baseline dependency edges remain; real UN Comtrade edges are additive and marked `real_data: true`.
 
-When processed data is missing, behaviour matches the pre-fusion demo graph.
+When processed data is missing, behaviour matches the pre-fusion baseline dependency graph.
 
 ### Fusion CLI
 
@@ -298,9 +305,13 @@ Shows fused entity/dependency counts and data sources when real panels are prese
 `GET /api/graph/summary`, `GET /api/fragility/summary`, and `POST /api/shock` include fields such as:
 
 - `fusion_enabled`, `real_trade_edges_used`, `real_event_risk_used`, `real_price_stress_used`
-- `data_sources`: e.g. `["Strategic demo graph", "UN Comtrade", "World Bank Pink Sheet", "GDELT"]`
+- `data_sources`: e.g. `["Baseline dependency graph", "UN Comtrade", "World Bank Pink Sheet", "GDELT"]`
 
-Shock results may include `data_fusion.propagation_note`, e.g. `Real-data-backed propagation: trade + commodity prices + event risk`.
+Shock results may include `data_fusion.propagation_note`, e.g. `Real-data-backed model propagation: trade + commodity prices + event risk`.
+
+**Observed data:** UN Comtrade trade flows, GDELT event-risk signals, and World Bank commodity prices.
+
+**Model-derived outputs:** fragility scores, shock propagation, impact deltas, and graph centrality.
 
 ---
 
@@ -427,17 +438,17 @@ Full API documentation, error shapes, and additional trade endpoints:
 
 ---
 
-## Suggested Demo Flow
+## Suggested Walkthrough
 
-A ~5-minute interview walkthrough:
+A ~5-minute walkthrough:
 
-1. **Open the dashboard** — point out the strategic global graph size (24 countries, 193 dependencies) in the overview cards.
-2. **Unified Fragility** — show top fragile countries and commodities charts; expand score breakdown if asked.
-3. **Run Taiwan Semiconductor Export Collapse** — preset shock; highlight affected countries/sectors and top dependency paths (4 shown by default, expand for full list).
-4. **Run Strait of Hormuz Crude Route Disruption** — contrast a route/chokepoint shock with a production shock.
-5. **Scenario Comparison Mode** — select scenarios and compare average/max fragility deltas.
-6. **Graph-guided custom shock** — switch to Custom Shock; show source → commodity → shock type cascade filtered by the graph.
-7. **Technical depth** — mention Go backend, REST API, CLI parity, graph-guided validation, and `go test ./...` coverage.
+1. **Open the dashboard** — point out the baseline dependency graph size (24 countries, 193 dependencies) in the overview cards.
+2. **Data Fusion Status** — show observed sources (UN Comtrade, GDELT, World Bank Pink Sheet) vs model-derived outputs.
+3. **Unified Fragility** — show top fragile countries and commodities charts; expand score breakdown if asked.
+4. **Run Taiwan Semiconductor Export Collapse** — preset shock; highlight estimated impact on countries/sectors and top dependency paths.
+5. **Run Strait of Hormuz Crude Route Disruption** — contrast a route/chokepoint shock with a production shock.
+6. **Scenario Comparison Mode** — select scenarios and compare average/max fragility deltas.
+7. **Graph-guided custom shock** — switch to Custom Shock; show source → commodity → shock type cascade filtered by the graph.
 
 ---
 
@@ -467,9 +478,9 @@ Screenshots should be added after final UI capture. Placeholders:
 
 ## Future Work
 
-- Real **UN Comtrade** ingestion and trade-graph generation
-- Production **GDELT / news event** pipeline
-- Real **World Bank Pink Sheet** commodity prices
+- Broader **UN Comtrade** coverage and refresh automation
+- Production **GDELT / news event** refresh pipeline
+- Automated **World Bank Pink Sheet** refresh
 - **Geospatial map view** of routes and chokepoints
 - **Scenario report export** (PDF/JSON briefings)
 - **Analyst briefing generation** from shock results
@@ -508,4 +519,4 @@ Detailed technical documentation is preserved in [`docs/TECHNICAL_REFERENCE.md`]
 
 ## License
 
-See repository license file if present. Demo data is synthetic and for evaluation purposes only.
+See repository license file if present. Baseline graph and fixture datasets are for evaluation and local analysis; model outputs are estimates under stated assumptions.

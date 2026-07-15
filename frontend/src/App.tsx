@@ -473,7 +473,7 @@ export default function App() {
           <span>
             GFIP · Global Fragility Intelligence Platform · Powered by AtlasGraph
           </span>
-          <span className="font-mono">control-room demo</span>
+          <span className="font-mono">analyst dashboard</span>
         </footer>
       </main>
     </div>

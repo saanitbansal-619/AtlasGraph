@@ -1,5 +1,5 @@
-// Package graphfusion augments the strategic demo graph with real processed
-// trade, event-risk and commodity-price signals for simulation and scoring.
+// Package graphfusion augments the baseline dependency graph with real processed
+// trade, event-risk and commodity-price signals for shock modeling and scoring.
 package graphfusion
 
 import (
@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	SourceStrategic  = "Strategic demo graph"
+	SourceStrategic  = "Baseline dependency graph"
 	SourceUNComtrade = "UN Comtrade"
 	SourceWorldBank  = "World Bank Pink Sheet"
 	SourceGDELT      = "GDELT"

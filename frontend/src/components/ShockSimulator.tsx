@@ -388,7 +388,7 @@ export function ShockSimulator({
           Show technical propagation details
         </label>
 
-        <Divider label="Scenario assumptions" />
+        <Divider label="Model assumptions" />
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Duration">
@@ -434,7 +434,7 @@ export function ShockSimulator({
             ) : mode === 'custom' ? (
               'Run Custom Shock'
             ) : (
-              'Run Shock Simulation'
+              'Run Shock'
             )}
           </button>
           <button

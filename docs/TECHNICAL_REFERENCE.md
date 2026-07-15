@@ -573,17 +573,19 @@ exactly the wire format the loader validates, so the standard `graph summary`,
 
 ---
 
-## Strategic Global Demo Dataset
+## Baseline Dependency Graph Dataset
 
-`data/strategic_global` is a **curated synthetic strategic dataset** for larger
-control-room demos: **24 countries**, **20 commodities**, **20 sectors**, **8
-maritime chokepoints**, **~190 dependencies**, and **10 shock scenarios**. It uses
+`data/strategic_global` is the **baseline dependency graph** for local analysis:
+**24 countries**, **20 commodities**, **20 sectors**, **8
+maritime chokepoints**, **~190 dependencies**, and named shock scenarios. It uses
 the same JSON schema as `data/sample` and does **not** replace the trade-graph
 builder output under `data/generated/trade_graph`.
 
-This is reproducible local demo data â€” **not** live UN Comtrade, GDELT, or World
-Bank prices. See [`data/strategic_global/README.md`](data/strategic_global/README.md)
-for scope and future-ingestion notes.
+This curated graph is reproducible for local runs. Observed UN Comtrade, GDELT,
+and World Bank price panels (when present under `data/processed/`) fuse into the
+graph for exposure scoring; fragility and shock results remain model-derived
+estimates. See [`data/strategic_global/README.md`](data/strategic_global/README.md)
+for scope notes.
 
 ```bash
 # Graph overview

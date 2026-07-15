@@ -50,8 +50,8 @@ export function ShockResults({
     return (
       <Panel title="Shock Results">
         <EmptyHint>
-          Configure a scenario and run a simulation to trace cascading exposure
-          across the global dependency graph.
+          Configure a scenario and run a shock to estimate cascading exposure across the global
+          dependency graph.
         </EmptyHint>
       </Panel>
     )
@@ -75,12 +75,12 @@ export function ShockResults({
           valueClassName={deltaClass(s.avg_fragility_delta)}
         />
         <MetricCard
-          label="Largest impact Δ"
+          label="Largest estimated impact Δ"
           value={signed(s.largest_single_impact_delta)}
           valueClassName={deltaClass(s.largest_single_impact_delta)}
         />
         <MetricCard
-          label="Top impacted"
+          label="Top model-estimated exposure"
           value={topImpacted.label}
           valueClassName={
             topImpacted.isDirectCommodityFallback ? 'text-slate-400' : undefined
@@ -101,7 +101,7 @@ export function ShockResults({
             label: it.entity,
             value: it.delta,
           }))}
-          emptyLabel="No country-level impacts were detected for this scenario."
+          emptyLabel="No country-level estimated impacts were detected for this scenario."
           topN={8}
         />
         <AdaptiveRankingChart
@@ -114,7 +114,7 @@ export function ShockResults({
             label: it.entity,
             value: it.delta,
           }))}
-          emptyLabel="No sector-level impacts were detected for this scenario."
+          emptyLabel="No sector-level estimated impacts were detected for this scenario."
           topN={8}
         />
       </div>
@@ -303,7 +303,7 @@ function ExposureTable({
         <thead className={scrollable ? 'sticky top-0 z-10 bg-slate-900/95 backdrop-blur' : ''}>
           <tr className="border-b border-slate-800">
             <th className="th">Entity</th>
-            <th className="th text-right">Impact</th>
+            <th className="th text-right">Est. impact</th>
             <th className="th text-right">Base → Shock</th>
             <th className="th text-right">Δ</th>
           </tr>

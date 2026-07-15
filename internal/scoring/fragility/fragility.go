@@ -103,7 +103,7 @@ type Result struct {
 	Commodities []CommodityScore `json:"commodities"`
 
 	// TradeConcentrationSource labels the provenance of concentration scores
-	// when UN Comtrade (or demo trade) data contributed them.
+	// when UN Comtrade (or local trade) data contributed them.
 	TradeConcentrationSource string `json:"trade_concentration_source,omitempty"`
 	// TradeConcentrationNote clarifies coverage scope (e.g. US-import-based).
 	TradeConcentrationNote string `json:"trade_concentration_note,omitempty"`
