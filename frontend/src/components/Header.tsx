@@ -13,17 +13,63 @@ function statusOf(health: HealthResponse | null, error: boolean, loading: boolea
 function GfipLogo() {
   return (
     <div
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-cyan-500/35 bg-slate-900/80 shadow-[inset_0_0_14px_rgba(34,211,238,0.07)]"
-      aria-hidden
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 shadow-[inset_0_0_18px_rgba(34,211,238,0.08)]"
+      title="GFIP"
     >
-      <svg viewBox="0 0 32 32" className="h-6 w-6" fill="none">
-        <circle cx="16" cy="16" r="11" stroke="rgba(34,211,238,0.45)" strokeWidth="0.75" />
-        <ellipse cx="16" cy="16" rx="5" ry="11" stroke="rgba(34,211,238,0.22)" strokeWidth="0.5" />
-        <path d="M5 16h22" stroke="rgba(34,211,238,0.18)" strokeWidth="0.5" />
-        <path d="M16 5v22" stroke="rgba(34,211,238,0.12)" strokeWidth="0.5" />
-        <circle cx="16" cy="10.5" r="2" fill="rgba(34,211,238,0.72)" />
-        <circle cx="22.5" cy="18" r="1.5" fill="rgba(56,189,248,0.55)" />
-        <circle cx="10.5" cy="19" r="1.25" fill="rgba(129,140,248,0.48)" />
+      <svg viewBox="0 0 48 48" className="h-10 w-10" fill="none" role="img" aria-label="GFIP">
+        {/* Concentric rings only */}
+        <circle cx="24" cy="24" r="19.5" stroke="rgba(34,211,238,0.32)" strokeWidth="1" />
+        <circle cx="24" cy="24" r="13.25" stroke="rgba(34,211,238,0.16)" strokeWidth="0.75" />
+
+        {/* Initials: G top · F left · I right · P bottom */}
+        <text
+          x="24"
+          y="12.5"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="rgba(34,211,238,0.95)"
+          fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          fontSize="9"
+          fontWeight="700"
+        >
+          G
+        </text>
+        <text
+          x="12.5"
+          y="24.35"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="rgba(56,189,248,0.94)"
+          fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          fontSize="9"
+          fontWeight="700"
+        >
+          F
+        </text>
+        <text
+          x="35.5"
+          y="24.35"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="rgba(56,189,248,0.94)"
+          fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          fontSize="9"
+          fontWeight="700"
+        >
+          I
+        </text>
+        <text
+          x="24"
+          y="36.1"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="rgba(34,211,238,0.95)"
+          fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          fontSize="9"
+          fontWeight="700"
+        >
+          P
+        </text>
       </svg>
     </div>
   )
@@ -43,17 +89,12 @@ export function Header({
   return (
     <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
       <div className="dashboard-shell flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div className="flex min-w-0 items-start gap-3">
+        <div className="flex min-w-0 items-center gap-3.5">
           <GfipLogo />
           <div className="min-w-0 leading-tight">
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="font-mono text-[11px] font-bold tracking-[0.22em] text-cyan-400/90">
-                GFIP
-              </span>
-              <h1 className="text-sm font-semibold tracking-tight text-slate-50 sm:text-[15px]">
-                Global Fragility Intelligence Platform
-              </h1>
-            </div>
+            <h1 className="text-sm font-semibold tracking-tight text-slate-50 sm:text-[15px]">
+              Global Fragility Intelligence Platform
+            </h1>
             <p className="mt-1 max-w-xl text-[11px] leading-snug text-slate-400 sm:text-xs">
               Strategic supply-chain and infrastructure risk intelligence
             </p>
