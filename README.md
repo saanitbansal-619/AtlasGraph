@@ -113,6 +113,11 @@ go run ./cmd/atlas ingest events \
   --out data/processed/events \
   --source gdelt
 
+# World Bank macro (API fetch with CSV fallback)
+go run ./cmd/atlas ingest macro \
+  --out data/processed/macro \
+  --source worldbank
+
 # World Bank Pink Sheet (download CMO-Historical-Data-Monthly.xlsx first)
 go run ./cmd/atlas ingest commodity-prices \
   --file data/raw/worldbank_pinksheet/CMO-Historical-Data-Monthly.xlsx \
@@ -129,6 +134,7 @@ go test ./...
 go run ./cmd/atlas serve \
   --data data/strategic_global \
   --trade-data data/processed/trade \
+  --processed-macro-data data/processed/macro \
   --macro-data data/raw/worldbank \
   --event-data data/raw/gdelt \
   --processed-event-data data/processed/events \

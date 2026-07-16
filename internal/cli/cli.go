@@ -80,7 +80,8 @@ Commands:
   graph dump            Print every dependency edge
   graph build-trade     Build a graph dataset from ingested trade flows
   risk leaderboard      Rank entities by baseline fragility
-  ingest worldbank      Fetch real macro indicators from the World Bank API
+  ingest worldbank      Fetch legacy macro indicators from the World Bank API
+  ingest macro          Fetch/load macro indicators and write processed macro scores
   ingest trade          Ingest country-to-country trade flows from a local CSV
   ingest gdelt          Fetch real-world event/news risk from the GDELT API
   ingest commodity-prices  Ingest commodity prices from CSV or World Bank Pink Sheet XLSX
@@ -115,6 +116,7 @@ Examples:
   atlas graph summary --data data/sample
   atlas graph paths --from Taiwan --to "cloud infrastructure" --data data/sample
   atlas risk leaderboard --data data/sample
+  atlas ingest macro --out data/processed/macro --source worldbank
   atlas ingest worldbank --countries USA,CHN,JPN,DEU,KOR --start 2018 --end 2023 --out data/raw/worldbank
   atlas indicators country USA --data data/raw/worldbank
   atlas score macro --data data/raw/worldbank --year 2023 --verbose

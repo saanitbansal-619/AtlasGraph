@@ -20,8 +20,9 @@ import (
 const (
 	SourceStrategic  = "Baseline dependency graph"
 	SourceUNComtrade = "UN Comtrade"
-	SourceWorldBank  = "World Bank Pink Sheet"
-	SourceGDELT      = "GDELT"
+	SourceWorldBank      = "World Bank Pink Sheet"
+	SourceWorldBankMacro = "World Bank Macro"
+	SourceGDELT          = "GDELT"
 )
 
 var realShockTypes = []string{

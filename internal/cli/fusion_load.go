@@ -16,6 +16,7 @@ type fusionConfig struct {
 	GraphData          string
 	TradeData          string
 	MacroData          string
+	ProcessedMacroData string
 	ProcessedEventData string
 	EventData          string
 	CommodityData      string
@@ -26,6 +27,7 @@ func (c fusionConfig) fromServer(cfg serverConfig) fusionConfig {
 		GraphData:          cfg.GraphData,
 		TradeData:          cfg.TradeData,
 		MacroData:          cfg.MacroData,
+		ProcessedMacroData: cfg.ProcessedMacroData,
 		ProcessedEventData: cfg.ProcessedEventData,
 		EventData:          cfg.EventData,
 		CommodityData:      cfg.CommodityData,
@@ -81,9 +83,9 @@ func loadFusedDataset(cfg fusionConfig) (graphfusion.Output, error) {
 func loadFusedFragilitySources(cfg fusionConfig) (fragility.Sources, graphfusion.Meta) {
 	fused, err := loadFusedDataset(cfg)
 	if err != nil {
-		return loadFragilitySources(cfg.GraphData, cfg.TradeData, cfg.MacroData, cfg.ProcessedEventData, cfg.EventData, cfg.CommodityData), graphfusion.Meta{}
+		return loadFragilitySources(cfg.GraphData, cfg.TradeData, cfg.MacroData, cfg.ProcessedMacroData, cfg.ProcessedEventData, cfg.EventData, cfg.CommodityData), graphfusion.Meta{}
 	}
-	src := loadFragilitySources(cfg.GraphData, cfg.TradeData, cfg.MacroData, cfg.ProcessedEventData, cfg.EventData, cfg.CommodityData)
+	src := loadFragilitySources(cfg.GraphData, cfg.TradeData, cfg.MacroData, cfg.ProcessedMacroData, cfg.ProcessedEventData, cfg.EventData, cfg.CommodityData)
 	if fused.Dataset != nil {
 		src.Graph = fused.Dataset.Graph
 		src.Scenarios = fused.Dataset.Scenarios

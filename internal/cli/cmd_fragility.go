@@ -13,7 +13,8 @@ func scoreFragility(args []string, out, errOut io.Writer) int {
 	fs.SetOutput(errOut)
 	graphData := fs.String("graph-data", "data/generated/trade_graph", "directory holding graph entities/dependencies/scenarios")
 	tradeData := fs.String("trade-data", "data/processed/trade", "directory holding ingested trade data")
-	macroData := fs.String("macro-data", "data/raw/worldbank", "directory holding ingested World Bank macro data")
+	macroData := fs.String("macro-data", "data/raw/worldbank", "directory holding ingested World Bank macro indicators (fallback)")
+	processedMacroData := fs.String("processed-macro-data", "data/processed/macro", "directory holding processed macro scores (macro_scores.json)")
 	eventData := fs.String("event-data", "data/raw/gdelt", "legacy ingested GDELT event data directory (demo fallback)")
 	processedEventData := fs.String("processed-event-data", "data/processed/events", "processed event-risk panel directory")
 	commodityData := fs.String("commodity-data", "data/processed/commodity_prices", "directory holding ingested commodity price data")
@@ -21,7 +22,7 @@ func scoreFragility(args []string, out, errOut io.Writer) int {
 	save := fs.String("save", "", "write the JSON result to this file")
 	explainFormula := fs.Bool("explain-formula", false, "print the score's formula, components, risk bands and limitations, then exit")
 	fs.Usage = func() {
-		fmt.Fprintln(errOut, "Usage: atlas score fragility [--graph-data dir] [--trade-data dir] [--macro-data dir] [--event-data dir] [--commodity-data dir] [--output text|json] [--save file] [--explain-formula]")
+		fmt.Fprintln(errOut, "Usage: atlas score fragility [--graph-data dir] [--trade-data dir] [--processed-macro-data dir] [--macro-data dir] [--event-data dir] [--commodity-data dir] [--output text|json] [--save file] [--explain-formula]")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -37,7 +38,7 @@ func scoreFragility(args []string, out, errOut io.Writer) int {
 		return 0
 	}
 
-	src := loadFragilitySources(*graphData, *tradeData, *macroData, *processedEventData, *eventData, *commodityData)
+	src := loadFragilitySources(*graphData, *tradeData, *macroData, *processedMacroData, *processedEventData, *eventData, *commodityData)
 	res := fragility.Score(src)
 	if len(res.Countries) == 0 && len(res.Commodities) == 0 {
 		fmt.Fprintln(errOut, "error: no fragility scores could be computed from the provided data paths")

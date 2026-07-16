@@ -27,7 +27,8 @@ import (
 type serverConfig struct {
 	GraphData          string // dataset dir (entities/dependencies/scenarios); "" => embedded sample
 	TradeData          string // ingested trade panel dir
-	MacroData          string // ingested World Bank macro dir
+	MacroData          string // ingested World Bank macro dir (raw indicators)
+	ProcessedMacroData string // processed macro scores dir
 	EventData          string // legacy ingested GDELT event dir (demo fallback)
 	ProcessedEventData string // processed event-risk panel dir (event_risk.json)
 	CommodityData      string // ingested commodity price dir
@@ -403,16 +404,20 @@ func (s *apiServer) handleMacroScores(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
+	if processed, ok := macro.TryLoadProcessed(s.cfg.ProcessedMacroData); ok {
+		writeJSONStatus(w, http.StatusOK, processed)
+		return
+	}
 	file, err := worldbank.Load(s.cfg.MacroData)
 	if err != nil {
 		writeAPIError(w, http.StatusInternalServerError, err.Error(),
-			"run `atlas ingest worldbank --countries ...` or pass an existing --macro-data dir")
+			"run `atlas ingest macro --out data/processed/macro` or `atlas ingest worldbank --countries ...`")
 		return
 	}
 	scores := macro.ScoreCountries(file, 0, macro.DefaultWeights())
 	if len(scores) == 0 {
 		writeAPIError(w, http.StatusInternalServerError,
-			"no country data found in "+s.cfg.MacroData, "run `atlas ingest worldbank --countries ...` first")
+			"no country data found in "+s.cfg.MacroData, "run `atlas ingest macro` or `atlas ingest worldbank` first")
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, buildMacroJSON(scores, 0))
@@ -511,6 +516,9 @@ func (s *apiServer) handleFragilitySummary(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	src, meta := s.fusedFragilitySources()
+	if src.ProcessedMacro != nil && len(src.ProcessedMacro.Scores) > 0 {
+		meta.DataSources = appendMacroDataSource(meta.DataSources)
+	}
 	res := fragility.Score(src)
 	writeJSONStatus(w, http.StatusOK, buildFragilitySummaryJSON(res, 5, meta))
 }

@@ -8,12 +8,13 @@ import (
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/scoring/fragility"
+	"github.com/atlasgraph/atlas/internal/scoring/macro"
 )
 
 // loadFragilitySources assembles optional upstream datasets for unified
 // fragility scoring. Missing paths are skipped so callers can produce partial
 // scores with missing_components instead of failing outright.
-func loadFragilitySources(graphData, tradeData, macroData, processedEventData, legacyEventData, commodityData string) fragility.Sources {
+func loadFragilitySources(graphData, tradeData, macroData, processedMacroData, processedEventData, legacyEventData, commodityData string) fragility.Sources {
 	src := fragility.Sources{Config: config.Default()}
 
 	if ds, err := loadDataset(graphData); err == nil {
@@ -26,7 +27,12 @@ func loadFragilitySources(graphData, tradeData, macroData, processedEventData, l
 			src.TradeDeps = resolved.DependencyFile
 		}
 	}
-	if macroData != "" {
+	if processedMacroData != "" {
+		if f, ok := macro.TryLoadProcessed(processedMacroData); ok {
+			src.ProcessedMacro = &f
+		}
+	}
+	if src.ProcessedMacro == nil && macroData != "" {
 		if f, err := worldbank.Load(macroData); err == nil {
 			src.Macro = &f
 		}

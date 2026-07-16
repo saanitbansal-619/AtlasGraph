@@ -119,6 +119,7 @@ type Sources struct {
 	// TradeDeps is the preferred processed UN Comtrade dependency panel when present.
 	TradeDeps          *trade.DependencyFile
 	Macro              *worldbank.IndicatorFile
+	ProcessedMacro     *macro.ProcessedScoreFile
 	Events             *gdelt.EventFile
 	ProcessedEventRisk *eventrisk.RiskFile
 	Commodities        *commodityprices.PriceFile
@@ -132,7 +133,7 @@ func Score(src Sources) Result {
 	cw := DefaultCountryWeights()
 	kw := DefaultCommodityWeights()
 
-	macroByKey := indexMacro(src.Macro)
+	macroByKey := indexMacro(src.ProcessedMacro, src.Macro)
 	eventByKey := indexEvents(src.ProcessedEventRisk, src.Events)
 	tradeConcByKey := tradeConcentrationByImporter(src.Trade, src.TradeDeps)
 	shockByName, shockOK := shockExposureByCountry(src.Graph, src.Scenarios, src.Config, src.SimContext)
@@ -499,8 +500,14 @@ func clampScore(v float64) float64 {
 	return v
 }
 
-func indexMacro(file *worldbank.IndicatorFile) map[string]macro.CountryScore {
+func indexMacro(processed *macro.ProcessedScoreFile, file *worldbank.IndicatorFile) map[string]macro.CountryScore {
 	out := map[string]macro.CountryScore{}
+	if processed != nil && len(processed.Scores) > 0 {
+		for _, s := range processed.ToCountryScores() {
+			out[strings.ToUpper(s.CountryCode)] = s
+		}
+		return out
+	}
 	if file == nil {
 		return out
 	}

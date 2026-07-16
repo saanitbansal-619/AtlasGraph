@@ -13,18 +13,21 @@ import (
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
 	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/gdelt"
+	macroingest "github.com/atlasgraph/atlas/internal/ingest/macro"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 )
 
 func runIngest(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|trade|trade-comtrade|gdelt|commodity-prices|events> [flags]")
+		fmt.Fprintln(errOut, "Usage: atlas ingest <worldbank|macro|trade|trade-comtrade|gdelt|commodity-prices|events> [flags]")
 		return 2
 	}
 	switch args[0] {
 	case "worldbank":
 		return ingestWorldBank(args[1:], out, errOut)
+	case "macro":
+		return ingestMacro(args[1:], out, errOut)
 	case "trade":
 		return ingestTrade(args[1:], out, errOut)
 	case "trade-comtrade":
@@ -36,7 +39,7 @@ func runIngest(args []string, out, errOut io.Writer) int {
 	case "events":
 		return ingestEvents(args[1:], out, errOut)
 	default:
-		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, trade, trade-comtrade, gdelt, commodity-prices or events)\n", args[0])
+		fmt.Fprintf(errOut, "unknown ingest source %q (want worldbank, macro, trade, trade-comtrade, gdelt, commodity-prices or events)\n", args[0])
 		return 2
 	}
 }
@@ -507,6 +510,60 @@ func ingestWorldBank(args []string, out, errOut io.Writer) int {
 	}
 	fmt.Fprintf(out, "Saved %d records (%d with values) across %d countries and %d indicators to %s\n",
 		len(records), withValues, len(codes), len(worldbank.DefaultIndicators), path)
+	return 0
+}
+
+// ingestMacro fetches or loads World Bank macro indicators, scores them, and
+// writes data/processed/macro/macro_scores.json.
+func ingestMacro(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("ingest macro", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	source := fs.String("source", "worldbank", "data source: worldbank (API with CSV fallback) or csv")
+	rawDir := fs.String("raw", macroingest.RawDirName, "directory for raw CSV/JSON macro indicators")
+	outDir := fs.String("out", "data/processed/macro", "directory to write macro_scores.json")
+	countries := fs.String("countries", strings.Join(macroingest.DefaultCountries, ","), "comma-separated ISO3 country codes")
+	start := fs.Int("start", worldbank.DefaultStartYear, "first year to fetch")
+	end := fs.Int("end", defaultEndYear(), "last year to fetch")
+	timeout := fs.Duration("timeout", 3*time.Minute, "overall timeout for API fetch")
+	fs.Usage = func() {
+		fmt.Fprintln(errOut, "Usage: atlas ingest macro [--source worldbank|csv] [--raw dir] [--out dir] [--countries ISO3,...] [--start Y] [--end Y]")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *start > *end {
+		fmt.Fprintf(errOut, "error: --start (%d) must not be after --end (%d)\n", *start, *end)
+		return 2
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+
+	fmt.Fprintf(out, "Ingesting World Bank macro indicators (%s)…\n", *source)
+	res, err := macroingest.Ingest(ctx, macroingest.Options{
+		Source:    *source,
+		RawDir:    *rawDir,
+		OutDir:    *outDir,
+		Countries: splitCodes(*countries),
+		StartYear: *start,
+		EndYear:   *end,
+		Timeout:   *timeout,
+	})
+	if err != nil {
+		fmt.Fprintf(errOut, "error: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprintf(out, "Macro ingest complete (%s)\n", res.FetchSource)
+	if len(res.Warnings) > 0 {
+		fmt.Fprintf(out, "  Warnings (%d):\n", len(res.Warnings))
+		for _, w := range res.Warnings {
+			fmt.Fprintf(out, "    - %s: %s\n", w.Indicator, w.Message)
+		}
+	}
+	fmt.Fprintf(out, "  Raw indicators : %s (%d records, %d countries)\n", res.RawPath, res.RecordCount, res.CountryCount)
+	fmt.Fprintf(out, "  Macro scores   : %s (%d countries)\n", res.ScoresPath, res.ScoreCount)
 	return 0
 }
 

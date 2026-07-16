@@ -961,6 +961,15 @@ func buildFragilitySummaryJSON(res fragility.Result, topN int, meta graphfusion.
 	return out
 }
 
+func appendMacroDataSource(sources []string) []string {
+	for _, s := range sources {
+		if s == graphfusion.SourceWorldBankMacro {
+			return sources
+		}
+	}
+	return append(sources, graphfusion.SourceWorldBankMacro)
+}
+
 func countryToJSON(s fragility.CountryScore) jsonFragilityCountry {
 	jc := jsonFragilityCountry{
 		CountryCode:       s.CountryCode,

@@ -15,13 +15,14 @@ func runServe(args []string, out, errOut io.Writer) int {
 	fs.SetOutput(errOut)
 	graphData := fs.String("data", "data/generated/trade_graph", "graph dataset dir (entities/dependencies/scenarios); empty uses the embedded sample")
 	tradeData := fs.String("trade-data", "data/processed/trade", "ingested trade data directory")
-	macroData := fs.String("macro-data", "data/raw/worldbank", "ingested World Bank macro data directory")
+	macroData := fs.String("macro-data", "data/raw/worldbank", "ingested World Bank macro indicators directory (fallback)")
+	processedMacroData := fs.String("processed-macro-data", "data/processed/macro", "processed macro scores directory (macro_scores.json)")
 	eventData := fs.String("event-data", "data/raw/gdelt", "legacy ingested GDELT event data directory (demo fallback)")
 	processedEventData := fs.String("processed-event-data", "data/processed/events", "processed event-risk panel directory (event_risk.json)")
 	commodityData := fs.String("commodity-data", "data/processed/commodity_prices", "ingested commodity price data directory")
 	port := fs.Int("port", 8080, "TCP port to listen on")
 	fs.Usage = func() {
-		fmt.Fprintln(errOut, "Usage: atlas serve [--data dir] [--trade-data dir] [--macro-data dir] [--event-data dir] [--processed-event-data dir] [--commodity-data dir] [--port 8080]")
+		fmt.Fprintln(errOut, "Usage: atlas serve [--data dir] [--trade-data dir] [--processed-macro-data dir] [--macro-data dir] [--event-data dir] [--processed-event-data dir] [--commodity-data dir] [--port 8080]")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -36,6 +37,7 @@ func runServe(args []string, out, errOut io.Writer) int {
 		GraphData:          *graphData,
 		TradeData:          *tradeData,
 		MacroData:          *macroData,
+		ProcessedMacroData: *processedMacroData,
 		EventData:          *eventData,
 		ProcessedEventData: *processedEventData,
 		CommodityData:      *commodityData,
@@ -61,6 +63,7 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 	fmt.Fprintf(out, "  Graph data  : %s\n", pathOrEmbedded(cfg.GraphData))
 	fmt.Fprintf(out, "  Trade data  : %s\n", cfg.TradeData)
 	fmt.Fprintf(out, "  Macro data  : %s\n", cfg.MacroData)
+	fmt.Fprintf(out, "  Processed macro data: %s\n", cfg.ProcessedMacroData)
 	fmt.Fprintf(out, "  Event data  : %s\n", cfg.EventData)
 	fmt.Fprintf(out, "  Processed event data: %s\n", cfg.ProcessedEventData)
 	fmt.Fprintf(out, "  Commodity data: %s\n", cfg.CommodityData)
