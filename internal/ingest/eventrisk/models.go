@@ -13,17 +13,18 @@ const SourceName = "GDELT"
 const OutputFileName = "event_risk.json"
 
 // DefaultScoringNote documents how event-risk scores are derived.
-const DefaultScoringNote = "Country event-risk scores blend recent event volume, negative tone, and event severity from GDELT-style public event records. Scores are model-derived exposure estimates, not factual predictions."
+const DefaultScoringNote = "Country event-risk scores blend event volume (log-scaled), negative tone, event severity, and strategic relevance from GDELT-style public event records. Scores are model-derived exposure estimates, not factual predictions."
 
 // NormalizedEvent is one public event/news record after ingest normalization.
 type NormalizedEvent struct {
-	Country   string  `json:"country"`
-	Date      string  `json:"date"`
-	EventType string  `json:"event_type"`
-	Severity  float64 `json:"severity"`
-	Tone      float64 `json:"tone"`
-	Source    string  `json:"source"`
-	Summary   string  `json:"summary,omitempty"`
+	Country      string  `json:"country"`
+	Date         string  `json:"date"`
+	EventType    string  `json:"event_type"`
+	Severity     float64 `json:"severity"`
+	Tone         float64 `json:"tone"`
+	MentionCount int     `json:"mention_count,omitempty"`
+	Source       string  `json:"source"`
+	Summary      string  `json:"summary,omitempty"`
 }
 
 // CountryRisk is the scored event-risk summary for one country.

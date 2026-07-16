@@ -11,13 +11,17 @@ import (
 
 const recentWindowDays = 30
 
-// Component weights for processed GDELT event risk. Sum to 1.0 so the blended
-// score stays on a 0..100 scale.
+// Component weights for processed GDELT event risk. Sum to 1.0.
 const (
-	weightRecentEvents = 0.40
-	weightNegativeTone = 0.35
-	weightSeverity     = 0.25
+	weightEventVolume         = 0.35
+	weightNegativeTone        = 0.30
+	weightSeverity            = 0.25
+	weightStrategicRelevance  = 0.10
 )
+
+// Absolute log-volume reference used when the panel has too few countries for a
+// stable percentile (avoids every singleton scoring 100).
+const volumeReferenceCount = 16.0
 
 // ScoreEvents computes country-level event risk from normalized events.
 func ScoreEvents(records []NormalizedEvent, now time.Time) []CountryRisk {
@@ -36,9 +40,18 @@ func ScoreEvents(records []NormalizedEvent, now time.Time) []CountryRisk {
 		g.events = append(g.events, r)
 	}
 
+	volumes := make([]float64, 0, len(order))
+	stats := make(map[string]countryStats, len(order))
+	for _, country := range order {
+		st := computeCountryStats(byCountry[country].events, now)
+		stats[country] = st
+		volumes = append(volumes, st.volume)
+	}
+	p90 := percentile(volumes, 0.90)
+
 	out := make([]CountryRisk, 0, len(order))
 	for _, country := range order {
-		out = append(out, scoreCountry(country, byCountry[country].events, now))
+		out = append(out, scoreCountry(country, stats[country], p90, len(order)))
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
@@ -50,34 +63,48 @@ func ScoreEvents(records []NormalizedEvent, now time.Time) []CountryRisk {
 	return out
 }
 
-func scoreCountry(country string, evs []NormalizedEvent, now time.Time) CountryRisk {
-	recent := 0
-	var toneSum float64
-	typeCounts := map[string]int{}
+type countryStats struct {
+	events       []NormalizedEvent
+	count        int
+	recent       int
+	mentions     int
+	volume       float64
+	avgTone      float64
+	typeCounts   map[string]int
+}
 
+func computeCountryStats(evs []NormalizedEvent, now time.Time) countryStats {
+	st := countryStats{events: evs, typeCounts: map[string]int{}}
+	var toneSum float64
 	for _, e := range evs {
 		days := daysSince(e.Date, now)
 		if days >= 0 && days <= recentWindowDays {
-			recent++
+			st.recent++
 		}
 		toneSum += e.Tone
-		typeCounts[e.EventType]++
+		st.mentions += e.MentionCount
+		st.typeCounts[e.EventType]++
 	}
-
-	count := len(evs)
-	avgTone := 0.0
-	if count > 0 {
-		avgTone = toneSum / float64(count)
+	st.count = len(evs)
+	if st.count > 0 {
+		st.avgTone = toneSum / float64(st.count)
 	}
+	// event_volume = event_count + log(1 + total_mentions)
+	st.volume = float64(st.count) + math.Log1p(float64(st.mentions))
+	return st
+}
 
-	recentScore := recentEventsScore(recent, count)
-	toneScore := negativeToneScore(avgTone)
-	severityScore := eventSeverityScore(evs)
+func scoreCountry(country string, st countryStats, volumeP90 float64, panelSize int) CountryRisk {
+	volumeScore := eventVolumeScore(st.volume, volumeP90, panelSize)
+	toneScore := negativeToneScore(st.avgTone)
+	severityScore := eventSeverityScore(st.events)
+	strategicScore := strategicRelevanceScore(st.events)
 
 	comps := []events.Component{
-		makeComponent("recent_events", "recent events", weightRecentEvents, recentScore),
+		makeComponent("event_volume", "event volume", weightEventVolume, volumeScore),
 		makeComponent("negative_tone", "negative tone", weightNegativeTone, toneScore),
 		makeComponent("event_severity", "event severity", weightSeverity, severityScore),
+		makeComponent("strategic_relevance", "strategic relevance", weightStrategicRelevance, strategicScore),
 	}
 
 	final := 0.0
@@ -91,10 +118,10 @@ func scoreCountry(country string, evs []NormalizedEvent, now time.Time) CountryR
 		CountryCode:      ISO3ForCountry(country),
 		EventRiskScore:   round1(final),
 		RiskLevel:        events.RiskLevel(final),
-		EventCount:       count,
-		RecentEventCount: recent,
-		AverageTone:      round2(avgTone),
-		TopEventTypes:    topEventTypes(typeCounts, 3),
+		EventCount:       st.count,
+		RecentEventCount: st.recent,
+		AverageTone:      round2(st.avgTone),
+		TopEventTypes:    topEventTypes(st.typeCounts, 3),
 		Source:           SourceName,
 		Components:       comps,
 	}
@@ -110,14 +137,21 @@ func makeComponent(key, name string, weight, score float64) events.Component {
 	}
 }
 
-// recentEventsScore maps recent-window activity and overall event volume to 0..100.
-func recentEventsScore(recent, total int) float64 {
-	recentPart := scaleLinear100(float64(recent), 0, 3)
-	volumePart := scaleLinear100(float64(total), 0, 5)
-	if recentPart > volumePart {
-		return recentPart
+// eventVolumeScore maps log-scaled event volume to 0..100 using the panel's
+// 90th-percentile volume (with an absolute reference fallback).
+func eventVolumeScore(volume, p90 float64, panelSize int) float64 {
+	scaled := math.Log1p(math.Max(0, volume))
+	ref := math.Log1p(volumeReferenceCount)
+	denom := math.Log1p(math.Max(0, p90))
+	if panelSize < 2 || denom < 1e-9 {
+		denom = ref
+	} else if denom < ref*0.5 {
+		// Tiny panels: blend percentile with absolute reference so a lone
+		// moderate country does not automatically score 100.
+		denom = (denom + ref) / 2
 	}
-	return volumePart
+	// Map p90 volume to ~90 so only clear outliers approach 100.
+	return math.Min(100, 90*scaled/denom)
 }
 
 // negativeToneScore maps average GDELT tone to 0..100. Neutral/positive tone is 0;
@@ -129,17 +163,43 @@ func negativeToneScore(avgTone float64) float64 {
 	return math.Min(100, scaleLinear100(-avgTone, 0, 10))
 }
 
-// eventSeverityScore maps CSV severity (0..1) and event type to 0..100 using the
-// highest-risk event in the country group.
+// eventSeverityScore averages type-weighted severities across all events so a
+// single extreme observation does not saturate the country score.
 func eventSeverityScore(evs []NormalizedEvent) float64 {
-	max := 0.0
+	if len(evs) == 0 {
+		return 0
+	}
+	sum := 0.0
 	for _, e := range evs {
-		sev := severityTo100(e.Severity) * eventTypeWeight(e.EventType)
-		if sev > max {
-			max = sev
+		sum += severityTo100(e.Severity) * eventTypeWeight(e.EventType)
+	}
+	return math.Min(100, sum/float64(len(evs)))
+}
+
+// strategicRelevanceScore rises with the share of strategically relevant event types.
+func strategicRelevanceScore(evs []NormalizedEvent) float64 {
+	if len(evs) == 0 {
+		return 0
+	}
+	high := 0
+	for _, e := range evs {
+		if isStrategicEventType(e.EventType) {
+			high++
 		}
 	}
-	return math.Min(100, max)
+	share := float64(high) / float64(len(evs))
+	return math.Min(100, share*100)
+}
+
+func isStrategicEventType(eventType string) bool {
+	switch normalizeEventType(eventType) {
+	case "conflict", "military", "security", "sanctions", "export control",
+		"shipping disruption", "port disruption", "energy disruption",
+		"supply chain disruption", "infrastructure disruption":
+		return true
+	default:
+		return false
+	}
 }
 
 func severityTo100(v float64) float64 {
@@ -154,12 +214,14 @@ func eventTypeWeight(eventType string) float64 {
 		return 0.95
 	case "shipping disruption", "port disruption", "energy disruption", "supply chain disruption", "infrastructure disruption", "disruption":
 		return 0.9
-	case "protest", "strike", "political risk":
-		return 0.85
+	case "protest", "strike":
+		return 0.7
+	case "political risk":
+		return 0.55
 	case "economic", "trade":
-		return 0.5
+		return 0.45
 	default:
-		return 0.6
+		return 0.5
 	}
 }
 
@@ -172,7 +234,7 @@ func normalizeEventType(raw string) string {
 		return "conflict"
 	case strings.Contains(s, "sanction"):
 		return "sanctions"
-	case strings.Contains(s, "export control"), strings.Contains(s, "export_control"):
+	case strings.Contains(s, "export control"):
 		return "export control"
 	case strings.Contains(s, "protest"), strings.Contains(s, "demonstrat"):
 		return "protest"
@@ -188,7 +250,7 @@ func normalizeEventType(raw string) string {
 		return "port disruption"
 	case strings.Contains(s, "energy"):
 		return "energy disruption"
-	case strings.Contains(s, "supply chain"), strings.Contains(s, "supply_chain"):
+	case strings.Contains(s, "supply chain"):
 		return "supply chain disruption"
 	case strings.Contains(s, "political"):
 		return "political risk"
@@ -206,7 +268,6 @@ func normalizeEventType(raw string) string {
 
 func normalizeSeverity(v float64) float64 {
 	// GDELT Goldstein scale is typically -10 (conflictual) to +10 (cooperative).
-	// Map conflictual (negative) values to higher severity.
 	if v < 0 && v >= -10 {
 		return clamp01(-v / 10.0)
 	}
@@ -217,6 +278,31 @@ func normalizeSeverity(v float64) float64 {
 		return clamp01(v / 100.0)
 	}
 	return clamp01(v)
+}
+
+func percentile(values []float64, p float64) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	sorted := append([]float64{}, values...)
+	sort.Float64s(sorted)
+	if len(sorted) == 1 {
+		return sorted[0]
+	}
+	if p <= 0 {
+		return sorted[0]
+	}
+	if p >= 1 {
+		return sorted[len(sorted)-1]
+	}
+	idx := p * float64(len(sorted)-1)
+	lo := int(math.Floor(idx))
+	hi := int(math.Ceil(idx))
+	if lo == hi {
+		return sorted[lo]
+	}
+	w := idx - float64(lo)
+	return sorted[lo]*(1-w) + sorted[hi]*w
 }
 
 func scaleLinear100(v, lo, hi float64) float64 {

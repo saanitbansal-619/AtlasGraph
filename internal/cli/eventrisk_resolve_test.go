@@ -90,8 +90,11 @@ func TestIngestEventsCLI(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, stderr=%s", code, errOut)
 	}
-	if !strings.Contains(out, "Saved event risk panel") || !strings.Contains(out, "Ukraine") {
+	if !strings.Contains(out, "Saved event risk panel") || !strings.Contains(out, "Top event-risk country") {
 		t.Fatalf("unexpected output: %s", out)
+	}
+	if !strings.Contains(out, "Rows processed") || !strings.Contains(out, "Latest event date") {
+		t.Fatalf("missing metadata in output: %s", out)
 	}
 	loaded, err := eventrisk.Load(outDir)
 	if err != nil {

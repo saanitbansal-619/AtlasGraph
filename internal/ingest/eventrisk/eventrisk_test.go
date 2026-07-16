@@ -133,9 +133,10 @@ func TestToLegacyCountryScoresUsesStoredComponents(t *testing.T) {
 			Country: "Ukraine", CountryCode: "UKR", EventRiskScore: 80, RiskLevel: "Critical",
 			EventCount: 3, RecentEventCount: 2, AverageTone: -5, TopEventTypes: []string{"conflict"},
 			Components: []events.Component{
-				{Key: "recent_events", Name: "recent events", Score: 70, Weight: 0.4, Contribution: 28},
-				{Key: "negative_tone", Name: "negative tone", Score: 82, Weight: 0.35, Contribution: 28.7},
+				{Key: "event_volume", Name: "event volume", Score: 70, Weight: 0.35, Contribution: 24.5},
+				{Key: "negative_tone", Name: "negative tone", Score: 82, Weight: 0.30, Contribution: 24.6},
 				{Key: "event_severity", Name: "event severity", Score: 90, Weight: 0.25, Contribution: 22.5},
+				{Key: "strategic_relevance", Name: "strategic relevance", Score: 80, Weight: 0.10, Contribution: 8.0},
 			},
 		}},
 	}

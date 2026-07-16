@@ -34,11 +34,11 @@ func DefaultWeights() Weights {
 
 // Component is one contributor to a country's event-risk score.
 type Component struct {
-	Key          string  // stable identifier, e.g. "event_count"
-	Name         string  // human-friendly label, e.g. "event volume"
-	Score        float64 // 0..100
-	Weight       float64 // weight applied in the blend
-	Contribution float64 // Weight * Score
+	Key          string  `json:"key"`
+	Name         string  `json:"name"`
+	Score        float64 `json:"score"`
+	Weight       float64 `json:"weight"`
+	Contribution float64 `json:"contribution"`
 }
 
 // CountryScore is the full, explainable event-risk result for one country.

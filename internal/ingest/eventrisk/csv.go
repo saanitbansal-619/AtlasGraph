@@ -16,6 +16,7 @@ var csvTypeCols = []string{"event_type", "type", "category", "eventcode", "event
 var csvSeverityCols = []string{"severity", "goldstein_score", "goldstein", "goldsteinscale", "impact"}
 var csvToneCols = []string{"tone", "avg_tone", "avgtone", "mediatone"}
 var csvSummaryCols = []string{"summary", "title", "description", "headline", "text", "notes"}
+var csvMentionCols = []string{"mention_count", "mentions", "nummentions", "num_mentions"}
 
 // LoadCSV parses a GDELT-style event CSV into normalized events.
 func LoadCSV(path string) (IngestResult, error) {
@@ -130,14 +131,22 @@ func parseCSVRow(idx headerIndex, row []string) (NormalizedEvent, string, bool) 
 		summary = strings.TrimSpace(row[i])
 	}
 
+	mentions := 0
+	if i, ok := idx.first(csvMentionCols); ok && i < len(row) {
+		if v, ok := parseFloat(row[i]); ok && v > 0 {
+			mentions = int(v)
+		}
+	}
+
 	return NormalizedEvent{
-		Country:   canonical,
-		Date:      date,
-		EventType: eventType,
-		Severity:  severity,
-		Tone:      tone,
-		Source:    SourceName,
-		Summary:   summary,
+		Country:      canonical,
+		Date:         date,
+		EventType:    eventType,
+		Severity:     severity,
+		Tone:         tone,
+		MentionCount: mentions,
+		Source:       SourceName,
+		Summary:      summary,
 	}, "", true
 }
 

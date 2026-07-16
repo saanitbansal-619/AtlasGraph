@@ -21,9 +21,10 @@ func ToLegacyCountryScores(file RiskFile) []events.CountryScore {
 		comps := c.Components
 		if len(comps) == 0 {
 			comps = []events.Component{
-				{Key: "recent_events", Name: "recent events", Score: c.EventRiskScore, Weight: weightRecentEvents, Contribution: c.EventRiskScore * weightRecentEvents},
+				{Key: "event_volume", Name: "event volume", Score: c.EventRiskScore, Weight: weightEventVolume, Contribution: c.EventRiskScore * weightEventVolume},
 				{Key: "negative_tone", Name: "negative tone", Score: c.EventRiskScore, Weight: weightNegativeTone, Contribution: c.EventRiskScore * weightNegativeTone},
 				{Key: "event_severity", Name: "event severity", Score: c.EventRiskScore, Weight: weightSeverity, Contribution: c.EventRiskScore * weightSeverity},
+				{Key: "strategic_relevance", Name: "strategic relevance", Score: c.EventRiskScore, Weight: weightStrategicRelevance, Contribution: c.EventRiskScore * weightStrategicRelevance},
 			}
 		}
 		out = append(out, events.CountryScore{
@@ -49,7 +50,7 @@ func topDriversFromComponents(comps []events.Component, n int) []string {
 		}
 	}
 	if len(avail) == 0 {
-		return []string{"recent events", "negative tone", "event severity"}
+		return []string{"event volume", "negative tone", "event severity"}
 	}
 	// sort by contribution desc
 	for i := 0; i < len(avail); i++ {
