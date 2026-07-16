@@ -35,10 +35,14 @@ export function DataSourcesCard({
   const tradeActive = fragility?.real_trade_edges_used ?? summary?.real_trade_edges_used ?? false
   const eventActive = fragility?.real_event_risk_used ?? summary?.real_event_risk_used ?? false
   const priceActive = fragility?.real_price_stress_used ?? summary?.real_price_stress_used ?? false
+  const macroActive =
+    fragility?.data_sources?.includes('World Bank Macro') ??
+    summary?.data_sources?.includes('World Bank Macro') ??
+    false
   const fusionActive =
     fragility?.fusion_enabled ??
     summary?.fusion_enabled ??
-    (tradeActive || eventActive || priceActive)
+    (tradeActive || eventActive || priceActive || macroActive)
 
   const tradeNote = fragility?.trade_concentration_note
   const tradeSource = fragility?.trade_concentration_source
@@ -71,7 +75,7 @@ export function DataSourcesCard({
         } ${loading ? 'opacity-70' : ''}`}
       >
         <p className="text-xs leading-snug text-slate-400">
-          GFIP combines observed trade, event-risk, and commodity-price data with a baseline
+          GFIP combines observed trade, event-risk, commodity-price, and macro data with a baseline
           dependency graph to estimate supply-chain exposure.
         </p>
 
@@ -80,12 +84,14 @@ export function DataSourcesCard({
           <StatusBadge label="UN Comtrade" active={tradeActive} />
           <StatusBadge label="GDELT" active={eventActive} />
           <StatusBadge label="World Bank Pink Sheet" active={priceActive} />
+          <StatusBadge label="World Bank Macro" active={macroActive} />
         </div>
 
         <p className="text-[11px] leading-snug text-slate-500">
-          Observed data: UN Comtrade trade flows, GDELT event-risk signals, and World Bank
-          commodity prices. Model-derived outputs: fragility scores, shock propagation, impact
-          deltas, and graph centrality.
+          Observed data: UN Comtrade trade flows, GDELT event-risk signals, World Bank commodity
+          prices{macroActive ? ', and World Bank macro indicators' : ''}.
+          {macroActive && ' Country fragility includes World Bank macro indicators.'} Model-derived
+          outputs: fragility scores, shock propagation, impact deltas, and graph centrality.
         </p>
 
         {showMeta && (

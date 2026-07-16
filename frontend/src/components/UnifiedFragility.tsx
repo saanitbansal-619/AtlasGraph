@@ -35,12 +35,17 @@ export function UnifiedFragility({
     )
   }
 
+  const macroSourceActive = summary.data_sources?.includes('World Bank Macro') ?? false
+
   return (
     <Panel title="Unified Fragility" right={<span className="text-[11px] text-slate-500">top 5 by score</span>}>
       <div className={`space-y-3 ${loading ? 'opacity-70' : ''}`}>
         <p className="text-xs text-slate-400">
-          Observed trade, event-risk, and commodity-price signals combine with baseline graph
-          structure to produce model-derived fragility scores.
+          Observed trade, event-risk, commodity-price{macroSourceActive ? ', and World Bank macro' : ''}{' '}
+          signals combine with baseline graph structure to produce model-derived fragility scores.
+          {macroSourceActive && (
+            <span className="text-slate-500"> Country fragility includes World Bank macro indicators.</span>
+          )}
         </p>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -108,6 +113,7 @@ export function UnifiedFragility({
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <FragilityTable
                 label="Countries"
+                macroSourceActive={macroSourceActive}
                 rows={summary.countries.map((c) => ({
                   name: c.country_name,
                   score: c.score,
@@ -140,6 +146,7 @@ function FragilityTable({
   label,
   rows,
   empty,
+  macroSourceActive = false,
 }: {
   label: string
   rows: Array<{
@@ -150,6 +157,7 @@ function FragilityTable({
     components?: FragilityComponent[]
   }>
   empty: string
+  macroSourceActive?: boolean
 }) {
   if (rows.length === 0) {
     return <p className="text-sm text-slate-500">{empty}</p>
@@ -173,7 +181,10 @@ function FragilityTable({
               <tr key={row.name} className="border-b border-slate-800/60 hover:bg-slate-800/30">
                 <td className="td align-top">
                   <div className="font-medium text-slate-100">{row.name}</div>
-                  <ComponentProvenance components={row.components} />
+                  <ComponentProvenance
+                    components={row.components}
+                    macroSourceActive={macroSourceActive}
+                  />
                 </td>
                 <td className="td align-top text-right font-mono tabular-nums text-slate-200">
                   {fixed(row.score, 1)}
@@ -191,20 +202,40 @@ function FragilityTable({
   )
 }
 
-function ComponentProvenance({ components }: { components?: FragilityComponent[] }) {
+function ComponentProvenance({
+  components,
+  macroSourceActive = false,
+}: {
+  components?: FragilityComponent[]
+  macroSourceActive?: boolean
+}) {
   if (!components?.length) return null
-  const labeled = components.filter((c) => c.available && (c.source || c.note))
+
+  const labeled = components.filter(
+    (c) =>
+      c.available &&
+      (c.source ||
+        c.note ||
+        (macroSourceActive && c.key === 'macro_exposure_score')),
+  )
   if (labeled.length === 0) return null
 
   return (
     <div className="mt-1.5 space-y-0.5">
-      {labeled.map((c) => (
-        <div key={c.key} className="text-[10px] leading-snug text-slate-500">
-          <span className="text-slate-400">{c.name}</span>
-          {c.source && <span> · source: {c.source}</span>}
-          {c.note && <span> · note: {c.note}</span>}
-        </div>
-      ))}
+      {labeled.map((c) => {
+        const source =
+          c.source ||
+          (macroSourceActive && c.key === 'macro_exposure_score'
+            ? 'World Bank Macro'
+            : undefined)
+        return (
+          <div key={c.key} className="text-[10px] leading-snug text-slate-500">
+            <span className="text-slate-400">{c.name}</span>
+            {source && <span> · source: {source}</span>}
+            {c.note && <span> · note: {c.note}</span>}
+          </div>
+        )
+      })}
     </div>
   )
 }
