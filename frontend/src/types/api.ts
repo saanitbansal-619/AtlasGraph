@@ -318,6 +318,11 @@ export interface EventRiskResponse {
   real_event_data: boolean
   date_from?: string
   date_to?: string
+  latest_event_date?: string
+  rows_processed?: number
+  countries_covered?: number
+  event_type_breakdown?: Record<string, number>
+  scoring_note?: string
   scores: EventRiskScore[]
 }
 

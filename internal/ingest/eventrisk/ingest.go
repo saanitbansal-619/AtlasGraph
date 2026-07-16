@@ -3,6 +3,7 @@ package eventrisk
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -31,20 +32,33 @@ func IngestFromFile(path, source string) (RiskFile, []string, error) {
 	if sourceName == "" {
 		sourceName = SourceName
 	}
+	// Normalize common CLI labels to the canonical public source name.
+	if strings.EqualFold(sourceName, "gdelt") {
+		sourceName = SourceName
+	}
 
 	now := time.Now().UTC()
 	countries := ScoreEvents(res.Events, now)
 	from, to := dateRange(res.Events)
+	rowsProcessed := res.RowsProcessed
+	if rowsProcessed == 0 {
+		rowsProcessed = len(res.Events)
+	}
 
 	file := RiskFile{
-		Source:     sourceName,
-		IngestedAt: now,
-		SourceFile: path,
-		DateFrom:   from,
-		DateTo:     to,
-		EventCount: len(res.Events),
-		Countries:  countries,
-		Events:     res.Events,
+		Source:             sourceName,
+		IngestedAt:         now,
+		SourceFile:         path,
+		DateFrom:           from,
+		DateTo:             to,
+		LatestEventDate:    to,
+		EventCount:         len(res.Events),
+		RowsProcessed:      rowsProcessed,
+		CountriesCovered:   len(countries),
+		EventTypeBreakdown: eventTypeBreakdown(res.Events),
+		ScoringNote:        DefaultScoringNote,
+		Countries:          countries,
+		Events:             res.Events,
 	}
 	return file, res.Warnings, nil
 }
@@ -64,4 +78,31 @@ func dateRange(events []NormalizedEvent) (from, to string) {
 		}
 	}
 	return from, to
+}
+
+func eventTypeBreakdown(events []NormalizedEvent) map[string]int {
+	out := map[string]int{}
+	for _, e := range events {
+		t := e.EventType
+		if t == "" {
+			t = "other"
+		}
+		out[t]++
+	}
+	return out
+}
+
+// SortedEventTypeKeys returns event types sorted by count descending for reports.
+func SortedEventTypeKeys(breakdown map[string]int) []string {
+	keys := make([]string, 0, len(breakdown))
+	for k := range breakdown {
+		keys = append(keys, k)
+	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		if breakdown[keys[i]] != breakdown[keys[j]] {
+			return breakdown[keys[i]] > breakdown[keys[j]]
+		}
+		return keys[i] < keys[j]
+	})
+	return keys
 }

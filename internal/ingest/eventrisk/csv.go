@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-var csvCountryCols = []string{"country", "country_name", "location", "actor1_country", "actor2_country"}
+var csvCountryCols = []string{"country_code", "country", "country_name", "location", "actor1_country", "actor2_country"}
 var csvDateCols = []string{"date", "event_date", "published_at", "sqldate", "day"}
 var csvTypeCols = []string{"event_type", "type", "category", "eventcode", "event_root_code"}
-var csvSeverityCols = []string{"severity", "goldstein", "goldsteinscale", "impact"}
+var csvSeverityCols = []string{"severity", "goldstein_score", "goldstein", "goldsteinscale", "impact"}
 var csvToneCols = []string{"tone", "avg_tone", "avgtone", "mediatone"}
-var csvSummaryCols = []string{"summary", "title", "description", "headline", "text"}
+var csvSummaryCols = []string{"summary", "title", "description", "headline", "text", "notes"}
 
 // LoadCSV parses a GDELT-style event CSV into normalized events.
 func LoadCSV(path string) (IngestResult, error) {
@@ -48,6 +48,7 @@ func ParseCSV(r io.Reader) (IngestResult, error) {
 		if err != nil {
 			return out, fmt.Errorf("reading CSV row: %w", err)
 		}
+		out.RowsProcessed++
 		ev, warn, ok := parseCSVRow(idx, row)
 		if warn != "" {
 			out.Warnings = append(out.Warnings, warn)

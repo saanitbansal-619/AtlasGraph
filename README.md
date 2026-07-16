@@ -109,7 +109,7 @@ go run ./cmd/atlas ingest trade \
 
 # GDELT / event risk
 go run ./cmd/atlas ingest events \
-  --file data/raw/gdelt_events/events.csv \
+  --file data/raw/gdelt_events/gdelt_events_2024_expanded.csv \
   --out data/processed/events \
   --source gdelt
 

@@ -10,14 +10,19 @@ import (
 
 // resolvedEventRisk is the unified event-risk payload used by the API and CLI.
 type resolvedEventRisk struct {
-	Source         string
-	RealEventData  bool
-	DateFrom       string
-	DateTo         string
-	Scores         []events.CountryScore
-	Processed      *eventrisk.RiskFile
-	RecentEvents   []eventrisk.NormalizedEvent
-	CountryFilter  string
+	Source             string
+	RealEventData      bool
+	DateFrom           string
+	DateTo             string
+	LatestEventDate    string
+	RowsProcessed      int
+	CountriesCovered   int
+	EventTypeBreakdown map[string]int
+	ScoringNote        string
+	Scores             []events.CountryScore
+	Processed          *eventrisk.RiskFile
+	RecentEvents       []eventrisk.NormalizedEvent
+	CountryFilter      string
 }
 
 func resolveEventRisk(processedDir, legacyDir string) (resolvedEventRisk, error) {
@@ -31,13 +36,34 @@ func resolveEventRisk(processedDir, legacyDir string) (resolvedEventRisk, error)
 			if real {
 				source = eventrisk.SourceName
 			}
+			latest := file.LatestEventDate
+			if latest == "" {
+				latest = file.DateTo
+			}
+			covered := file.CountriesCovered
+			if covered == 0 {
+				covered = len(file.Countries)
+			}
+			rows := file.RowsProcessed
+			if rows == 0 {
+				rows = file.EventCount
+			}
+			note := file.ScoringNote
+			if note == "" && real {
+				note = eventrisk.DefaultScoringNote
+			}
 			return resolvedEventRisk{
-				Source:        source,
-				RealEventData: real,
-				DateFrom:      file.DateFrom,
-				DateTo:        file.DateTo,
-				Scores:        eventrisk.ToLegacyCountryScores(file),
-				Processed:     &file,
+				Source:             source,
+				RealEventData:      real,
+				DateFrom:           file.DateFrom,
+				DateTo:             file.DateTo,
+				LatestEventDate:    latest,
+				RowsProcessed:      rows,
+				CountriesCovered:   covered,
+				EventTypeBreakdown: file.EventTypeBreakdown,
+				ScoringNote:        note,
+				Scores:             eventrisk.ToLegacyCountryScores(file),
+				Processed:          &file,
 			}, nil
 		}
 	}

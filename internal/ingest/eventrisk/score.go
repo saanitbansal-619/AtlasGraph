@@ -150,11 +150,11 @@ func eventTypeWeight(eventType string) float64 {
 	switch normalizeEventType(eventType) {
 	case "conflict", "military", "security":
 		return 1.0
-	case "sanctions":
+	case "sanctions", "export control":
 		return 0.95
-	case "infrastructure disruption", "disruption", "shipping disruption":
+	case "shipping disruption", "port disruption", "energy disruption", "supply chain disruption", "infrastructure disruption", "disruption":
 		return 0.9
-	case "protest", "strike":
+	case "protest", "strike", "political risk":
 		return 0.85
 	case "economic", "trade":
 		return 0.5
@@ -172,6 +172,8 @@ func normalizeEventType(raw string) string {
 		return "conflict"
 	case strings.Contains(s, "sanction"):
 		return "sanctions"
+	case strings.Contains(s, "export control"), strings.Contains(s, "export_control"):
+		return "export control"
 	case strings.Contains(s, "protest"), strings.Contains(s, "demonstrat"):
 		return "protest"
 	case strings.Contains(s, "strike"):
@@ -180,7 +182,17 @@ func normalizeEventType(raw string) string {
 		return "military"
 	case strings.Contains(s, "security"):
 		return "security"
-	case strings.Contains(s, "infrastructure"), strings.Contains(s, "disruption"), strings.Contains(s, "shipping"):
+	case strings.Contains(s, "shipping"):
+		return "shipping disruption"
+	case strings.Contains(s, "port"):
+		return "port disruption"
+	case strings.Contains(s, "energy"):
+		return "energy disruption"
+	case strings.Contains(s, "supply chain"), strings.Contains(s, "supply_chain"):
+		return "supply chain disruption"
+	case strings.Contains(s, "political"):
+		return "political risk"
+	case strings.Contains(s, "infrastructure"), strings.Contains(s, "disruption"):
 		return "infrastructure disruption"
 	case strings.Contains(s, "economic"), strings.Contains(s, "trade"):
 		return "economic"
@@ -193,6 +205,11 @@ func normalizeEventType(raw string) string {
 }
 
 func normalizeSeverity(v float64) float64 {
+	// GDELT Goldstein scale is typically -10 (conflictual) to +10 (cooperative).
+	// Map conflictual (negative) values to higher severity.
+	if v < 0 && v >= -10 {
+		return clamp01(-v / 10.0)
+	}
 	if v > 1 && v <= 10 {
 		return clamp01(v / 10.0)
 	}

@@ -61,10 +61,21 @@ export function EventRiskPanel({
         <div className="px-3 py-4 text-sm text-slate-500">No event risk scores available.</div>
       ) : (
         <div className={`space-y-3 ${loading ? 'opacity-70' : ''}`}>
-          <p className="border-b border-slate-800/60 px-3 py-1.5 text-[11px] text-slate-500">
-            Source: {data.source || 'unknown'}
-            {data.date_from && data.date_to ? ` · ${data.date_from} to ${data.date_to}` : ''}
-          </p>
+          <div className="space-y-1 border-b border-slate-800/60 px-3 py-1.5 text-[11px] text-slate-500">
+            <p>
+              Source: {data.source || 'unknown'}
+              {data.date_from && data.date_to ? ` · ${data.date_from} to ${data.date_to}` : ''}
+            </p>
+            <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-slate-400">
+              {data.rows_processed != null && data.rows_processed > 0 && (
+                <span>Rows processed: {data.rows_processed}</span>
+              )}
+              {data.countries_covered != null && data.countries_covered > 0 && (
+                <span>Countries covered: {data.countries_covered}</span>
+              )}
+              {data.latest_event_date && <span>Latest event date: {data.latest_event_date}</span>}
+            </p>
+          </div>
 
           <div className="space-y-3 px-3 pb-3">
             <div className="max-h-56 overflow-y-auto rounded border border-slate-800/60">

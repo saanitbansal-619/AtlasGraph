@@ -490,15 +490,20 @@ func saveMacroJSON(path string, scores []macro.CountryScore, yearLens int) error
 // --- event risk scores -----------------------------------------------------
 
 type jsonEventFile struct {
-	Source        string             `json:"source"`
-	RealEventData bool               `json:"real_event_data"`
-	DateFrom      string             `json:"date_from,omitempty"`
-	DateTo        string             `json:"date_to,omitempty"`
-	Weights       events.Weights     `json:"weights"`
-	RiskBands     map[string]string  `json:"risk_bands"`
-	Scores        []jsonEventCountry `json:"scores"`
-	Country       *jsonEventCountry  `json:"country,omitempty"`
-	RecentEvents  []jsonEventRecord  `json:"recent_events,omitempty"`
+	Source             string             `json:"source"`
+	RealEventData      bool               `json:"real_event_data"`
+	DateFrom           string             `json:"date_from,omitempty"`
+	DateTo             string             `json:"date_to,omitempty"`
+	LatestEventDate    string             `json:"latest_event_date,omitempty"`
+	RowsProcessed      int                `json:"rows_processed,omitempty"`
+	CountriesCovered   int                `json:"countries_covered,omitempty"`
+	EventTypeBreakdown map[string]int     `json:"event_type_breakdown,omitempty"`
+	ScoringNote        string             `json:"scoring_note,omitempty"`
+	Weights            events.Weights     `json:"weights"`
+	RiskBands          map[string]string  `json:"risk_bands"`
+	Scores             []jsonEventCountry `json:"scores"`
+	Country            *jsonEventCountry  `json:"country,omitempty"`
+	RecentEvents       []jsonEventRecord  `json:"recent_events,omitempty"`
 }
 
 type jsonEventRecord struct {
@@ -542,11 +547,16 @@ func buildEventRiskJSON(scores []events.CountryScore) jsonEventFile {
 
 func buildResolvedEventRiskJSON(r resolvedEventRisk) jsonEventFile {
 	out := jsonEventFile{
-		Source:        r.Source,
-		RealEventData: r.RealEventData,
-		DateFrom:      r.DateFrom,
-		DateTo:        r.DateTo,
-		Weights:       events.DefaultWeights(),
+		Source:             r.Source,
+		RealEventData:      r.RealEventData,
+		DateFrom:           r.DateFrom,
+		DateTo:             r.DateTo,
+		LatestEventDate:    r.LatestEventDate,
+		RowsProcessed:      r.RowsProcessed,
+		CountriesCovered:   r.CountriesCovered,
+		EventTypeBreakdown: r.EventTypeBreakdown,
+		ScoringNote:        r.ScoringNote,
+		Weights:            events.DefaultWeights(),
 		RiskBands: map[string]string{
 			"low": "0-30", "medium": "30-60", "high": "60-80", "critical": "80-100",
 		},

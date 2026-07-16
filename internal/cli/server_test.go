@@ -248,7 +248,10 @@ func TestAPIEventsRisk(t *testing.T) {
 		t.Fatalf("status = %d, want 200\n%s", rec.Code, rec.Body.String())
 	}
 	parsed := decodeBody(t, rec)
-	for _, key := range []string{"source", "real_event_data", "weights", "risk_bands", "scores"} {
+	for _, key := range []string{
+		"source", "real_event_data", "weights", "risk_bands", "scores",
+		"rows_processed", "countries_covered", "latest_event_date",
+	} {
 		if _, ok := parsed[key]; !ok {
 			t.Errorf("events risk JSON missing %q", key)
 		}

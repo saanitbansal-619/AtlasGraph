@@ -135,9 +135,21 @@ func ingestEvents(args []string, out, errOut io.Writer) int {
 
 // renderEventIngestReport prints a short summary after event-risk ingest.
 func renderEventIngestReport(out io.Writer, srcFile, outPath string, file eventrisk.RiskFile, warnings []string) {
-	fmt.Fprintf(out, "Ingested %d events across %d countries from %s\n", file.EventCount, len(file.Countries), srcFile)
+	fmt.Fprintf(out, "Ingested %d events across %d countries from %s\n", file.EventCount, file.CountriesCovered, srcFile)
+	if file.RowsProcessed > 0 {
+		fmt.Fprintf(out, "Rows processed: %d\n", file.RowsProcessed)
+	}
 	if file.DateFrom != "" && file.DateTo != "" {
 		fmt.Fprintf(out, "Date range: %s to %s\n", file.DateFrom, file.DateTo)
+	}
+	if file.LatestEventDate != "" {
+		fmt.Fprintf(out, "Latest event date: %s\n", file.LatestEventDate)
+	}
+	if len(file.EventTypeBreakdown) > 0 {
+		fmt.Fprintln(out, "Event types:")
+		for _, t := range eventrisk.SortedEventTypeKeys(file.EventTypeBreakdown) {
+			fmt.Fprintf(out, "  - %s: %d\n", t, file.EventTypeBreakdown[t])
+		}
 	}
 	fmt.Fprintf(out, "Saved event risk panel to %s\n", outPath)
 	for _, w := range warnings {
