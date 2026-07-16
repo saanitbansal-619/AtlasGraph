@@ -15,6 +15,15 @@ func TestCountryCodeForNameKoreaTaiwanAliases(t *testing.T) {
 		{"Other Asia, not elsewhere specified", "TWN"},
 		{"Taiwan", "TWN"},
 		{"Taiwan, China", "TWN"},
+		{"Chile", "CHL"},
+		{"China", "CHN"},
+		{"Norway", "NOR"},
+		{"Democratic Republic of the Congo", "COD"},
+		{"Congo, Dem. Rep.", "COD"},
+		{"United States", "USA"},
+		{"Japan", "JPN"},
+		{"Germany", "DEU"},
+		{"India", "IND"},
 	}
 	for _, tc := range cases {
 		if got := CountryCodeForName(tc.name); got != tc.want {

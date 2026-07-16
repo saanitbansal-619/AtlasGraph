@@ -35,11 +35,24 @@ func BuildDependencyFromDependencies(df DependencyFile, importer, commodity stri
 			continue
 		}
 		dep.HasData = true
-		dep.ImporterName = d.Importer
+		importerName := NormalizeCountryName(d.Importer)
+		if importerName == "" {
+			importerName = d.Importer
+		}
+		dep.ImporterName = importerName
+		if code := CountryCodeForName(importerName); code != "" {
+			dep.ImporterCode = code
+		}
 		dep.Commodity = d.Commodity
 		dep.TotalImportsUSD += d.TradeValueUSD
+
+		exporterName := NormalizeCountryName(d.Exporter)
+		if exporterName == "" {
+			exporterName = d.Exporter
+		}
 		dep.Suppliers = append(dep.Suppliers, Supplier{
-			ExporterName: d.Exporter,
+			ExporterCode: CountryCodeForName(exporterName),
+			ExporterName: exporterName,
 			ValueUSD:     d.TradeValueUSD,
 			Share:        d.Share,
 			Dependency:   SupplierDependencyBand(d.Share),

@@ -278,3 +278,80 @@ func TestBuildDependencyResolvedUsesDependencyFile(t *testing.T) {
 		t.Fatalf("suppliers = %d, want 3", len(dep.Suppliers))
 	}
 }
+
+func TestConcentrationFillsExporterCodesFromNames(t *testing.T) {
+	df := DependencyFile{
+		Source: ComtradeRealSourceName,
+		Dependencies: []TradeDependency{
+			{Importer: "United States", Exporter: "Chile", Commodity: "lithium", Flow: FlowImport, TradeValueUSD: 80, Share: 0.8},
+			{Importer: "United States", Exporter: "Australia", Commodity: "lithium", Flow: FlowImport, TradeValueUSD: 20, Share: 0.2},
+			{Importer: "United States", Exporter: "China", Commodity: "rare earths", Flow: FlowImport, TradeValueUSD: 90, Share: 0.9},
+			{Importer: "United States", Exporter: "Japan", Commodity: "rare earths", Flow: FlowImport, TradeValueUSD: 10, Share: 0.1},
+			{Importer: "United States", Exporter: "Norway", Commodity: "cobalt", Flow: FlowImport, TradeValueUSD: 70, Share: 0.7},
+			{Importer: "United States", Exporter: "Democratic Republic of the Congo", Commodity: "cobalt", Flow: FlowImport, TradeValueUSD: 30, Share: 0.3},
+		},
+	}
+	resolved := ResolvedTrade{
+		Source: ComtradeRealSourceName, RealTradeData: true, DependencyFile: &df,
+		File: DependenciesToTradeFile(df),
+	}
+
+	cases := []struct {
+		commodity      string
+		wantName       string
+		wantCode       string
+		wantImporter   string
+	}{
+		{"lithium", "Chile", "CHL", "USA"},
+		{"rare earths", "China", "CHN", "USA"},
+		{"cobalt", "Norway", "NOR", "USA"},
+	}
+	for _, tc := range cases {
+		con := BuildConcentrationResolved(resolved, "United States", tc.commodity)
+		if !con.HasData {
+			t.Fatalf("%s: expected concentration data", tc.commodity)
+		}
+		if con.ImporterCode != tc.wantImporter {
+			t.Errorf("%s: importer_code = %q, want %q", tc.commodity, con.ImporterCode, tc.wantImporter)
+		}
+		if con.TopSupplier.ExporterName != tc.wantName {
+			t.Errorf("%s: top exporter_name = %q, want %q", tc.commodity, con.TopSupplier.ExporterName, tc.wantName)
+		}
+		if con.TopSupplier.ExporterCode != tc.wantCode {
+			t.Errorf("%s: top exporter_code = %q, want %q", tc.commodity, con.TopSupplier.ExporterCode, tc.wantCode)
+		}
+	}
+
+	cobalt := BuildDependencyResolved(resolved, "USA", "cobalt")
+	byName := map[string]string{}
+	for _, s := range cobalt.Suppliers {
+		byName[s.ExporterName] = s.ExporterCode
+	}
+	if byName["Congo, Dem. Rep."] != "COD" {
+		t.Errorf("DRC supplier code = %q (name map %#v), want COD", byName["Congo, Dem. Rep."], byName)
+	}
+}
+
+func TestBuildDependencyFillsMissingExporterCodes(t *testing.T) {
+	file := TradeFile{
+		Records: []TradeFlowRecord{
+			{
+				Year: 2024, ExporterCode: "", ExporterName: "Chile",
+				ImporterCode: "USA", ImporterName: "United States",
+				CommodityName: "lithium", TradeValueUSD: 100,
+			},
+			{
+				Year: 2024, ExporterCode: "", ExporterName: "Germany",
+				ImporterCode: "USA", ImporterName: "United States",
+				CommodityName: "lithium", TradeValueUSD: 40,
+			},
+		},
+	}
+	con := BuildConcentration(file, "USA", "lithium")
+	if con.TopSupplier.ExporterCode != "CHL" || con.TopSupplier.ExporterName != "Chile" {
+		t.Fatalf("top supplier = %s/%s, want CHL/Chile", con.TopSupplier.ExporterCode, con.TopSupplier.ExporterName)
+	}
+	if con.ImporterCode != "USA" {
+		t.Fatalf("importer_code = %q, want USA", con.ImporterCode)
+	}
+}

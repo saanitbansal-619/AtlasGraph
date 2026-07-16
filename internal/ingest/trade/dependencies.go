@@ -80,6 +80,7 @@ type DependencyFile struct {
 // ComtradeV2LoadResult captures ingest diagnostics for UN Comtrade CSV files.
 type ComtradeV2LoadResult struct {
 	FilesProcessed       int
+	FileNames            []string
 	RawRows              int
 	ValidRows            int
 	SkippedAggregateRows int

@@ -289,24 +289,38 @@ func BuildDependency(file TradeFile, importer, commodity string) Dependency {
 			continue
 		}
 		dep.HasData = true
-		if matchesCode(r.ImporterCode, importer) {
+		importerName := NormalizeCountryName(r.ImporterName)
+		if importerName == "" {
+			importerName = r.ImporterName
+		}
+		if code := ResolveCountryCode(r.ImporterCode, importerName); code != "" {
+			dep.ImporterCode = code
+		} else if matchesCode(r.ImporterCode, importer) {
 			dep.ImporterCode = r.ImporterCode
 		}
 		if dep.ImporterName == "" {
-			dep.ImporterName = r.ImporterName
+			dep.ImporterName = importerName
 		}
 		// Prefer the canonical commodity name from the data.
 		dep.Commodity = r.CommodityName
 		dep.TotalImportsUSD += r.TradeValueUSD
 
-		key := exporterGroupKey(r.ExporterCode, r.ExporterName)
+		exporterName := NormalizeCountryName(r.ExporterName)
+		if exporterName == "" {
+			exporterName = r.ExporterName
+		}
+		exporterCode := ResolveCountryCode(r.ExporterCode, exporterName)
+		key := exporterGroupKey(exporterCode, exporterName)
 		sup, ok := byExporter[key]
 		if !ok {
-			sup = &Supplier{ExporterCode: r.ExporterCode, ExporterName: r.ExporterName}
+			sup = &Supplier{ExporterCode: exporterCode, ExporterName: exporterName}
 			byExporter[key] = sup
 		}
+		if sup.ExporterCode == "" && exporterCode != "" {
+			sup.ExporterCode = exporterCode
+		}
 		if sup.ExporterName == "" {
-			sup.ExporterName = r.ExporterName
+			sup.ExporterName = exporterName
 		}
 		sup.ValueUSD += r.TradeValueUSD
 	}

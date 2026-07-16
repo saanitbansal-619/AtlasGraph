@@ -32,11 +32,17 @@ func LoadComtradeV2File(path string) (ComtradeV2LoadResult, []aggregatedFlow, er
 		return ComtradeV2LoadResult{}, nil, fmt.Errorf("opening %q: %w", path, err)
 	}
 	defer f.Close()
-	return ParseComtradeV2CSV(f)
+	res, flows, err := ParseComtradeV2CSV(f, path)
+	if err != nil {
+		return res, nil, err
+	}
+	res.FileNames = []string{filepath.Base(path)}
+	return res, flows, nil
 }
 
 // ParseComtradeV2CSV reads flexible Comtrade CSV rows into annual aggregated flows.
-func ParseComtradeV2CSV(r io.Reader) (ComtradeV2LoadResult, []aggregatedFlow, error) {
+// sourcePath is optional and used as a filename-based commodity hint.
+func ParseComtradeV2CSV(r io.Reader, sourcePath string) (ComtradeV2LoadResult, []aggregatedFlow, error) {
 	reader := csv.NewReader(r)
 	reader.FieldsPerRecord = -1
 	reader.TrimLeadingSpace = true
@@ -54,6 +60,7 @@ func ParseComtradeV2CSV(r io.Reader) (ComtradeV2LoadResult, []aggregatedFlow, er
 	res.CommoditiesMapped = map[string]struct{}{}
 	res.Importers = map[string]struct{}{}
 	res.Exporters = map[string]struct{}{}
+	filenameHint := sourcePath
 
 	byKey := map[string]*aggregatedFlow{}
 	line := 1
@@ -71,7 +78,7 @@ func ParseComtradeV2CSV(r io.Reader) (ComtradeV2LoadResult, []aggregatedFlow, er
 		}
 		res.RawRows++
 
-		flow, reason := parseComtradeV2Row(row, idx, &res)
+		flow, reason := parseComtradeV2Row(row, idx, &res, filenameHint)
 		if reason != "" {
 			res.Skipped = append(res.Skipped, SkippedRow{Line: line, Reason: reason})
 			continue
@@ -155,6 +162,7 @@ func IngestUNComtradeFiles(paths []string) (DependencyFile, ComtradeV2LoadResult
 			return DependencyFile{}, total, err
 		}
 		total.FilesProcessed++
+		total.FileNames = append(total.FileNames, filepath.Base(path))
 		total.RawRows += res.RawRows
 		total.ValidRows += res.ValidRows
 		total.SkippedAggregateRows += res.SkippedAggregateRows
@@ -294,7 +302,7 @@ func (idx v2HeaderIndex) get(row []string, cols []string) string {
 	return strings.TrimSpace(row[i])
 }
 
-func parseComtradeV2Row(row []string, idx v2HeaderIndex, res *ComtradeV2LoadResult) (aggregatedFlow, string) {
+func parseComtradeV2Row(row []string, idx v2HeaderIndex, res *ComtradeV2LoadResult, filenameHint string) (aggregatedFlow, string) {
 	flowRaw := strings.ToLower(idx.get(row, v2FlowCols))
 	isImport := strings.Contains(flowRaw, "import") || flowRaw == "m"
 	isExport := strings.Contains(flowRaw, "export") || flowRaw == "x"
@@ -342,7 +350,7 @@ func parseComtradeV2Row(row []string, idx v2HeaderIndex, res *ComtradeV2LoadResu
 
 	hsCode := idx.get(row, v2HSCodeCols)
 	desc := idx.get(row, v2HSDescCols)
-	commodity, ok := commodityFromHSOrDesc(hsCode, desc)
+	commodity, ok := commodityFromHSOrDesc(hsCode, desc, filenameHint)
 	if !ok {
 		res.SkippedUnmapped++
 		return aggregatedFlow{}, fmt.Sprintf("unmapped commodity hs=%q desc=%q", hsCode, desc)

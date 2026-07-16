@@ -11,7 +11,7 @@ func TestParseComtradeV2MonthlyAggregation(t *testing.T) {
 	body := unComtradeV2Header +
 		"202401,Import,USA,Canada,1001,1000000,500000,500000,kg\n" +
 		"202402,Import,USA,Canada,1001,2000000,600000,600000,kg\n"
-	res, flows, err := ParseComtradeV2CSV(strings.NewReader(body))
+	res, flows, err := ParseComtradeV2CSV(strings.NewReader(body), "")
 	if err != nil {
 		t.Fatalf("ParseComtradeV2CSV: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestParseComtradeV2SkipsWorldAggregate(t *testing.T) {
 	body := unComtradeV2Header +
 		"202401,Import,USA,World,1001,999999,0,0,kg\n" +
 		"202401,Import,USA,Canada,1001,1000,0,0,kg\n"
-	res, flows, err := ParseComtradeV2CSV(strings.NewReader(body))
+	res, flows, err := ParseComtradeV2CSV(strings.NewReader(body), "")
 	if err != nil {
 		t.Fatalf("ParseComtradeV2CSV: %v", err)
 	}
@@ -53,12 +53,80 @@ func TestMapHSCodeCommodities(t *testing.T) {
 		"1001": "wheat", "2709": "crude oil", "2711": "natural gas",
 		"7403": "copper", "7502": "nickel", "3105": "fertilizer",
 		"8542": "semiconductors", "8507": "batteries",
+		"283691": "lithium",
+		"280530": "rare earths",
+		"284690": "rare earths",
+		"260500": "cobalt",
+		"810520": "cobalt",
+		"810530": "cobalt",
 	}
 	for code, want := range cases {
 		got, ok := MapHSCode(code)
 		if !ok || got != want {
 			t.Fatalf("MapHSCode(%q) = %q,%v want %q", code, got, ok, want)
 		}
+	}
+}
+
+func TestMapCommodityFilenameStrategic(t *testing.T) {
+	cases := map[string]string{
+		"lithium_carbonates_2024.csv":   "lithium",
+		"rare_earth_metals.csv":         "rare earths",
+		"rare_earth_compounds_hs.csv":   "rare earths",
+		"cobalt_ores.csv":               "cobalt",
+		"cobalt_intermediate_export.csv": "cobalt",
+		"cobalt_unwrought.csv":          "cobalt",
+	}
+	for name, want := range cases {
+		got, ok := MapCommodityFilename(name)
+		if !ok || got != want {
+			t.Fatalf("MapCommodityFilename(%q) = %q,%v want %q", name, got, ok, want)
+		}
+	}
+}
+
+func TestParseComtradeV2StrategicHSCodes(t *testing.T) {
+	body := unComtradeV2Header +
+		"202401,Import,USA,Chile,283691,1000,0,0,kg\n" +
+		"202401,Import,USA,China,280530,2000,0,0,kg\n" +
+		"202401,Import,USA,China,284690,3000,0,0,kg\n" +
+		"202401,Import,USA,Congo,260500,4000,0,0,kg\n" +
+		"202401,Import,USA,Congo,810520,5000,0,0,kg\n" +
+		"202401,Import,USA,Congo,810530,6000,0,0,kg\n"
+	res, flows, err := ParseComtradeV2CSV(strings.NewReader(body), "")
+	if err != nil {
+		t.Fatalf("ParseComtradeV2CSV: %v", err)
+	}
+	wantCommodities := map[string]bool{"lithium": true, "rare earths": true, "cobalt": true}
+	seen := map[string]bool{}
+	for _, f := range flows {
+		if !wantCommodities[f.commodity] {
+			t.Fatalf("unexpected commodity %q", f.commodity)
+		}
+		seen[f.commodity] = true
+	}
+	for c := range wantCommodities {
+		if !seen[c] {
+			t.Fatalf("missing commodity %q in flows", c)
+		}
+	}
+	for _, c := range []string{"lithium", "rare earths", "cobalt"} {
+		if _, ok := res.CommoditiesMapped[c]; !ok {
+			t.Fatalf("expected %q in CommoditiesMapped", c)
+		}
+	}
+}
+
+func TestParseComtradeV2FilenameHint(t *testing.T) {
+	// Unmapped HS code; filename should provide commodity.
+	body := unComtradeV2Header +
+		"202401,Import,USA,Chile,999999,1000,0,0,kg\n"
+	_, flows, err := ParseComtradeV2CSV(strings.NewReader(body), "lithium_carbonates_2024.csv")
+	if err != nil {
+		t.Fatalf("ParseComtradeV2CSV: %v", err)
+	}
+	if len(flows) != 1 || flows[0].commodity != "lithium" {
+		t.Fatalf("flows = %#v, want lithium from filename", flows)
 	}
 }
 
@@ -80,7 +148,7 @@ func TestParseComtradeV2SetsFlowDirection(t *testing.T) {
 	body := unComtradeV2Header +
 		"202401,Import,Germany,Norway,2711,1000,0,0,kg\n" +
 		"202401,Export,Algeria,Ukraine,2709,2000,0,0,kg\n"
-	_, flows, err := ParseComtradeV2CSV(strings.NewReader(body))
+	_, flows, err := ParseComtradeV2CSV(strings.NewReader(body), "")
 	if err != nil {
 		t.Fatal(err)
 	}

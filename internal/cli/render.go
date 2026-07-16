@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -371,6 +372,15 @@ func renderComtradeIngestReport(out io.Writer, srcFile, outPath string, res trad
 func renderUNComtradeIngestReport(out io.Writer, srcFiles []string, outPath string, deps trade.DependencyFile, stats trade.ComtradeV2LoadResult) {
 	section(out, "UN COMTRADE TRADE INGESTION")
 	fmt.Fprintf(out, "  Files processed         : %d\n", stats.FilesProcessed)
+	names := stats.FileNames
+	if len(names) == 0 {
+		for _, p := range srcFiles {
+			names = append(names, filepath.Base(p))
+		}
+	}
+	if len(names) > 0 {
+		fmt.Fprintf(out, "  Files                   : %s\n", strings.Join(names, ", "))
+	}
 	if len(srcFiles) == 1 {
 		fmt.Fprintf(out, "  Source file             : %s\n", srcFiles[0])
 	} else {
@@ -382,12 +392,24 @@ func renderUNComtradeIngestReport(out io.Writer, srcFiles []string, outPath stri
 	fmt.Fprintf(out, "  Skipped aggregate rows  : %d\n", stats.SkippedAggregateRows)
 	fmt.Fprintf(out, "  Skipped unmapped rows   : %d\n", stats.SkippedUnmapped)
 	fmt.Fprintf(out, "  Commodities mapped      : %d\n", len(stats.CommoditiesMapped))
+	if len(stats.CommoditiesMapped) > 0 {
+		fmt.Fprintf(out, "  Available commodities   : %s\n", strings.Join(sortedStringSet(stats.CommoditiesMapped), ", "))
+	}
 	fmt.Fprintf(out, "  Importers               : %d\n", len(stats.Importers))
 	fmt.Fprintf(out, "  Exporters               : %d\n", len(stats.Exporters))
 	fmt.Fprintf(out, "  Dependencies written    : %d\n", len(deps.Dependencies))
 	if stats.YearMin > 0 && stats.YearMax > 0 {
 		fmt.Fprintf(out, "  Year range              : %d-%d\n", stats.YearMin, stats.YearMax)
 	}
+}
+
+func sortedStringSet(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // --- GDELT event risk ------------------------------------------------------
