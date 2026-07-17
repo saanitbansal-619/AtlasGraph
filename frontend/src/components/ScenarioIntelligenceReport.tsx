@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import type {
   ReportContextItem,
   ReportExposureItem,
@@ -107,82 +108,110 @@ function ExposureTable({ rows }: { rows: ReportExposureItem[] }) {
   )
 }
 
-function ContextBlock({ title, items }: { title: string; items: ReportContextItem[] }) {
+// Canonical data provenances shown as compact badges. Each is highlighted when
+// the report's data_sources reference it, and dimmed when it did not contribute.
+const SOURCE_BADGES: { label: string; match: string[] }[] = [
+  { label: 'Baseline dependency graph', match: ['baseline', 'dependency graph', 'graph'] },
+  { label: 'UN Comtrade', match: ['comtrade'] },
+  { label: 'GDELT', match: ['gdelt'] },
+  { label: 'World Bank Macro', match: ['world bank macro', 'macro'] },
+  { label: 'World Bank Pink Sheet', match: ['pink sheet'] },
+]
+
+function SourceBadges({ sources }: { sources: string[] }) {
+  const lowered = (sources ?? []).map((s) => s.toLowerCase())
   return (
-    <div>
-      <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">{title}</div>
-      <ul className="space-y-1.5">
-        {items.map((c) => (
-          <li key={c.entity} className="leading-relaxed">
-            <span className="text-slate-200">{c.entity}</span>
-            {c.available ? (
-              <>
-                {c.risk_level ? (
-                  <span className={`ml-2 badge ${riskBadgeClass(c.risk_level)}`}>{c.risk_level}</span>
-                ) : null}
-                {typeof c.score === 'number' ? (
-                  <span className="ml-2 font-mono text-xs text-slate-400">{fixed(c.score, 1)}</span>
-                ) : null}
-              </>
-            ) : (
-              <span className="ml-2 rounded border border-slate-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
-                unavailable
-              </span>
-            )}
-            <div className="text-xs text-slate-500">{c.summary}</div>
-          </li>
-        ))}
-      </ul>
+    <div className="flex flex-wrap gap-1.5">
+      {SOURCE_BADGES.map(({ label, match }) => {
+        const active = lowered.some((s) => match.some((m) => s.includes(m)))
+        return (
+          <span
+            key={label}
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+              active
+                ? 'border-cyan-800/70 bg-cyan-950/40 text-cyan-200'
+                : 'border-slate-800 text-slate-600'
+            }`}
+            title={active ? 'Contributed to this report' : 'Not used for this scenario'}
+          >
+            {label}
+          </span>
+        )
+      })}
     </div>
   )
 }
 
-function EvidenceList({
-  trade,
-  events,
-  macro,
-  commodities,
-}: {
-  trade: ReportTradeEvidence[]
-  events: ReportContextItem[]
-  macro: ReportContextItem[]
-  commodities: ReportContextItem[]
-}) {
-  const empty =
-    trade.length === 0 && events.length === 0 && macro.length === 0 && commodities.length === 0
-  if (empty) {
+function ContextItems({ items, emptyText }: { items: ReportContextItem[]; emptyText: string }) {
+  if (!items.length) {
+    return <p className="text-xs text-slate-500">{emptyText}</p>
+  }
+  return (
+    <ul className="space-y-1.5 text-sm text-slate-300">
+      {items.map((c) => (
+        <li key={c.entity} className="leading-relaxed">
+          <span className="text-slate-200">{c.entity}</span>
+          {c.available ? (
+            <>
+              {c.risk_level ? (
+                <span className={`ml-2 badge ${riskBadgeClass(c.risk_level)}`}>{c.risk_level}</span>
+              ) : null}
+              {typeof c.score === 'number' ? (
+                <span className="ml-2 font-mono text-xs text-slate-400">{fixed(c.score, 1)}</span>
+              ) : null}
+            </>
+          ) : (
+            <span className="ml-2 rounded border border-slate-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+              unavailable
+            </span>
+          )}
+          <div className="text-xs text-slate-500">{c.summary}</div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function TradeItems({ trade }: { trade: ReportTradeEvidence[] }) {
+  if (!trade.length) {
     return (
       <p className="text-xs text-slate-500">
-        No supporting observed panels matched this scenario for the current data load.
+        No observed UN Comtrade concentration matched this scenario.
       </p>
     )
   }
   return (
-    <div className="space-y-3 text-sm text-slate-300">
-      {trade.length > 0 && (
-        <div>
-          <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
-            Trade concentration · UN Comtrade
-          </div>
-          <ul className="space-y-1.5">
-            {trade.map((t) => (
-              <li key={`${t.importer}-${t.commodity}`} className="leading-relaxed">
-                {t.summary}
-                {t.top_supplier_code ? (
-                  <span className="ml-1 font-mono text-[11px] text-slate-500">
-                    ({t.top_supplier_code}, HHI {fixed(t.hhi, 2)}, top share {pct(t.top_supplier_share)})
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {events.length > 0 && <ContextBlock title="Event-risk · GDELT" items={events} />}
-      {macro.length > 0 && <ContextBlock title="Macro · World Bank Macro" items={macro} />}
-      {commodities.length > 0 && (
-        <ContextBlock title="Commodity fragility · World Bank Pink Sheet" items={commodities} />
-      )}
+    <ul className="space-y-1.5 text-sm text-slate-300">
+      {trade.map((t) => (
+        <li key={`${t.importer}-${t.commodity}`} className="leading-relaxed">
+          {t.summary}
+          {t.top_supplier_code ? (
+            <span className="ml-1 font-mono text-[11px] text-slate-500">
+              ({t.top_supplier_code}, HHI {fixed(t.hhi, 2)}, top share {pct(t.top_supplier_share)})
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function EvidenceCard({
+  title,
+  provenance,
+  children,
+}: {
+  title: string
+  provenance: string
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded border border-slate-800/80 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="label">{title}</div>
+        <span className="text-[10px] uppercase tracking-wide text-slate-600">{provenance}</span>
+      </div>
+      {children}
     </div>
   )
 }
@@ -227,7 +256,7 @@ export function ScenarioIntelligenceReport({
               className="rounded border border-slate-700 px-2.5 py-1 text-[11px] text-slate-300 hover:border-cyan-700 hover:text-cyan-200"
               onClick={() => void copyReport()}
             >
-              {copied ? 'Copied' : 'Copy Report'}
+              {copied ? 'Copied' : 'Copy Report as Markdown'}
             </button>
           )}
           <button
@@ -236,7 +265,7 @@ export function ScenarioIntelligenceReport({
             disabled={!canGenerate || loading}
             onClick={onGenerate}
           >
-            {loading ? 'Generating…' : 'Generate Report'}
+            {loading ? 'Generating…' : 'Generate Intelligence Report'}
           </button>
         </div>
       }
@@ -261,9 +290,9 @@ export function ScenarioIntelligenceReport({
         <div className={`space-y-4 ${loading ? 'opacity-60' : ''}`}>
           <div>
             <h3 className="text-sm font-medium text-slate-100">{report.title}</h3>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Data sources: {(report.data_sources ?? []).join(' · ') || 'Baseline dependency graph'}
-            </p>
+            <div className="mt-2">
+              <SourceBadges sources={report.data_sources ?? []} />
+            </div>
           </div>
 
           <div className="rounded border border-slate-800 bg-slate-900/40 p-3">
@@ -306,14 +335,28 @@ export function ScenarioIntelligenceReport({
             </div>
           </div>
 
-          <div className="rounded border border-slate-800/80 p-3">
-            <div className="label mb-2">Evidence</div>
-            <EvidenceList
-              trade={report.trade_evidence ?? []}
-              events={report.event_risk_context ?? []}
-              macro={report.macro_context ?? []}
-              commodities={report.commodity_fragility_context ?? []}
-            />
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            <EvidenceCard title="Trade Evidence" provenance="UN Comtrade">
+              <TradeItems trade={report.trade_evidence ?? []} />
+            </EvidenceCard>
+            <EvidenceCard title="Event Risk Context" provenance="GDELT">
+              <ContextItems
+                items={report.event_risk_context ?? []}
+                emptyText="No observed GDELT event-risk signal matched this scenario."
+              />
+            </EvidenceCard>
+            <EvidenceCard title="Macro Context" provenance="World Bank Macro">
+              <ContextItems
+                items={report.macro_context ?? []}
+                emptyText="No World Bank Macro context available for this scenario."
+              />
+            </EvidenceCard>
+            <EvidenceCard title="Commodity Context" provenance="World Bank Pink Sheet">
+              <ContextItems
+                items={report.commodity_fragility_context ?? []}
+                emptyText="No World Bank Pink Sheet price stress available for this commodity."
+              />
+            </EvidenceCard>
           </div>
 
           <div className="rounded border border-slate-800/80">
