@@ -14,6 +14,7 @@ import type {
   EventRiskResponse,
   TradeSummaryResponse,
   TradeOptionsResponse,
+  ScenarioReportResponse,
 } from './types/api'
 import {
   DEFAULT_META,
@@ -33,6 +34,7 @@ import { UnifiedFragility } from './components/UnifiedFragility'
 import { ShockSimulator, toRequest, type ShockForm } from './components/ShockSimulator'
 import { ShockResults } from './components/ShockResults'
 import { ScenarioComparison } from './components/ScenarioComparison'
+import { ScenarioIntelligenceReport } from './components/ScenarioIntelligenceReport'
 import { BackendDownNotice } from './components/States'
 
 const DEFAULT_SCENARIO_ID = 'taiwan_semiconductor_shock'
@@ -128,6 +130,11 @@ export default function App() {
   const [submitted, setSubmitted] = useState<SubmittedScenario | null>(null)
   const [running, setRunning] = useState(false)
   const [runErr, setRunErr] = useState<UiError | null>(null)
+
+  // Scenario intelligence report
+  const [scenarioReport, setScenarioReport] = useState<ScenarioReportResponse | null>(null)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [reportErr, setReportErr] = useState<UiError | null>(null)
 
   const applyScenario = useCallback((sc: Scenario) => {
     setForm({
@@ -378,6 +385,25 @@ export default function App() {
     }
   }, [form, meta, mode, scenarios, selectedId, checkHealth])
 
+  const generateScenarioReport = useCallback(async () => {
+    setReportLoading(true)
+    setReportErr(null)
+    try {
+      const res = await api.scenarioReport({
+        source: form.source,
+        commodity: form.commodity,
+        shock_type: form.shock_type,
+        drop_percent: form.drop,
+        depth: form.depth,
+      })
+      setScenarioReport(res)
+    } catch (e) {
+      setReportErr(toUiError(e))
+    } finally {
+      setReportLoading(false)
+    }
+  }, [form])
+
   const backendDown = useMemo(
     () => !!healthErr && healthErr.unreachable && health === null,
     [healthErr, health],
@@ -466,6 +492,14 @@ export default function App() {
             <ShockResults result={result} submitted={submitted} running={running} error={runErr} />
           </div>
         </div>
+
+        <ScenarioIntelligenceReport
+          report={scenarioReport}
+          loading={reportLoading}
+          error={reportErr}
+          onGenerate={generateScenarioReport}
+          canGenerate={!backendDown && !!form.source.trim() && !!form.commodity.trim()}
+        />
 
         <ScenarioComparison options={options} />
 

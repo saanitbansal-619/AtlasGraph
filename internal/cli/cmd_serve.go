@@ -90,6 +90,7 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 		"GET  /api/fragility/countries",
 		"GET  /api/fragility/commodities",
 		"GET  /api/fragility/summary",
+		"POST /api/reports/scenario",
 	} {
 		fmt.Fprintf(out, "    %s\n", e)
 	}

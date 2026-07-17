@@ -439,3 +439,62 @@ export interface ScenarioCompareResponse {
 export interface CompareScenariosRequest {
   scenarios: CompareScenarioInput[]
 }
+
+// POST /api/reports/scenario
+export interface ScenarioReportRequest {
+  source: string
+  commodity: string
+  shock_type: string
+  drop_percent: number
+  depth: number
+}
+
+export interface ReportExposureItem {
+  entity: string
+  type: string
+  distance: number
+  estimated_impact: number
+  fragility_delta: number
+  base_fragility: number
+  shock_fragility: number
+  note?: string
+  data_provenance: string
+}
+
+export interface ReportTradeEvidence {
+  importer: string
+  commodity: string
+  hhi: number
+  concentration_risk: string
+  top_supplier_name: string
+  top_supplier_code: string
+  top_supplier_share: number
+  summary: string
+  data_provenance: string
+}
+
+export interface ReportContextItem {
+  entity: string
+  score: number
+  risk_level: string
+  summary: string
+  data_provenance: string
+}
+
+export interface ScenarioReportResponse {
+  title: string
+  executive_summary: string
+  key_findings: string[]
+  direct_exposure: ReportExposureItem[]
+  second_order_exposure: ReportExposureItem[]
+  most_exposed_countries: ReportExposureItem[]
+  most_exposed_commodities: ReportExposureItem[]
+  most_exposed_sectors: ReportExposureItem[]
+  trade_evidence: ReportTradeEvidence[]
+  event_risk_context: ReportContextItem[]
+  macro_context: ReportContextItem[]
+  commodity_fragility_context: ReportContextItem[]
+  model_assumptions: string[]
+  data_sources: string[]
+  limitations: string[]
+}

@@ -18,6 +18,8 @@ import type {
   TradeOptionsResponse,
   TradeDependencyResponse,
   TradeConcentrationResponse,
+  ScenarioReportRequest,
+  ScenarioReportResponse,
   ApiError,
 } from '../types/api'
 
@@ -120,6 +122,11 @@ export const api = {
     }),
   compareScenarios: (body: CompareScenariosRequest) =>
     request<ScenarioCompareResponse>('/api/scenarios/compare', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  scenarioReport: (body: ScenarioReportRequest) =>
+    request<ScenarioReportResponse>('/api/reports/scenario', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

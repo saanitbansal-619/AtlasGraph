@@ -71,6 +71,7 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/fragility/countries", s.handleFragilityCountries)
 	mux.HandleFunc("/api/fragility/commodities", s.handleFragilityCommodities)
 	mux.HandleFunc("/api/fragility/summary", s.handleFragilitySummary)
+	mux.HandleFunc("/api/reports/scenario", s.handleScenarioReport)
 	mux.HandleFunc("/", s.handleNotFound)
 
 	return withCORS(mux)
