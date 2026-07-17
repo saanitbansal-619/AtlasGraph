@@ -475,8 +475,9 @@ export interface ReportTradeEvidence {
 
 export interface ReportContextItem {
   entity: string
-  score: number
-  risk_level: string
+  available: boolean
+  score?: number
+  risk_level?: string
   summary: string
   data_provenance: string
 }
@@ -487,6 +488,10 @@ export interface ScenarioReportResponse {
   key_findings: string[]
   direct_exposure: ReportExposureItem[]
   second_order_exposure: ReportExposureItem[]
+  total_direct_exposure_count: number
+  total_second_order_exposure_count: number
+  returned_direct_exposure_count: number
+  returned_second_order_exposure_count: number
   most_exposed_countries: ReportExposureItem[]
   most_exposed_commodities: ReportExposureItem[]
   most_exposed_sectors: ReportExposureItem[]

@@ -31,22 +31,39 @@ type scenarioReportRequest struct {
 
 // scenarioReport is the structured analyst-style intelligence report.
 type scenarioReport struct {
-	Title                  string                 `json:"title"`
-	ExecutiveSummary       string                 `json:"executive_summary"`
-	KeyFindings            []string               `json:"key_findings"`
-	DirectExposure         []reportExposureItem   `json:"direct_exposure"`
-	SecondOrderExposure    []reportExposureItem   `json:"second_order_exposure"`
-	MostExposedCountries   []reportExposureItem   `json:"most_exposed_countries"`
-	MostExposedCommodities []reportExposureItem   `json:"most_exposed_commodities"`
-	MostExposedSectors     []reportExposureItem   `json:"most_exposed_sectors"`
-	TradeEvidence          []reportTradeEvidence  `json:"trade_evidence"`
-	EventRiskContext       []reportContextItem    `json:"event_risk_context"`
-	MacroContext           []reportContextItem    `json:"macro_context"`
-	CommodityFragility     []reportContextItem    `json:"commodity_fragility_context"`
-	ModelAssumptions       []string               `json:"model_assumptions"`
-	DataSources            []string               `json:"data_sources"`
-	Limitations            []string               `json:"limitations"`
+	Title            string   `json:"title"`
+	ExecutiveSummary string   `json:"executive_summary"`
+	KeyFindings      []string `json:"key_findings"`
+
+	DirectExposure      []reportExposureItem `json:"direct_exposure"`
+	SecondOrderExposure []reportExposureItem `json:"second_order_exposure"`
+
+	// Exposure-list metadata: totals reflect every affected entity in the run,
+	// while returned counts reflect the truncated top-N slices above.
+	TotalDirectExposureCount         int `json:"total_direct_exposure_count"`
+	TotalSecondOrderExposureCount    int `json:"total_second_order_exposure_count"`
+	ReturnedDirectExposureCount      int `json:"returned_direct_exposure_count"`
+	ReturnedSecondOrderExposureCount int `json:"returned_second_order_exposure_count"`
+
+	MostExposedCountries   []reportExposureItem  `json:"most_exposed_countries"`
+	MostExposedCommodities []reportExposureItem  `json:"most_exposed_commodities"`
+	MostExposedSectors     []reportExposureItem  `json:"most_exposed_sectors"`
+	TradeEvidence          []reportTradeEvidence `json:"trade_evidence"`
+	EventRiskContext       []reportContextItem   `json:"event_risk_context"`
+	MacroContext           []reportContextItem   `json:"macro_context"`
+	CommodityFragility     []reportContextItem   `json:"commodity_fragility_context"`
+	ModelAssumptions       []string              `json:"model_assumptions"`
+	DataSources            []string              `json:"data_sources"`
+	Limitations            []string              `json:"limitations"`
 }
+
+// Exposure-list truncation limits keep the report analyst-readable rather than a raw dump.
+const (
+	maxDirectExposure   = 10
+	maxSecondOrder      = 10
+	maxTopEntities      = 5
+	maxContextCountries = 6
+)
 
 type reportExposureItem struct {
 	Entity           string  `json:"entity"`
@@ -74,8 +91,9 @@ type reportTradeEvidence struct {
 
 type reportContextItem struct {
 	Entity         string  `json:"entity"`
-	Score          float64 `json:"score"`
-	RiskLevel      string  `json:"risk_level"`
+	Available      bool    `json:"available"`
+	Score          float64 `json:"score,omitempty"`
+	RiskLevel      string  `json:"risk_level,omitempty"`
 	Summary        string  `json:"summary"`
 	DataProvenance string  `json:"data_provenance"`
 }
@@ -169,7 +187,7 @@ func (s *apiServer) collectScenarioReportContext(meta graphfusion.Meta, simCtx s
 	}
 
 	if src.ProcessedMacro != nil && len(src.ProcessedMacro.Scores) > 0 {
-		ctx.MacroScores = processedMacroToScores(*src.ProcessedMacro)
+		ctx.MacroScores = src.ProcessedMacro.ToCountryScores()
 		ctx.HasMacro = true
 	} else if src.Macro != nil {
 		ctx.MacroScores = macro.ScoreCountries(*src.Macro, 0, macro.DefaultWeights())
@@ -191,20 +209,6 @@ func depCount(r trade.ResolvedTrade) int {
 	return len(r.DependencyFile.Dependencies)
 }
 
-func processedMacroToScores(f macro.ProcessedScoreFile) []macro.CountryScore {
-	out := make([]macro.CountryScore, 0, len(f.Scores))
-	for _, s := range f.Scores {
-		out = append(out, macro.CountryScore{
-			CountryCode: s.CountryCode,
-			CountryName: s.CountryName,
-			Year:        s.Year,
-			Score:       s.MacroExposureScore,
-			RiskLevel:   macro.RiskLevel(s.MacroExposureScore),
-		})
-	}
-	return out
-}
-
 // buildScenarioReport assembles a deterministic analyst report from a shock result
 // and optional observed-context panels.
 func buildScenarioReport(res simulation.Result, ctx scenarioReportContext) scenarioReport {
@@ -217,43 +221,54 @@ func buildScenarioReport(res simulation.Result, ctx scenarioReportContext) scena
 		source, commodity, shockLabel, drop)
 
 	graphProv := graphfusion.SourceStrategic
-	direct := reportImpacts(res.Direct, graphProv)
-	second := reportImpacts(res.SecondOrder, graphProv)
-	countries := reportImpacts(res.TopCountries, graphProv)
-	commodities := reportImpacts(res.TopCommodities, graphProv)
-	sectors := reportImpacts(res.TopSectors, graphProv)
+	direct, directTotal := topExposure(res.Direct, graphProv, maxDirectExposure)
+	second, secondTotal := topExposure(res.SecondOrder, graphProv, maxSecondOrder)
+	countries, _ := topExposure(res.TopCountries, graphProv, maxTopEntities)
+	commodityRows, _ := topExposure(res.TopCommodities, graphProv, maxTopEntities)
+	sectors, _ := topExposure(res.TopSectors, graphProv, maxTopEntities)
 
 	tradeEv := buildTradeEvidence(res, ctx)
 	eventCtx := buildEventRiskContext(res, ctx)
 	macroCtx := buildMacroContext(res, ctx)
-	commodityCtx := buildCommodityFragilityContext(res, ctx)
+	commodityCtx := buildCommodityFragilityContext(res, ctx, tradeEv)
 
-	findings := buildKeyFindings(res, tradeEv, eventCtx, macroCtx, commodityCtx)
-	summary := buildExecutiveSummary(res, findings, tradeEv)
+	dataSources := buildReportDataSources(ctx)
+	summary := buildExecutiveSummary(res, countries, sectors, directTotal, tradeEv)
+	findings := buildKeyFindings(res, countries, sectors, tradeEv, eventCtx, macroCtx, dataSources)
 
 	return scenarioReport{
-		Title:                  title,
-		ExecutiveSummary:       summary,
-		KeyFindings:            findings,
-		DirectExposure:         direct,
-		SecondOrderExposure:    second,
+		Title:            title,
+		ExecutiveSummary: summary,
+		KeyFindings:      findings,
+
+		DirectExposure:      direct,
+		SecondOrderExposure: second,
+
+		TotalDirectExposureCount:         directTotal,
+		TotalSecondOrderExposureCount:    secondTotal,
+		ReturnedDirectExposureCount:      len(direct),
+		ReturnedSecondOrderExposureCount: len(second),
+
 		MostExposedCountries:   countries,
-		MostExposedCommodities: commodities,
+		MostExposedCommodities: commodityRows,
 		MostExposedSectors:     sectors,
 		TradeEvidence:          tradeEv,
 		EventRiskContext:       eventCtx,
 		MacroContext:           macroCtx,
 		CommodityFragility:     commodityCtx,
 		ModelAssumptions:       buildModelAssumptions(res, ctx),
-		DataSources:            buildReportDataSources(ctx),
+		DataSources:            dataSources,
 		Limitations:            buildReportLimitations(ctx),
 	}
 }
 
-func reportImpacts(items []simulation.NodeImpact, provenance string) []reportExposureItem {
-	out := make([]reportExposureItem, 0, len(items))
+// topExposure converts node impacts to report rows sorted by fragility delta
+// (highest first), returning the truncated top-N slice and the pre-truncation
+// total. Ties break on estimated impact then entity name for determinism.
+func topExposure(items []simulation.NodeImpact, provenance string, limit int) ([]reportExposureItem, int) {
+	all := make([]reportExposureItem, 0, len(items))
 	for _, it := range items {
-		out = append(out, reportExposureItem{
+		all = append(all, reportExposureItem{
 			Entity:          it.Node.Name,
 			Type:            string(it.Node.Type),
 			Distance:        it.Distance,
@@ -265,121 +280,173 @@ func reportImpacts(items []simulation.NodeImpact, provenance string) []reportExp
 			DataProvenance:  provenance,
 		})
 	}
-	if out == nil {
-		out = []reportExposureItem{}
+	sort.SliceStable(all, func(i, j int) bool {
+		if all[i].FragilityDelta != all[j].FragilityDelta {
+			return all[i].FragilityDelta > all[j].FragilityDelta
+		}
+		if all[i].EstimatedImpact != all[j].EstimatedImpact {
+			return all[i].EstimatedImpact > all[j].EstimatedImpact
+		}
+		return all[i].Entity < all[j].Entity
+	})
+	total := len(all)
+	if limit > 0 && len(all) > limit {
+		all = all[:limit]
 	}
-	return out
+	if all == nil {
+		all = []reportExposureItem{}
+	}
+	return all, total
 }
 
-func buildExecutiveSummary(res simulation.Result, findings []string, tradeEv []reportTradeEvidence) string {
+func buildExecutiveSummary(res simulation.Result, countries, sectors []reportExposureItem, directTotal int, tradeEv []reportTradeEvidence) string {
 	source := res.SourceNode.Name
 	commodity := res.CommodityNode.Name
 	drop := res.Request.DropPct
 	shockLabel := strings.ReplaceAll(res.Profile.Type, "_", " ")
-
-	countryN := len(res.TopCountries)
-	sectorN := len(res.TopSectors)
 	pathN := len(res.Paths)
-
-	var topCountry string
-	if countryN > 0 {
-		topCountry = res.TopCountries[0].Node.Name
-	}
 
 	parts := []string{
 		fmt.Sprintf(
-			"A model-derived %.0f%% %s %s originating from %s produces estimated exposure across %d countries, %d sectors, and %d dependency paths under the baseline dependency graph.",
-			drop, commodity, shockLabel, source, countryN, sectorN, pathN,
+			"A model-derived %.0f%% %s %s originating from %s propagates through the baseline dependency graph, producing an estimated %d directly exposed %s across %d dependency %s.",
+			drop, commodity, shockLabel, source,
+			directTotal, plural(directTotal, "entity", "entities"),
+			pathN, plural(pathN, "path", "paths"),
 		),
 	}
-	if topCountry != "" {
+
+	countryNames := topEntityNames(countries, 3)
+	sectorNames := topEntityNames(sectors, 2)
+	switch {
+	case len(countryNames) > 0 && len(sectorNames) > 0:
 		parts = append(parts, fmt.Sprintf(
-			"The highest relative fragility increase among countries is estimated for %s.",
-			topCountry,
+			"Top reported exposure includes %s among countries and %s among sectors.",
+			joinNames(countryNames), joinNames(sectorNames),
+		))
+	case len(countryNames) > 0:
+		parts = append(parts, fmt.Sprintf(
+			"Top reported exposure includes %s among countries.", joinNames(countryNames),
+		))
+	case len(sectorNames) > 0:
+		parts = append(parts, fmt.Sprintf(
+			"Top reported exposure includes %s among sectors.", joinNames(sectorNames),
 		))
 	}
-	if len(tradeEv) > 0 {
+
+	if best, ok := strongestTradeEvidence(tradeEv); ok {
 		parts = append(parts, fmt.Sprintf(
-			"Observed trade concentration for %s provides supporting evidence for importer-side supplier dependence (UN Comtrade).",
-			commodity,
+			"Observed trade concentration for %s (UN Comtrade) supports importer-side supplier dependence, led by %s.",
+			commodity, prefer(best.Importer, "a major importer"),
 		))
 	}
-	if len(findings) > 0 {
-		parts = append(parts, "Key findings below summarize propagation, trade, event-risk, and macro context without claiming predictive certainty.")
-	}
-	return strings.Join(parts, " ")
+	parts = append(parts, "Figures are relative exposure estimates, not predictions.")
+	return sanitizeText(strings.Join(parts, " "))
 }
 
 func buildKeyFindings(
 	res simulation.Result,
+	countries, sectors []reportExposureItem,
 	tradeEv []reportTradeEvidence,
-	eventCtx, macroCtx, commodityCtx []reportContextItem,
+	eventCtx, macroCtx []reportContextItem,
+	dataSources []string,
 ) []string {
-	var findings []string
-	source := res.SourceNode.Name
-	commodity := res.CommodityNode.Name
+	findings := []string{}
 
+	// a. shock profile
 	findings = append(findings, fmt.Sprintf(
-		"Shock profile %q attenuates propagation at %.0f%% per hop with recommended depth %d (baseline dependency graph).",
+		"Shock profile %q attenuates propagation at %.0f%% per hop with recommended depth %d.",
 		res.Profile.Type, res.Profile.Attenuation*100, res.Profile.RecommendedDepth,
 	))
 
-	if len(res.Direct) > 0 {
+	// b. top exposed countries
+	if len(countries) > 0 {
 		findings = append(findings, fmt.Sprintf(
-			"%d entities show direct estimated exposure to %s (distance 2 from the shocked commodity).",
-			len(res.Direct), commodity,
+			"Most exposed countries by relative fragility: %s (top delta %+.2f).",
+			joinNames(topEntityNames(countries, 3)), countries[0].FragilityDelta,
 		))
 	}
-	if len(res.SecondOrder) > 0 {
+
+	// c. top exposed sectors
+	if len(sectors) > 0 {
 		findings = append(findings, fmt.Sprintf(
-			"%d entities show second-order estimated exposure via downstream dependency links.",
-			len(res.SecondOrder),
+			"Most exposed sectors by relative fragility: %s (top delta %+.2f).",
+			joinNames(topEntityNames(sectors, 3)), sectors[0].FragilityDelta,
 		))
 	}
-	if len(res.TopCountries) > 0 {
+
+	// d. strongest trade concentration evidence
+	if best, ok := strongestTradeEvidence(tradeEv); ok {
 		findings = append(findings, fmt.Sprintf(
-			"Most exposed country by relative fragility delta: %s (Δ %.2f).",
-			res.TopCountries[0].Node.Name, res.TopCountries[0].Delta,
+			"Strongest observed trade concentration: %s imports of %s at HHI %.2f (%s), top supplier %s ~%.1f%% share (UN Comtrade).",
+			best.Importer, best.Commodity, best.HHI, best.ConcentrationRisk,
+			labelOrBlank(best.TopSupplierName, best.TopSupplierCode), best.TopSupplierShare*100,
 		))
 	}
-	if len(res.TopSectors) > 0 {
+
+	// e. event-risk context
+	if ev, ok := firstAvailableContext(eventCtx); ok {
 		findings = append(findings, fmt.Sprintf(
-			"Most exposed sector by relative fragility delta: %s (Δ %.2f).",
-			res.TopSectors[0].Node.Name, res.TopSectors[0].Delta,
+			"Event-risk context: %s scores %.1f (%s) from GDELT public event signals.",
+			ev.Entity, ev.Score, ev.RiskLevel,
 		))
 	}
-	for _, te := range tradeEv {
-		if te.TopSupplierName != "" {
-			findings = append(findings, fmt.Sprintf(
-				"Observed trade concentration: %s imports of %s show HHI %.2f (%s risk), with top supplier %s at %.1f%% share (UN Comtrade).",
-				te.Importer, te.Commodity, te.HHI, te.ConcentrationRisk, te.TopSupplierName, te.TopSupplierShare*100,
-			))
-			break
-		}
+
+	// f. macro context availability (report the source country's status first)
+	if mf := buildMacroFinding(res, macroCtx); mf != "" {
+		findings = append(findings, mf)
 	}
-	if len(eventCtx) > 0 {
+
+	// g. data provenance
+	if len(dataSources) > 0 {
 		findings = append(findings, fmt.Sprintf(
-			"Event-risk context for %s: score %.1f (%s) from GDELT public event signals.",
-			eventCtx[0].Entity, eventCtx[0].Score, eventCtx[0].RiskLevel,
+			"Evidence provenance: %s.", joinNames(dataSources),
 		))
 	}
-	if len(macroCtx) > 0 {
-		findings = append(findings, fmt.Sprintf(
-			"Macro-risk context for %s: relative fragility score %.1f (%s) from World Bank Macro indicators.",
-			macroCtx[0].Entity, macroCtx[0].Score, macroCtx[0].RiskLevel,
-		))
+
+	// Keep the brief tight: 6-8 findings max.
+	if len(findings) > 8 {
+		findings = findings[:8]
 	}
-	if len(commodityCtx) > 0 {
-		findings = append(findings, fmt.Sprintf(
-			"Commodity price-stress context for %s: score %.1f (%s) from World Bank Pink Sheet when available.",
-			commodityCtx[0].Entity, commodityCtx[0].Score, commodityCtx[0].RiskLevel,
-		))
-	}
-	_ = source
-	if findings == nil {
-		findings = []string{}
+	for i := range findings {
+		findings[i] = sanitizeText(findings[i])
 	}
 	return findings
+}
+
+// buildMacroFinding surfaces the shock source's macro availability first so the
+// finding never claims "0.0 (Low)" for a country without World Bank Macro data.
+func buildMacroFinding(res simulation.Result, macroCtx []reportContextItem) string {
+	source := res.SourceNode.Name
+	for _, m := range macroCtx {
+		if !sameCountryLabel(m.Entity, source) {
+			continue
+		}
+		if m.Available {
+			return fmt.Sprintf(
+				"Macro context: %s scores %.1f (%s) from World Bank Macro indicators.",
+				m.Entity, m.Score, m.RiskLevel,
+			)
+		}
+		return fmt.Sprintf("Macro context: World Bank Macro data is unavailable for %s.", m.Entity)
+	}
+	if m, ok := firstAvailableContext(macroCtx); ok {
+		return fmt.Sprintf(
+			"Macro context: %s scores %.1f (%s) from World Bank Macro indicators.",
+			m.Entity, m.Score, m.RiskLevel,
+		)
+	}
+	if names := unavailableContextNames(macroCtx); len(names) > 0 {
+		return fmt.Sprintf("Macro context: World Bank Macro data is unavailable for %s.", joinNames(names))
+	}
+	return ""
+}
+
+func sameCountryLabel(a, b string) bool {
+	a, b = strings.TrimSpace(a), strings.TrimSpace(b)
+	if strings.EqualFold(a, b) {
+		return true
+	}
+	return strings.EqualFold(trade.NormalizeCountryName(a), trade.NormalizeCountryName(b))
 }
 
 func buildTradeEvidence(res simulation.Result, ctx scenarioReportContext) []reportTradeEvidence {
@@ -445,12 +512,12 @@ func buildEventRiskContext(res simulation.Result, ctx scenarioReportContext) []r
 	if !ctx.HasEventRisk || len(ctx.EventScores) == 0 {
 		return out
 	}
-	names := focusCountryNames(res)
-	for _, name := range names {
+	for _, name := range limitStrings(focusCountryNames(res), maxContextCountries) {
 		if sc, ok := findEventScore(ctx.EventScores, name); ok {
 			out = append(out, reportContextItem{
-				Entity: sc.CountryName,
-				Score:  round(sc.Score, 1),
+				Entity:    sc.CountryName,
+				Available: true,
+				Score:     round(sc.Score, 1),
 				RiskLevel: sc.RiskLevel,
 				Summary: fmt.Sprintf(
 					"GDELT-based event-risk score %.1f (%s) provides public-signal context for %s; this is relative exposure, not a forecast.",
@@ -458,7 +525,18 @@ func buildEventRiskContext(res simulation.Result, ctx scenarioReportContext) []r
 				),
 				DataProvenance: "GDELT",
 			})
+			continue
 		}
+		display := displayCountryName(name)
+		out = append(out, reportContextItem{
+			Entity:    display,
+			Available: false,
+			Summary: fmt.Sprintf(
+				"GDELT event-risk data is unavailable for %s; event-risk context is not included in this scenario score.",
+				display,
+			),
+			DataProvenance: "GDELT",
+		})
 	}
 	return out
 }
@@ -468,10 +546,15 @@ func buildMacroContext(res simulation.Result, ctx scenarioReportContext) []repor
 	if !ctx.HasMacro || len(ctx.MacroScores) == 0 {
 		return out
 	}
-	for _, name := range focusCountryNames(res) {
-		if sc, ok := findMacroScore(ctx.MacroScores, name); ok {
+	for _, name := range limitStrings(focusCountryNames(res), maxContextCountries) {
+		// A record only counts as available when the source macro dataset holds
+		// real indicator data. A bare 0-score row with no available components
+		// (e.g. Taiwan/TWN, which is absent from the World Bank Macro API) must
+		// not surface as a misleading "0.0 (Low)" macro context.
+		if sc, ok := findMacroScore(ctx.MacroScores, name); ok && macroScoreHasData(sc) {
 			out = append(out, reportContextItem{
 				Entity:    sc.CountryName,
+				Available: true,
 				Score:     round(sc.Score, 1),
 				RiskLevel: sc.RiskLevel,
 				Summary: fmt.Sprintf(
@@ -480,22 +563,91 @@ func buildMacroContext(res simulation.Result, ctx scenarioReportContext) []repor
 				),
 				DataProvenance: "World Bank Macro",
 			})
+			continue
 		}
+		display := displayCountryName(name)
+		out = append(out, reportContextItem{
+			Entity:    display,
+			Available: false,
+			Summary: fmt.Sprintf(
+				"World Bank Macro data is unavailable for %s; macro context is not included in this scenario score.",
+				display,
+			),
+			DataProvenance: "World Bank Macro",
+		})
 	}
 	return out
 }
 
-func buildCommodityFragilityContext(res simulation.Result, ctx scenarioReportContext) []reportContextItem {
+// macroScoreHasData reports whether a macro score reflects real indicator data.
+// A country with a 0 score and no available components (or all indicators
+// missing) is treated as having no macro data rather than a genuine low score.
+func macroScoreHasData(sc macro.CountryScore) bool {
+	if sc.Score > 0 {
+		return true
+	}
+	for _, c := range sc.Components {
+		if c.Available {
+			return true
+		}
+	}
+	return false
+}
+
+// buildCommodityFragilityContext always emits a fragility item for the shocked
+// commodity, blending price-stress (when available) with supplier concentration,
+// event exposure and graph centrality so the section is never empty.
+func buildCommodityFragilityContext(res simulation.Result, ctx scenarioReportContext, tradeEv []reportTradeEvidence) []reportContextItem {
 	out := []reportContextItem{}
-	if !ctx.HasPinkSheet || len(ctx.CommodityScores) == 0 {
+	commodity := res.CommodityNode.Name
+	if strings.TrimSpace(commodity) == "" {
 		return out
 	}
-	names := []string{res.CommodityNode.Name}
-	for _, c := range res.TopCommodities {
-		names = append(names, c.Node.Name)
+
+	var signals []string
+	if te, ok := strongestTradeEvidenceForCommodity(tradeEv, commodity); ok {
+		signals = append(signals, fmt.Sprintf(
+			"observed supplier concentration HHI %.2f (%s), top supplier %s ~%.1f%% share (UN Comtrade)",
+			te.HHI, te.ConcentrationRisk, labelOrBlank(te.TopSupplierName, te.TopSupplierCode), te.TopSupplierShare*100,
+		))
 	}
-	seen := map[string]struct{}{}
-	for _, name := range names {
+	if ctx.HasEventRisk {
+		if ev, ok := findEventScore(ctx.EventScores, res.SourceNode.Name); ok {
+			signals = append(signals, fmt.Sprintf(
+				"source event-risk %.1f (%s) for %s (GDELT)", ev.Score, ev.RiskLevel, ev.CountryName,
+			))
+		}
+	}
+	signals = append(signals, fmt.Sprintf(
+		"graph centrality reflected in %d directly and %d second-order exposed entities (baseline dependency graph)",
+		len(res.Direct), len(res.SecondOrder),
+	))
+
+	item := reportContextItem{Entity: commodity, DataProvenance: "World Bank Pink Sheet"}
+	if sc, ok := commodityPriceScore(ctx, commodity); ok {
+		item.Available = true
+		item.Score = round(sc.Score, 1)
+		item.RiskLevel = sc.RiskLevel
+		item.Summary = sanitizeText(fmt.Sprintf(
+			"World Bank Pink Sheet price-stress score %.1f (%s) for %s; supporting signals: %s.",
+			sc.Score, sc.RiskLevel, commodity, strings.Join(signals, "; "),
+		))
+	} else {
+		item.Available = false
+		item.Summary = sanitizeText(fmt.Sprintf(
+			"World Bank Pink Sheet price-stress data is unavailable for %s; commodity fragility is derived from supporting signals: %s.",
+			commodity, strings.Join(signals, "; "),
+		))
+	}
+	out = append(out, item)
+
+	// Add any other top commodities that do have price data, for context.
+	seen := map[string]struct{}{strings.ToLower(strings.TrimSpace(commodity)): {}}
+	for _, c := range res.TopCommodities {
+		if len(out) >= 4 {
+			break
+		}
+		name := c.Node.Name
 		key := strings.ToLower(strings.TrimSpace(name))
 		if key == "" {
 			continue
@@ -504,23 +656,28 @@ func buildCommodityFragilityContext(res simulation.Result, ctx scenarioReportCon
 			continue
 		}
 		seen[key] = struct{}{}
-		if sc, ok := findCommodityScore(ctx.CommodityScores, name); ok {
+		if sc, ok := commodityPriceScore(ctx, name); ok {
 			out = append(out, reportContextItem{
 				Entity:    sc.CommodityName,
+				Available: true,
 				Score:     round(sc.Score, 1),
 				RiskLevel: sc.RiskLevel,
-				Summary: fmt.Sprintf(
-					"World Bank Pink Sheet price-stress score %.1f (%s) for %s provides commodity fragility context when price history is available.",
+				Summary: sanitizeText(fmt.Sprintf(
+					"World Bank Pink Sheet price-stress score %.1f (%s) for %s provides additional commodity fragility context.",
 					sc.Score, sc.RiskLevel, sc.CommodityName,
-				),
+				)),
 				DataProvenance: "World Bank Pink Sheet",
 			})
 		}
-		if len(out) >= 4 {
-			break
-		}
 	}
 	return out
+}
+
+func commodityPriceScore(ctx scenarioReportContext, name string) (commodities.CommodityScore, bool) {
+	if !ctx.HasPinkSheet || len(ctx.CommodityScores) == 0 {
+		return commodities.CommodityScore{}, false
+	}
+	return findCommodityScore(ctx.CommodityScores, name)
 }
 
 func focusCountryNames(res simulation.Result) []string {
@@ -681,4 +838,122 @@ func labelOrBlank(name, code string) string {
 		return name
 	}
 	return code
+}
+
+// sanitizeText strips Unicode-encoding artifacts (notably the mojibake "Î" that
+// appears when a Δ byte sequence is mis-decoded) and normalizes any stray Δ to
+// plain-ASCII "delta " wording so report text stays clean across clients.
+func sanitizeText(s string) string {
+	s = strings.ReplaceAll(s, "Î", "+")
+	s = strings.ReplaceAll(s, "\u0394 ", "delta ")
+	s = strings.ReplaceAll(s, "\u0394", "delta ")
+	s = strings.ReplaceAll(s, "delta  ", "delta ")
+	return s
+}
+
+func plural(n int, singular, plural string) string {
+	if n == 1 {
+		return singular
+	}
+	return plural
+}
+
+// joinNames renders names with an Oxford comma: "A", "A and B", "A, B, and C".
+func joinNames(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	case 2:
+		return names[0] + " and " + names[1]
+	default:
+		return strings.Join(names[:len(names)-1], ", ") + ", and " + names[len(names)-1]
+	}
+}
+
+func topEntityNames(items []reportExposureItem, n int) []string {
+	out := make([]string, 0, n)
+	for _, it := range items {
+		if strings.TrimSpace(it.Entity) == "" {
+			continue
+		}
+		out = append(out, it.Entity)
+		if len(out) >= n {
+			break
+		}
+	}
+	return out
+}
+
+func limitStrings(in []string, n int) []string {
+	if n > 0 && len(in) > n {
+		return in[:n]
+	}
+	return in
+}
+
+// displayCountryName prefers the canonical trade name for display, falling back
+// to the raw name when no alias is known.
+func displayCountryName(name string) string {
+	if canon := trade.NormalizeCountryName(name); strings.TrimSpace(canon) != "" {
+		return canon
+	}
+	return strings.TrimSpace(name)
+}
+
+func firstAvailableContext(items []reportContextItem) (reportContextItem, bool) {
+	for _, it := range items {
+		if it.Available {
+			return it, true
+		}
+	}
+	return reportContextItem{}, false
+}
+
+func unavailableContextNames(items []reportContextItem) []string {
+	var out []string
+	seen := map[string]struct{}{}
+	for _, it := range items {
+		if it.Available {
+			continue
+		}
+		key := strings.ToLower(it.Entity)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, it.Entity)
+	}
+	return limitStrings(out, 3)
+}
+
+func strongestTradeEvidence(items []reportTradeEvidence) (reportTradeEvidence, bool) {
+	best, found := reportTradeEvidence{}, false
+	for _, te := range items {
+		if te.TopSupplierName == "" && te.TopSupplierCode == "" {
+			continue
+		}
+		if !found || te.HHI > best.HHI {
+			best, found = te, true
+		}
+	}
+	return best, found
+}
+
+func strongestTradeEvidenceForCommodity(items []reportTradeEvidence, commodity string) (reportTradeEvidence, bool) {
+	want := strings.ToLower(strings.TrimSpace(commodity))
+	best, found := reportTradeEvidence{}, false
+	for _, te := range items {
+		if strings.ToLower(strings.TrimSpace(te.Commodity)) != want {
+			continue
+		}
+		if te.TopSupplierName == "" && te.TopSupplierCode == "" {
+			continue
+		}
+		if !found || te.HHI > best.HHI {
+			best, found = te, true
+		}
+	}
+	return best, found
 }

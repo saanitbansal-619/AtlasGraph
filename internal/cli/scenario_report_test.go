@@ -183,6 +183,309 @@ func TestAPIScenarioReportMissingFields(t *testing.T) {
 	}
 }
 
+func TestScenarioReportTruncatesExposure(t *testing.T) {
+	res := sampleReportResult()
+	// 15 direct + 15 second-order entities, several sharing the same low delta
+	// (the noisy ~23.46 rows described in the issue).
+	res.Direct = manyCountryImpacts("dir", 15, 2)
+	res.SecondOrder = manyCountryImpacts("sec", 15, 3)
+
+	report := buildScenarioReport(res, scenarioReportContext{})
+
+	if len(report.DirectExposure) != maxDirectExposure {
+		t.Fatalf("direct exposure len = %d, want %d", len(report.DirectExposure), maxDirectExposure)
+	}
+	if len(report.SecondOrderExposure) != maxSecondOrder {
+		t.Fatalf("second-order exposure len = %d, want %d", len(report.SecondOrderExposure), maxSecondOrder)
+	}
+	// Highest-first ordering by fragility delta.
+	for i := 1; i < len(report.DirectExposure); i++ {
+		if report.DirectExposure[i-1].FragilityDelta < report.DirectExposure[i].FragilityDelta {
+			t.Fatalf("direct exposure not sorted desc at %d: %v", i, report.DirectExposure)
+		}
+	}
+	// The very top row should be the strongest, not a noisy duplicate.
+	if report.DirectExposure[0].FragilityDelta <= 23.46 {
+		t.Fatalf("top direct delta = %.2f, expected the strongest row first", report.DirectExposure[0].FragilityDelta)
+	}
+}
+
+func TestScenarioReportMetadataCounts(t *testing.T) {
+	res := sampleReportResult()
+	res.Direct = manyCountryImpacts("dir", 15, 2)
+	res.SecondOrder = manyCountryImpacts("sec", 7, 3)
+
+	report := buildScenarioReport(res, scenarioReportContext{})
+
+	if report.TotalDirectExposureCount != 15 {
+		t.Errorf("total_direct_exposure_count = %d, want 15", report.TotalDirectExposureCount)
+	}
+	if report.ReturnedDirectExposureCount != maxDirectExposure {
+		t.Errorf("returned_direct_exposure_count = %d, want %d", report.ReturnedDirectExposureCount, maxDirectExposure)
+	}
+	if report.TotalSecondOrderExposureCount != 7 {
+		t.Errorf("total_second_order_exposure_count = %d, want 7", report.TotalSecondOrderExposureCount)
+	}
+	if report.ReturnedSecondOrderExposureCount != 7 {
+		t.Errorf("returned_second_order_exposure_count = %d, want 7", report.ReturnedSecondOrderExposureCount)
+	}
+	if report.ReturnedDirectExposureCount != len(report.DirectExposure) {
+		t.Errorf("returned count %d != slice len %d", report.ReturnedDirectExposureCount, len(report.DirectExposure))
+	}
+}
+
+func TestScenarioReportTaiwanMacroUnavailable(t *testing.T) {
+	res := sampleReportResult()
+	ctx := scenarioReportContext{
+		HasMacro: true,
+		MacroScores: []macro.CountryScore{
+			// Taiwan intentionally absent (excluded from World Bank Macro API).
+			{CountryCode: "USA", CountryName: "United States", Score: 55, RiskLevel: "Medium"},
+		},
+	}
+
+	report := buildScenarioReport(res, ctx)
+
+	var taiwan *reportContextItem
+	for i := range report.MacroContext {
+		if report.MacroContext[i].Entity == "Taiwan" {
+			taiwan = &report.MacroContext[i]
+			break
+		}
+	}
+	if taiwan == nil {
+		t.Fatalf("expected a Taiwan macro context entry, got %+v", report.MacroContext)
+	}
+	if taiwan.Available {
+		t.Errorf("Taiwan macro should be available=false")
+	}
+	if taiwan.RiskLevel != "" {
+		t.Errorf("Taiwan macro risk_level = %q, want empty (no 0.0 Low)", taiwan.RiskLevel)
+	}
+	want := "World Bank Macro data is unavailable for Taiwan; macro context is not included in this scenario score."
+	if taiwan.Summary != want {
+		t.Errorf("Taiwan macro summary = %q, want %q", taiwan.Summary, want)
+	}
+	if taiwan.DataProvenance != "World Bank Macro" {
+		t.Errorf("Taiwan macro provenance = %q", taiwan.DataProvenance)
+	}
+
+	// Serialize and confirm no "0.0"/"Low" leak for the unavailable Taiwan entry.
+	b, err := json.Marshal(taiwan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), `"risk_level"`) {
+		t.Errorf("unavailable macro entry should omit risk_level: %s", b)
+	}
+}
+
+func TestScenarioReportTaiwanMacroZeroRecordUnavailable(t *testing.T) {
+	res := sampleReportResult()
+	// A TWN record exists but carries no real indicator data: score 0, every
+	// component unavailable. This must be reported as unavailable, not "0.0 Low".
+	ctx := scenarioReportContext{
+		HasMacro: true,
+		MacroScores: []macro.CountryScore{
+			{
+				CountryCode: "TWN", CountryName: "Taiwan", Score: 0, RiskLevel: "Low",
+				Components: []macro.Component{
+					{Key: "trade_exposure", Name: "trade exposure", Available: false},
+					{Key: "inflation_stress", Name: "inflation stress", Available: false},
+				},
+			},
+			{CountryCode: "USA", CountryName: "United States", Score: 55, RiskLevel: "Medium"},
+		},
+	}
+
+	report := buildScenarioReport(res, ctx)
+
+	var taiwan *reportContextItem
+	for i := range report.MacroContext {
+		if report.MacroContext[i].Entity == "Taiwan" {
+			taiwan = &report.MacroContext[i]
+			break
+		}
+	}
+	if taiwan == nil {
+		t.Fatalf("expected Taiwan macro entry, got %+v", report.MacroContext)
+	}
+	if taiwan.Available {
+		t.Errorf("Taiwan macro should be available=false when the TWN record has no data")
+	}
+	if taiwan.RiskLevel != "" {
+		t.Errorf("Taiwan macro risk_level = %q, want empty (no 0.0 Low)", taiwan.RiskLevel)
+	}
+	want := "World Bank Macro data is unavailable for Taiwan; macro context is not included in this scenario score."
+	if taiwan.Summary != want {
+		t.Errorf("Taiwan macro summary = %q, want %q", taiwan.Summary, want)
+	}
+	if taiwan.DataProvenance != "World Bank Macro" {
+		t.Errorf("Taiwan macro provenance = %q", taiwan.DataProvenance)
+	}
+
+	// Key finding must state Taiwan unavailability, not a fabricated score.
+	var macroFinding string
+	for _, f := range report.KeyFindings {
+		if strings.HasPrefix(f, "Macro context:") {
+			macroFinding = f
+			break
+		}
+	}
+	if macroFinding != "Macro context: World Bank Macro data is unavailable for Taiwan." {
+		t.Errorf("macro key finding = %q, want unavailable-for-Taiwan wording", macroFinding)
+	}
+	for _, f := range report.KeyFindings {
+		if strings.Contains(f, "Taiwan scores") || strings.Contains(f, "0.0 (Low)") || strings.Contains(f, "0.0 Low") {
+			t.Errorf("key finding leaks fabricated Taiwan macro score: %q", f)
+		}
+	}
+}
+
+func TestScenarioReportNoEncodingArtifacts(t *testing.T) {
+	res := sampleReportResult()
+	// Large positive deltas so findings render numeric deltas.
+	res.TopCountries = []simulation.NodeImpact{
+		{Node: models.Node{Name: "China", Type: models.Country}, Distance: 2, Impact: 0.5, Delta: 50},
+		{Node: models.Node{Name: "United States", Type: models.Country}, Distance: 2, Impact: 0.4, Delta: 40},
+	}
+	report := buildScenarioReport(res, scenarioReportContext{})
+
+	blobs := append([]string{report.ExecutiveSummary}, report.KeyFindings...)
+	for _, s := range blobs {
+		if strings.Contains(s, "Î") {
+			t.Errorf("found mojibake artifact 'Î' in %q", s)
+		}
+		if strings.Contains(s, "\u0394") {
+			t.Errorf("found raw Δ character in %q", s)
+		}
+	}
+	// A delta finding should read as "+50.00" (or "delta +50.00"), never "Î 50.00".
+	joined := strings.Join(report.KeyFindings, " ")
+	if !strings.Contains(joined, "+50.00") {
+		t.Errorf("expected a '+50.00' delta finding, got: %q", joined)
+	}
+	// 6-8 findings max for readability.
+	if len(report.KeyFindings) > 8 {
+		t.Errorf("key findings = %d, want <= 8", len(report.KeyFindings))
+	}
+}
+
+func TestScenarioReportKeyFindingsCovered(t *testing.T) {
+	res := sampleReportResult()
+	ctx := scenarioReportContext{
+		HasTrade:     true,
+		HasEventRisk: true,
+		HasMacro:     true,
+		EventScores: []events.CountryScore{
+			{CountryCode: "TWN", CountryName: "Taiwan", Score: 71, RiskLevel: "High"},
+		},
+		MacroScores: []macro.CountryScore{
+			{CountryCode: "USA", CountryName: "United States", Score: 55, RiskLevel: "Medium"},
+		},
+		Trade: &trade.ResolvedTrade{
+			Source: trade.ComtradeRealSourceName, RealTradeData: true,
+			File: trade.TradeFile{
+				Source: trade.ComtradeRealSourceName,
+				Records: []trade.TradeFlowRecord{
+					{Year: 2023, ExporterName: "Taiwan", ImporterName: "United States", CommodityName: "semiconductors", TradeValueUSD: 80},
+					{Year: 2023, ExporterName: "Korea, Rep.", ImporterName: "United States", CommodityName: "semiconductors", TradeValueUSD: 20},
+				},
+			},
+		},
+	}
+	report := buildScenarioReport(res, ctx)
+	joined := strings.ToLower(strings.Join(report.KeyFindings, " "))
+	for _, want := range []string{"shock profile", "most exposed countries", "most exposed sectors", "trade concentration", "event-risk", "provenance"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("key findings missing coverage of %q\n%s", want, joined)
+		}
+	}
+	if len(report.KeyFindings) < 6 || len(report.KeyFindings) > 8 {
+		t.Errorf("key findings count = %d, want 6-8", len(report.KeyFindings))
+	}
+}
+
+func TestScenarioReportCommodityContextForSemiconductors(t *testing.T) {
+	res := sampleReportResult()
+	// No Pink Sheet price data for semiconductors, but trade + graph signals exist.
+	ctx := scenarioReportContext{
+		HasTrade:     true,
+		HasEventRisk: true,
+		EventScores: []events.CountryScore{
+			{CountryCode: "TWN", CountryName: "Taiwan", Score: 71, RiskLevel: "High"},
+		},
+		Trade: &trade.ResolvedTrade{
+			Source: trade.ComtradeRealSourceName, RealTradeData: true,
+			File: trade.TradeFile{
+				Source: trade.ComtradeRealSourceName,
+				Records: []trade.TradeFlowRecord{
+					{Year: 2023, ExporterName: "Taiwan", ImporterName: "United States", CommodityName: "semiconductors", TradeValueUSD: 80},
+					{Year: 2023, ExporterName: "Korea, Rep.", ImporterName: "United States", CommodityName: "semiconductors", TradeValueUSD: 20},
+				},
+			},
+		},
+	}
+	report := buildScenarioReport(res, ctx)
+	if len(report.CommodityFragility) == 0 {
+		t.Fatal("expected commodity fragility context for the shocked commodity")
+	}
+	item := report.CommodityFragility[0]
+	if item.Entity != "semiconductors" {
+		t.Fatalf("first commodity context entity = %q, want semiconductors", item.Entity)
+	}
+	if item.Available {
+		t.Errorf("expected available=false when no Pink Sheet price data")
+	}
+	low := strings.ToLower(item.Summary)
+	for _, want := range []string{"supplier concentration", "graph centrality"} {
+		if !strings.Contains(low, want) {
+			t.Errorf("commodity summary missing %q: %q", want, item.Summary)
+		}
+	}
+	if !strings.Contains(low, "unavailable") {
+		t.Errorf("expected note that price data is unavailable: %q", item.Summary)
+	}
+}
+
+func TestScenarioReportCommodityContextWithPriceData(t *testing.T) {
+	res := sampleReportResult()
+	ctx := scenarioReportContext{
+		HasPinkSheet: true,
+		CommodityScores: []commodities.CommodityScore{
+			{CommodityCode: "SEMI", CommodityName: "semiconductors", Score: 61, RiskLevel: "High"},
+		},
+	}
+	report := buildScenarioReport(res, ctx)
+	if len(report.CommodityFragility) == 0 {
+		t.Fatal("expected commodity fragility context")
+	}
+	item := report.CommodityFragility[0]
+	if !item.Available || item.Score == 0 || item.RiskLevel == "" {
+		t.Fatalf("expected available price-stress item, got %+v", item)
+	}
+}
+
+// manyCountryImpacts builds n country impacts at a fixed distance with a mix of
+// descending deltas and repeated low-signal deltas (~23.46) to exercise sorting
+// and truncation.
+func manyCountryImpacts(prefix string, n, distance int) []simulation.NodeImpact {
+	out := make([]simulation.NodeImpact, 0, n)
+	for i := 0; i < n; i++ {
+		delta := 23.46 // noisy repeated baseline
+		if i < 3 {
+			delta = float64(90 - i*5) // a few clearly-strongest rows
+		}
+		out = append(out, simulation.NodeImpact{
+			Node:     models.Node{ID: models.NodeID(prefix + string(rune('a'+i))), Name: prefix + "-country-" + string(rune('A'+i)), Type: models.Country},
+			Distance: distance,
+			Impact:   0.1,
+			Delta:    delta,
+		})
+	}
+	return out
+}
+
 func sampleReportResult() simulation.Result {
 	usa := models.Node{ID: "c-usa", Name: "United States", Type: models.Country}
 	twn := models.Node{ID: "c-twn", Name: "Taiwan", Type: models.Country}

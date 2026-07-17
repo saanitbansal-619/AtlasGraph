@@ -107,6 +107,36 @@ function ExposureTable({ rows }: { rows: ReportExposureItem[] }) {
   )
 }
 
+function ContextBlock({ title, items }: { title: string; items: ReportContextItem[] }) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">{title}</div>
+      <ul className="space-y-1.5">
+        {items.map((c) => (
+          <li key={c.entity} className="leading-relaxed">
+            <span className="text-slate-200">{c.entity}</span>
+            {c.available ? (
+              <>
+                {c.risk_level ? (
+                  <span className={`ml-2 badge ${riskBadgeClass(c.risk_level)}`}>{c.risk_level}</span>
+                ) : null}
+                {typeof c.score === 'number' ? (
+                  <span className="ml-2 font-mono text-xs text-slate-400">{fixed(c.score, 1)}</span>
+                ) : null}
+              </>
+            ) : (
+              <span className="ml-2 rounded border border-slate-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                unavailable
+              </span>
+            )}
+            <div className="text-xs text-slate-500">{c.summary}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function EvidenceList({
   trade,
   events,
@@ -148,56 +178,10 @@ function EvidenceList({
           </ul>
         </div>
       )}
-      {events.length > 0 && (
-        <div>
-          <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
-            Event-risk · GDELT
-          </div>
-          <ul className="space-y-1.5">
-            {events.map((e) => (
-              <li key={e.entity} className="leading-relaxed">
-                <span className="text-slate-200">{e.entity}</span>
-                <span className={`ml-2 badge ${riskBadgeClass(e.risk_level)}`}>{e.risk_level}</span>
-                <span className="ml-2 font-mono text-xs text-slate-400">{fixed(e.score, 1)}</span>
-                <div className="text-xs text-slate-500">{e.summary}</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {macro.length > 0 && (
-        <div>
-          <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
-            Macro · World Bank Macro
-          </div>
-          <ul className="space-y-1.5">
-            {macro.map((m) => (
-              <li key={m.entity} className="leading-relaxed">
-                <span className="text-slate-200">{m.entity}</span>
-                <span className={`ml-2 badge ${riskBadgeClass(m.risk_level)}`}>{m.risk_level}</span>
-                <span className="ml-2 font-mono text-xs text-slate-400">{fixed(m.score, 1)}</span>
-                <div className="text-xs text-slate-500">{m.summary}</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {events.length > 0 && <ContextBlock title="Event-risk · GDELT" items={events} />}
+      {macro.length > 0 && <ContextBlock title="Macro · World Bank Macro" items={macro} />}
       {commodities.length > 0 && (
-        <div>
-          <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
-            Commodity fragility · World Bank Pink Sheet
-          </div>
-          <ul className="space-y-1.5">
-            {commodities.map((c) => (
-              <li key={c.entity} className="leading-relaxed">
-                <span className="text-slate-200">{c.entity}</span>
-                <span className={`ml-2 badge ${riskBadgeClass(c.risk_level)}`}>{c.risk_level}</span>
-                <span className="ml-2 font-mono text-xs text-slate-400">{fixed(c.score, 1)}</span>
-                <div className="text-xs text-slate-500">{c.summary}</div>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ContextBlock title="Commodity fragility · World Bank Pink Sheet" items={commodities} />
       )}
     </div>
   )
@@ -298,6 +282,14 @@ export function ScenarioIntelligenceReport({
               ))}
             </ul>
           </div>
+
+          <p className="text-[11px] text-slate-500">
+            Showing top {report.returned_direct_exposure_count} of{' '}
+            {report.total_direct_exposure_count} directly exposed entities and top{' '}
+            {report.returned_second_order_exposure_count} of{' '}
+            {report.total_second_order_exposure_count} second-order entities, ranked by estimated
+            fragility increase.
+          </p>
 
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
             <div className="rounded border border-slate-800/80 p-3">
