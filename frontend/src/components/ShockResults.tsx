@@ -66,6 +66,8 @@ export function ShockResults({
 
       <ExecutiveImpactBrief result={result} />
 
+      <OperationalImpactPanel result={result} />
+
       <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-5">
         <MetricCard label="Affected nodes" value={String(s.affected_nodes)} />
         <MetricCard label="Affected paths" value={String(s.affected_paths)} />
@@ -143,6 +145,38 @@ export function ShockResults({
         <BlockedEdgesPanel result={result} />
       )}
     </div>
+  )
+}
+
+function OperationalImpactPanel({ result }: { result: ShockResponse }) {
+  const assumptions = result.operational_assumptions
+  if (!assumptions) return null
+  const factors = [
+    ['Duration factor', assumptions.duration_factor],
+    ['Recovery factor', assumptions.recovery_factor],
+    ['Substitute factor', assumptions.substitute_factor],
+    ['Inventory factor', assumptions.inventory_factor],
+  ] as const
+  return (
+    <Panel title="Operational Impact Adjustment" dense>
+      <div className="space-y-3">
+        <p className="text-sm leading-relaxed text-slate-300">{assumptions.explanation}</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {factors.map(([label, value]) => (
+            <div key={label} className="rounded border border-slate-800 bg-slate-950/40 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+              <div className="mt-0.5 font-mono text-lg font-semibold text-cyan-200">
+                {fixed(value, 2)}×
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs leading-relaxed text-slate-500">
+          Entity-specific adjustment: sectors are more sensitive to substitute availability, while
+          countries are more sensitive to inventory buffers and recovery speed.
+        </p>
+      </div>
+    </Panel>
   )
 }
 
@@ -368,7 +402,14 @@ function groupExposureItems(items: ExposureItem[]): { key: string; label: string
 function ExposureRow({ item: it }: { item: ExposureItem }) {
   return (
     <tr className="border-b border-slate-800/60 hover:bg-slate-800/30">
-      <td className="exposure-td-entity">{it.entity}</td>
+      <td className="exposure-td-entity">
+        <div>{it.entity}</div>
+        {it.resilience_note && (
+          <div className="mt-0.5 text-[10px] font-normal leading-snug text-slate-500" title={it.resilience_note}>
+            {fixed(it.operational_multiplier, 2)}× · {it.resilience_note}
+          </div>
+        )}
+      </td>
       <td className="exposure-td-mono text-right">{pct(it.impact)}</td>
       <td className="exposure-td-mono text-right text-slate-400">
         {fixed(it.base_fragility)} →{' '}

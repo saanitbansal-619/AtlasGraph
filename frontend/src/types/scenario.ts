@@ -6,7 +6,7 @@
 export type ShockMode = 'preset' | 'custom'
 
 export type Duration = '7 days' | '30 days' | '90 days' | '180 days'
-export type RecoverySpeed = 'Fast' | 'Moderate' | 'Slow' | 'None'
+export type RecoverySpeed = 'Fast' | 'Moderate' | 'Slow'
 export type SubstituteAvailability = 'Low' | 'Medium' | 'High'
 export type InventoryBuffer = '0 days' | '30 days' | '60 days' | '90 days'
 
@@ -34,7 +34,7 @@ export interface SubmittedScenario {
 }
 
 export const DURATION_OPTIONS: Duration[] = ['7 days', '30 days', '90 days', '180 days']
-export const RECOVERY_OPTIONS: RecoverySpeed[] = ['Fast', 'Moderate', 'Slow', 'None']
+export const RECOVERY_OPTIONS: RecoverySpeed[] = ['Fast', 'Moderate', 'Slow']
 export const SUBSTITUTE_OPTIONS: SubstituteAvailability[] = ['Low', 'Medium', 'High']
 export const INVENTORY_OPTIONS: InventoryBuffer[] = ['0 days', '30 days', '60 days', '90 days']
 
@@ -54,4 +54,13 @@ export const DEFAULT_META: ScenarioMeta = {
 }
 
 export const ASSUMPTION_NOTE =
-  'Model assumptions define propagation behavior; real trade, event-risk, and commodity-price data drive exposure scoring.'
+  'Operational assumptions adjust interpreted impact after baseline graph propagation. Sectors are more sensitive to substitutes; countries are more sensitive to inventory and recovery.'
+
+export function operationalRequestFields(assumptions: ScenarioAssumptions) {
+  return {
+    duration_days: Number.parseInt(assumptions.duration, 10),
+    recovery_speed: assumptions.recovery,
+    substitute_availability: assumptions.substitute,
+    inventory_buffer_days: Number.parseInt(assumptions.inventory, 10),
+  }
+}

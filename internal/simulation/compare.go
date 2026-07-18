@@ -38,7 +38,7 @@ type ScenarioComparison struct {
 	TopAffectedEntities    []CompareEntity
 	TopAffectedCountries   []CompareEntity
 	TopAffectedSectors     []CompareEntity
-	RunError               string // set when simulation.Run fails; metrics stay zero
+	RunError               string       // set when simulation.Run fails; metrics stay zero
 	Profile                ShockProfile `json:"-"` // retained for graph-aware warnings in the API layer
 }
 
@@ -128,15 +128,15 @@ func runOneComparisonWithContext(g *graph.Graph, cfg config.Config, sc CompareSc
 }
 
 type resultMetrics struct {
-	affectedNodes      int
-	affectedPaths      int
-	affectedCountries  int
-	affectedSectors    int
-	avgDelta           float64
-	maxDelta           float64
-	topEntities        []CompareEntity
-	topCountries       []CompareEntity
-	topSectors         []CompareEntity
+	affectedNodes     int
+	affectedPaths     int
+	affectedCountries int
+	affectedSectors   int
+	avgDelta          float64
+	maxDelta          float64
+	topEntities       []CompareEntity
+	topCountries      []CompareEntity
+	topSectors        []CompareEntity
 }
 
 func metricsFromResult(res Result, topN int) resultMetrics {

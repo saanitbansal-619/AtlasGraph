@@ -131,7 +131,7 @@ function selectImpactedEntities(result: ShockResponse, max = 4): string[] {
   return selected
 }
 
-/** Build a concise executive narrative from existing shock result fields (2 sentences max). */
+/** Build a concise executive narrative from graph and operational impact fields. */
 export function buildExecutiveImpactBrief(result: ShockResponse): string {
   const sc = result.scenario
   const drop = Math.round(sc.shock_percent)
@@ -154,7 +154,8 @@ export function buildExecutiveImpactBrief(result: ShockResponse): string {
       ? `Propagation is driven by ${joinList(drivers)}.`
       : 'Propagation follows the baseline dependency graph under the selected shock profile.'
 
-  return `${sentence1} ${sentence2}`
+  const operational = result.operational_assumptions?.explanation
+  return operational ? `${sentence1} ${operational} ${sentence2}` : `${sentence1} ${sentence2}`
 }
 
 export function ExecutiveImpactBrief({ result }: { result: ShockResponse }) {

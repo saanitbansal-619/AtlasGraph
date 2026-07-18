@@ -10,6 +10,7 @@ import type {
 } from '../types/api'
 import {
   ASSUMPTION_NOTE,
+  DEFAULT_ASSUMPTIONS,
   DURATION_OPTIONS,
   INVENTORY_OPTIONS,
   RECOVERY_OPTIONS,
@@ -17,6 +18,7 @@ import {
   type ScenarioAssumptions,
   type ScenarioMeta,
   type ShockMode,
+  operationalRequestFields,
 } from '../types/scenario'
 import { Panel, Spinner } from './ui'
 
@@ -474,7 +476,10 @@ function isGuidedValid(form: ShockForm, valid: ShockValidOptionsResponse | null)
   return com.shock_types.includes(form.shock_type)
 }
 
-export function toRequest(form: ShockForm): ShockRequest {
+export function toRequest(
+  form: ShockForm,
+  assumptions: ScenarioAssumptions = DEFAULT_ASSUMPTIONS,
+): ShockRequest {
   return {
     source: form.source.trim(),
     commodity: form.commodity.trim(),
@@ -482,6 +487,7 @@ export function toRequest(form: ShockForm): ShockRequest {
     drop: form.drop,
     depth: form.depth,
     explain: form.explain,
+    ...operationalRequestFields(assumptions),
   }
 }
 

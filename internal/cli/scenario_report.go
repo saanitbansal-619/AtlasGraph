@@ -16,6 +16,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/operationalimpact"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
@@ -25,12 +26,16 @@ import (
 // scenarioReportRequest is the POST /api/reports/scenario body.
 // drop_percent is preferred; drop is accepted for parity with /api/shock.
 type scenarioReportRequest struct {
-	Source      string   `json:"source"`
-	Commodity   string   `json:"commodity"`
-	ShockType   string   `json:"shock_type"`
-	DropPercent *float64 `json:"drop_percent"`
-	Drop        *float64 `json:"drop"`
-	Depth       *int     `json:"depth"`
+	Source                 string   `json:"source"`
+	Commodity              string   `json:"commodity"`
+	ShockType              string   `json:"shock_type"`
+	DropPercent            *float64 `json:"drop_percent"`
+	Drop                   *float64 `json:"drop"`
+	Depth                  *int     `json:"depth"`
+	DurationDays           *int     `json:"duration_days,omitempty"`
+	RecoverySpeed          string   `json:"recovery_speed,omitempty"`
+	SubstituteAvailability string   `json:"substitute_availability,omitempty"`
+	InventoryBufferDays    *int     `json:"inventory_buffer_days,omitempty"`
 }
 
 // scenarioReport is the structured analyst-style intelligence report.
@@ -49,16 +54,17 @@ type scenarioReport struct {
 	ReturnedDirectExposureCount      int `json:"returned_direct_exposure_count"`
 	ReturnedSecondOrderExposureCount int `json:"returned_second_order_exposure_count"`
 
-	MostExposedCountries   []reportExposureItem  `json:"most_exposed_countries"`
-	MostExposedCommodities []reportExposureItem  `json:"most_exposed_commodities"`
-	MostExposedSectors     []reportExposureItem  `json:"most_exposed_sectors"`
-	TradeEvidence          []reportTradeEvidence `json:"trade_evidence"`
-	EventRiskContext       []reportContextItem   `json:"event_risk_context"`
-	MacroContext           []reportContextItem   `json:"macro_context"`
-	CommodityFragility     []reportContextItem   `json:"commodity_fragility_context"`
-	ModelAssumptions       []string              `json:"model_assumptions"`
-	DataSources            []string              `json:"data_sources"`
-	Limitations            []string              `json:"limitations"`
+	MostExposedCountries   []reportExposureItem          `json:"most_exposed_countries"`
+	MostExposedCommodities []reportExposureItem          `json:"most_exposed_commodities"`
+	MostExposedSectors     []reportExposureItem          `json:"most_exposed_sectors"`
+	TradeEvidence          []reportTradeEvidence         `json:"trade_evidence"`
+	EventRiskContext       []reportContextItem           `json:"event_risk_context"`
+	MacroContext           []reportContextItem           `json:"macro_context"`
+	CommodityFragility     []reportContextItem           `json:"commodity_fragility_context"`
+	ModelAssumptions       []string                      `json:"model_assumptions"`
+	DataSources            []string                      `json:"data_sources"`
+	Limitations            []string                      `json:"limitations"`
+	OperationalAssumptions *operationalimpact.Assessment `json:"operational_assumptions,omitempty"`
 }
 
 // Exposure-list truncation limits keep the report analyst-readable rather than a raw dump.
@@ -70,15 +76,17 @@ const (
 )
 
 type reportExposureItem struct {
-	Entity          string  `json:"entity"`
-	Type            string  `json:"type"`
-	Distance        int     `json:"distance"`
-	EstimatedImpact float64 `json:"estimated_impact"`
-	FragilityDelta  float64 `json:"fragility_delta"`
-	BaseFragility   float64 `json:"base_fragility"`
-	ShockFragility  float64 `json:"shock_fragility"`
-	Note            string  `json:"note,omitempty"`
-	DataProvenance  string  `json:"data_provenance"`
+	Entity                string  `json:"entity"`
+	Type                  string  `json:"type"`
+	Distance              int     `json:"distance"`
+	EstimatedImpact       float64 `json:"estimated_impact"`
+	FragilityDelta        float64 `json:"fragility_delta"`
+	BaseFragility         float64 `json:"base_fragility"`
+	ShockFragility        float64 `json:"shock_fragility"`
+	Note                  string  `json:"note,omitempty"`
+	DataProvenance        string  `json:"data_provenance"`
+	OperationalMultiplier float64 `json:"operational_multiplier"`
+	ResilienceNote        string  `json:"resilience_note"`
 }
 
 type reportTradeEvidence struct {
@@ -139,6 +147,10 @@ func (s *apiServer) handleScenarioReport(w http.ResponseWriter, r *http.Request)
 	}
 	if body.Depth != nil {
 		req.Depth = *body.Depth
+	}
+	if err := applyOperationalRequest(&req, body.DurationDays, body.RecoverySpeed, body.SubstituteAvailability, body.InventoryBufferDays); err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error(), "check operational assumption values")
+		return
 	}
 
 	fused, ok := s.loadFused(w)
@@ -289,6 +301,7 @@ func buildScenarioReport(res simulation.Result, ctx scenarioReportContext) scena
 		ModelAssumptions:       buildModelAssumptions(res, ctx),
 		DataSources:            dataSources,
 		Limitations:            buildReportLimitations(ctx),
+		OperationalAssumptions: res.OperationalAssumptions,
 	}
 }
 
@@ -299,15 +312,17 @@ func topExposure(items []simulation.NodeImpact, provenance string, limit int) ([
 	all := make([]reportExposureItem, 0, len(items))
 	for _, it := range items {
 		all = append(all, reportExposureItem{
-			Entity:          it.Node.Name,
-			Type:            string(it.Node.Type),
-			Distance:        it.Distance,
-			EstimatedImpact: round(it.Impact, 4),
-			FragilityDelta:  round(it.Delta, 4),
-			BaseFragility:   round(it.BaseFragility, 2),
-			ShockFragility:  round(it.ShockFragility, 2),
-			Note:            "model-derived estimated exposure from dependency propagation",
-			DataProvenance:  provenance,
+			Entity:                it.Node.Name,
+			Type:                  string(it.Node.Type),
+			Distance:              it.Distance,
+			EstimatedImpact:       round(it.Impact, 4),
+			FragilityDelta:        round(it.Delta, 4),
+			BaseFragility:         round(it.BaseFragility, 2),
+			ShockFragility:        round(it.ShockFragility, 2),
+			Note:                  "model-derived estimated exposure from dependency propagation",
+			DataProvenance:        provenance,
+			OperationalMultiplier: round(it.OperationalMultiplier, 4),
+			ResilienceNote:        it.ResilienceNote,
 		})
 	}
 	sort.SliceStable(all, func(i, j int) bool {
@@ -369,6 +384,9 @@ func buildExecutiveSummary(res simulation.Result, countries, sectors []reportExp
 			commodity, prefer(best.Importer, "a major importer"),
 		))
 	}
+	if res.OperationalAssumptions != nil {
+		parts = append(parts, res.OperationalAssumptions.Explanation)
+	}
 	parts = append(parts, "Figures are relative exposure estimates, not predictions.")
 	return sanitizeText(strings.Join(parts, " "))
 }
@@ -424,6 +442,10 @@ func buildKeyFindings(
 	// f. macro context availability (report the source country's status first)
 	if mf := buildMacroFinding(res, macroCtx); mf != "" {
 		findings = append(findings, mf)
+	}
+
+	if res.OperationalAssumptions != nil {
+		findings = append(findings, "Operational adjustment: "+res.OperationalAssumptions.Explanation)
 	}
 
 	// g. data provenance

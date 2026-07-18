@@ -16,6 +16,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/ingest/worldbank"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/operationalimpact"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/fragility"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
@@ -199,12 +200,43 @@ func (s *apiServer) handleShockOptions(w http.ResponseWriter, r *http.Request) {
 // shockRequestBody is the POST /api/shock payload. Drop and Depth are pointers
 // so omitted values fall back to engine defaults rather than 0.
 type shockRequestBody struct {
-	Source    string   `json:"source"`
-	Commodity string   `json:"commodity"`
-	Drop      *float64 `json:"drop"`
-	Depth     *int     `json:"depth"`
-	ShockType string   `json:"shock_type"`
-	Explain   bool     `json:"explain"`
+	Source                 string   `json:"source"`
+	Commodity              string   `json:"commodity"`
+	Drop                   *float64 `json:"drop"`
+	Depth                  *int     `json:"depth"`
+	ShockType              string   `json:"shock_type"`
+	Explain                bool     `json:"explain"`
+	DurationDays           *int     `json:"duration_days,omitempty"`
+	RecoverySpeed          string   `json:"recovery_speed,omitempty"`
+	SubstituteAvailability string   `json:"substitute_availability,omitempty"`
+	InventoryBufferDays    *int     `json:"inventory_buffer_days,omitempty"`
+}
+
+func applyOperationalRequest(req *simulation.ShockRequest, duration *int, recovery, substitute string, inventory *int) error {
+	req.OperationalEnabled = true
+	req.DurationDays = 30
+	req.RecoverySpeed = "Moderate"
+	req.SubstituteAvailability = "Medium"
+	req.InventoryBufferDays = 30
+	if duration != nil {
+		req.DurationDays = *duration
+	}
+	if strings.TrimSpace(recovery) != "" {
+		req.RecoverySpeed = recovery
+	}
+	if strings.TrimSpace(substitute) != "" {
+		req.SubstituteAvailability = substitute
+	}
+	if inventory != nil {
+		req.InventoryBufferDays = *inventory
+	}
+	_, err := operationalimpact.Evaluate(operationalimpact.Assumptions{
+		DurationDays:           req.DurationDays,
+		RecoverySpeed:          req.RecoverySpeed,
+		SubstituteAvailability: req.SubstituteAvailability,
+		InventoryBufferDays:    req.InventoryBufferDays,
+	})
+	return err
 }
 
 func (s *apiServer) handleShock(w http.ResponseWriter, r *http.Request) {
@@ -243,6 +275,11 @@ func (s *apiServer) handleShock(w http.ResponseWriter, r *http.Request) {
 	if body.Depth != nil {
 		req.Depth = *body.Depth
 	}
+	if err := applyOperationalRequest(&req, body.DurationDays, body.RecoverySpeed, body.SubstituteAvailability, body.InventoryBufferDays); err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error(),
+			"provide duration_days >= 0, recovery_speed Fast/Moderate/Slow, substitute_availability High/Medium/Low, and inventory_buffer_days >= 0")
+		return
+	}
 
 	fused, ok := s.loadFused(w)
 	if !ok {
@@ -266,13 +303,17 @@ func (s *apiServer) handleShock(w http.ResponseWriter, r *http.Request) {
 
 // compareScenarioBody is one shock in POST /api/scenarios/compare.
 type compareScenarioBody struct {
-	Label     string   `json:"label"`
-	Source    string   `json:"source"`
-	Commodity string   `json:"commodity"`
-	ShockType string   `json:"shock_type"`
-	Drop      *float64 `json:"drop"`
-	Depth     *int     `json:"depth"`
-	Explain   bool     `json:"explain"`
+	Label                  string   `json:"label"`
+	Source                 string   `json:"source"`
+	Commodity              string   `json:"commodity"`
+	ShockType              string   `json:"shock_type"`
+	Drop                   *float64 `json:"drop"`
+	Depth                  *int     `json:"depth"`
+	Explain                bool     `json:"explain"`
+	DurationDays           *int     `json:"duration_days,omitempty"`
+	RecoverySpeed          string   `json:"recovery_speed,omitempty"`
+	SubstituteAvailability string   `json:"substitute_availability,omitempty"`
+	InventoryBufferDays    *int     `json:"inventory_buffer_days,omitempty"`
 }
 
 type compareRequestBody struct {
@@ -320,6 +361,10 @@ func (s *apiServer) handleScenariosCompare(w http.ResponseWriter, r *http.Reques
 		}
 		if sc.Depth != nil {
 			req.Depth = *sc.Depth
+		}
+		if err := applyOperationalRequest(&req, sc.DurationDays, sc.RecoverySpeed, sc.SubstituteAvailability, sc.InventoryBufferDays); err != nil {
+			writeAPIError(w, http.StatusBadRequest, err.Error(), "check operational assumptions for each scenario")
+			return
 		}
 		inputs = append(inputs, simulation.CompareScenario{Label: sc.Label, Request: req})
 	}

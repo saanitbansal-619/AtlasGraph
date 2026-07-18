@@ -16,6 +16,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/config"
 	"github.com/atlasgraph/atlas/internal/graph"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/operationalimpact"
 	"github.com/atlasgraph/atlas/internal/scoring"
 )
 
@@ -29,21 +30,28 @@ const (
 
 // ShockRequest describes a scenario to simulate.
 type ShockRequest struct {
-	Source    string  // source entity name, e.g. "Taiwan" or "Suez Canal"
-	Commodity string  // commodity name, e.g. "semiconductors"
-	ShockType string  // e.g. "export_collapse" (must match a ShockProfile)
-	DropPct   float64 // export/flow drop, 0..100
-	Depth     int     // max edges to traverse from the source
+	Source                 string  // source entity name, e.g. "Taiwan" or "Suez Canal"
+	Commodity              string  // commodity name, e.g. "semiconductors"
+	ShockType              string  // e.g. "export_collapse" (must match a ShockProfile)
+	DropPct                float64 // export/flow drop, 0..100
+	Depth                  int     // max edges to traverse from the source
+	DurationDays           int
+	RecoverySpeed          string
+	SubstituteAvailability string
+	InventoryBufferDays    int
+	OperationalEnabled     bool
 }
 
 // NodeImpact captures what a shock did to a single node.
 type NodeImpact struct {
-	Node           models.Node
-	Distance       int     // hops from the source (commodity = 1)
-	Impact         float64 // disruption fraction reaching this node, [0,1]
-	BaseFragility  float64 // fragility before the shock
-	ShockFragility float64 // fragility under the shock
-	Delta          float64 // ShockFragility - BaseFragility
+	Node                  models.Node
+	Distance              int     // hops from the source (commodity = 1)
+	Impact                float64 // disruption fraction reaching this node, [0,1]
+	BaseFragility         float64 // fragility before the shock
+	ShockFragility        float64 // fragility under the shock
+	Delta                 float64 // ShockFragility - BaseFragility
+	OperationalMultiplier float64
+	ResilienceNote        string
 }
 
 // PathEdge labels a single hop of a dependency path.
@@ -93,6 +101,8 @@ type Result struct {
 	TopCountries   []NodeImpact
 	TopCommodities []NodeImpact
 	TopSectors     []NodeImpact
+
+	OperationalAssumptions *operationalimpact.Assessment
 }
 
 // BlockedCommodities returns the distinct commodities whose branches were
@@ -146,6 +156,20 @@ func RunWithContext(g *graph.Graph, cfg config.Config, req ShockRequest, ctx *Co
 		return Result{}, fmt.Errorf("drop must be within 0..100, got %v", req.DropPct)
 	}
 
+	var operational *operationalimpact.Assessment
+	if req.OperationalEnabled {
+		assessment, err := operationalimpact.Evaluate(operationalimpact.Assumptions{
+			DurationDays:           req.DurationDays,
+			RecoverySpeed:          req.RecoverySpeed,
+			SubstituteAvailability: req.SubstituteAvailability,
+			InventoryBufferDays:    req.InventoryBufferDays,
+		})
+		if err != nil {
+			return Result{}, err
+		}
+		operational = &assessment
+	}
+
 	activeCommodity := commodity.Name
 
 	drop := req.DropPct / 100.0
@@ -157,14 +181,15 @@ func RunWithContext(g *graph.Graph, cfg config.Config, req ShockRequest, ctx *Co
 	}
 
 	res := Result{
-		Request:         req,
-		Profile:         profile,
-		SourceNode:      source,
-		CommodityNode:   commodity,
-		ActiveCommodity: activeCommodity,
-		InitialImpact:   initialImpact,
-		GraphNodeCount:  g.NodeCount(),
-		BlockedEdges:    blocked,
+		Request:                req,
+		Profile:                profile,
+		SourceNode:             source,
+		CommodityNode:          commodity,
+		ActiveCommodity:        activeCommodity,
+		InitialImpact:          initialImpact,
+		GraphNodeCount:         g.NodeCount(),
+		BlockedEdges:           blocked,
+		OperationalAssumptions: operational,
 	}
 
 	for id, imp := range impact {
@@ -175,14 +200,23 @@ func RunWithContext(g *graph.Graph, cfg config.Config, req ShockRequest, ctx *Co
 		base := scoring.NodeFragility(g, id, 0, cfg)
 		shock := scoring.NodeFragility(g, id, imp, cfg)
 		ni := NodeImpact{
-			Node:           node,
-			Distance:       dist[id],
-			Impact:         imp,
-			BaseFragility:  base,
-			ShockFragility: shock,
-			Delta:          shock - base,
+			Node:                  node,
+			Distance:              dist[id],
+			Impact:                imp,
+			BaseFragility:         base,
+			ShockFragility:        shock,
+			Delta:                 shock - base,
+			OperationalMultiplier: 1,
+			ResilienceNote:        "No operational resilience adjustment was applied.",
+		}
+		if operational != nil {
+			applyOperationalImpact(&ni, *operational)
 		}
 		res.AllAffected = append(res.AllAffected, ni)
+	}
+
+	sortByDelta(res.AllAffected)
+	for _, ni := range res.AllAffected {
 		switch ni.Distance {
 		case distDirect:
 			res.Direct = append(res.Direct, ni)
@@ -191,16 +225,28 @@ func RunWithContext(g *graph.Graph, cfg config.Config, req ShockRequest, ctx *Co
 		}
 	}
 
-	sortByDelta(res.AllAffected)
-	sortByDelta(res.Direct)
-	sortByDelta(res.SecondOrder)
-
 	res.TopCountries = topByType(res.AllAffected, models.Country, cfg.TopN)
 	res.TopCommodities = topByType(res.AllAffected, models.Commodity, cfg.TopN)
 	res.TopSectors = topByType(res.AllAffected, models.Sector, cfg.TopN)
 	res.Paths = affectedPaths(g, profile, source, commodity, activeCommodity, originEdge, impact, cfg, req.Depth)
 
 	return res, nil
+}
+
+func applyOperationalImpact(ni *NodeImpact, assessment operationalimpact.Assessment) {
+	multiplier := assessment.Multiplier(ni.Node.Type)
+	ni.OperationalMultiplier = multiplier
+	ni.ResilienceNote = assessment.ResilienceNote(ni.Node.Type)
+	ni.Impact *= multiplier
+	adjustedDelta := ni.Delta * multiplier
+	ni.ShockFragility = ni.BaseFragility + adjustedDelta
+	if ni.ShockFragility > 100 {
+		ni.ShockFragility = 100
+	}
+	if ni.ShockFragility < 0 {
+		ni.ShockFragility = 0
+	}
+	ni.Delta = ni.ShockFragility - ni.BaseFragility
 }
 
 // propagate performs a bounded, layered breadth-first spread of disruption from

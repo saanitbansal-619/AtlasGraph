@@ -24,6 +24,10 @@ func runShock(args []string, out, errOut io.Writer) int {
 	output := fs.String("output", "text", "output format: text or json")
 	save := fs.String("save", "", "write the JSON result to this file")
 	explain := fs.Bool("explain", false, "print the propagation logic and blocked branches")
+	durationDays := fs.Int("duration-days", 30, "operational disruption duration in days")
+	recoverySpeed := fs.String("recovery-speed", "Moderate", "operational recovery speed: Fast, Moderate, or Slow")
+	substituteAvailability := fs.String("substitute-availability", "Medium", "substitute availability: High, Medium, or Low")
+	inventoryBufferDays := fs.Int("inventory-buffer-days", 30, "available inventory buffer in days")
 	fs.Usage = func() {
 		fmt.Fprintln(errOut, "Usage: atlas shock --source <entity> --commodity <name> [--type kind] [--drop N] [--depth N] [--data dir] [--output text|json] [--save file] [--explain]")
 		fs.PrintDefaults()
@@ -40,6 +44,13 @@ func runShock(args []string, out, errOut io.Writer) int {
 		fmt.Fprintf(errOut, "error: invalid --output %q (want text or json)\n", *output)
 		return 2
 	}
+	operationalEnabled := false
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "duration-days", "recovery-speed", "substitute-availability", "inventory-buffer-days":
+			operationalEnabled = true
+		}
+	})
 
 	ds, err := loadDataset(*dataDir)
 	if err != nil {
@@ -48,11 +59,16 @@ func runShock(args []string, out, errOut io.Writer) int {
 	}
 
 	req := simulation.ShockRequest{
-		Source:    *source,
-		Commodity: *commodity,
-		ShockType: *shockType,
-		DropPct:   *drop,
-		Depth:     *depth,
+		Source:                 *source,
+		Commodity:              *commodity,
+		ShockType:              *shockType,
+		DropPct:                *drop,
+		Depth:                  *depth,
+		DurationDays:           *durationDays,
+		RecoverySpeed:          *recoverySpeed,
+		SubstituteAvailability: *substituteAvailability,
+		InventoryBufferDays:    *inventoryBufferDays,
+		OperationalEnabled:     operationalEnabled,
 	}
 	return executeShock(out, errOut, ds, cfg, req, nil, *output, *save, *explain)
 }

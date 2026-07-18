@@ -14,6 +14,19 @@ function reportToMarkdown(report: ScenarioReportResponse): string {
   const lines: string[] = []
   lines.push(`# ${report.title}`, '')
   lines.push('## Executive Summary', '', report.executive_summary, '')
+  if (report.operational_assumptions) {
+    const o = report.operational_assumptions
+    lines.push(
+      '## Operational Assumptions',
+      '',
+      `- Duration: ${o.duration_days} days (${fixed(o.duration_factor, 2)}×)`,
+      `- Recovery speed: ${o.recovery_speed} (${fixed(o.recovery_factor, 2)}×)`,
+      `- Substitute availability: ${o.substitute_availability} (${fixed(o.substitute_factor, 2)}×)`,
+      `- Inventory buffer: ${o.inventory_buffer_days} days (${fixed(o.inventory_factor, 2)}×)`,
+      `- Result adjustment: ${o.explanation}`,
+      '',
+    )
+  }
   lines.push('## Key Findings', '')
   for (const f of report.key_findings ?? []) {
     lines.push(`- ${f}`)
@@ -299,6 +312,45 @@ export function ScenarioIntelligenceReport({
             <div className="label mb-1">Executive Summary</div>
             <p className="text-sm leading-relaxed text-slate-300">{report.executive_summary}</p>
           </div>
+
+          {report.operational_assumptions && (
+            <div className="rounded border border-cyan-900/50 bg-cyan-950/10 p-3">
+              <div className="label mb-2">Operational Assumptions</div>
+              <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                <div>
+                  <span className="text-slate-500">Duration</span>
+                  <div className="text-slate-200">
+                    {report.operational_assumptions.duration_days} days ·{' '}
+                    {fixed(report.operational_assumptions.duration_factor, 2)}×
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500">Recovery</span>
+                  <div className="text-slate-200">
+                    {report.operational_assumptions.recovery_speed} ·{' '}
+                    {fixed(report.operational_assumptions.recovery_factor, 2)}×
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500">Substitutes</span>
+                  <div className="text-slate-200">
+                    {report.operational_assumptions.substitute_availability} ·{' '}
+                    {fixed(report.operational_assumptions.substitute_factor, 2)}×
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500">Inventory buffer</span>
+                  <div className="text-slate-200">
+                    {report.operational_assumptions.inventory_buffer_days} days ·{' '}
+                    {fixed(report.operational_assumptions.inventory_factor, 2)}×
+                  </div>
+                </div>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                {report.operational_assumptions.explanation}
+              </p>
+            </div>
+          )}
 
           <div>
             <div className="label mb-2">Key Findings</div>

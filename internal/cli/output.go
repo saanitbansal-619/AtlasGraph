@@ -14,6 +14,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
+	"github.com/atlasgraph/atlas/internal/operationalimpact"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/fragility"
@@ -39,7 +40,8 @@ type jsonResult struct {
 	// valid shock combinations. Omitted (and never set) for the CLI path.
 	Warnings []string `json:"warnings,omitempty"`
 
-	DataFusion *jsonDataFusion `json:"data_fusion,omitempty"`
+	DataFusion             *jsonDataFusion               `json:"data_fusion,omitempty"`
+	OperationalAssumptions *operationalimpact.Assessment `json:"operational_assumptions,omitempty"`
 }
 
 type jsonDataFusion struct {
@@ -109,13 +111,15 @@ type jsonScenario struct {
 }
 
 type jsonNodeImpact struct {
-	Entity         string  `json:"entity"`
-	Type           string  `json:"type"`
-	Distance       int     `json:"distance"`
-	Impact         float64 `json:"impact"`
-	BaseFragility  float64 `json:"base_fragility"`
-	ShockFragility float64 `json:"shock_fragility"`
-	Delta          float64 `json:"delta"`
+	Entity                string  `json:"entity"`
+	Type                  string  `json:"type"`
+	Distance              int     `json:"distance"`
+	Impact                float64 `json:"impact"`
+	BaseFragility         float64 `json:"base_fragility"`
+	ShockFragility        float64 `json:"shock_fragility"`
+	Delta                 float64 `json:"delta"`
+	OperationalMultiplier float64 `json:"operational_multiplier"`
+	ResilienceNote        string  `json:"resilience_note"`
 }
 
 type jsonPath struct {
@@ -181,7 +185,8 @@ func buildJSONResult(res simulation.Result, scen *data.Scenario, explain bool) j
 			Commodities: impactsToJSON(res.TopCommodities),
 			Sectors:     impactsToJSON(res.TopSectors),
 		},
-		GraphImpactSummary: summaryToJSON(res),
+		GraphImpactSummary:     summaryToJSON(res),
+		OperationalAssumptions: res.OperationalAssumptions,
 	}
 	if explain {
 		jr.BlockedEdges = blockedEdgesToJSON(res.BlockedEdges)
@@ -212,13 +217,15 @@ func impactsToJSON(items []simulation.NodeImpact) []jsonNodeImpact {
 	out := make([]jsonNodeImpact, 0, len(items))
 	for _, ni := range items {
 		out = append(out, jsonNodeImpact{
-			Entity:         ni.Node.Name,
-			Type:           string(ni.Node.Type),
-			Distance:       ni.Distance,
-			Impact:         round(ni.Impact, 4),
-			BaseFragility:  round(ni.BaseFragility, 2),
-			ShockFragility: round(ni.ShockFragility, 2),
-			Delta:          round(ni.Delta, 2),
+			Entity:                ni.Node.Name,
+			Type:                  string(ni.Node.Type),
+			Distance:              ni.Distance,
+			Impact:                round(ni.Impact, 4),
+			BaseFragility:         round(ni.BaseFragility, 2),
+			ShockFragility:        round(ni.ShockFragility, 2),
+			Delta:                 round(ni.Delta, 2),
+			OperationalMultiplier: round(ni.OperationalMultiplier, 4),
+			ResilienceNote:        ni.ResilienceNote,
 		})
 	}
 	return out
@@ -310,20 +317,20 @@ type jsonCompareEntity struct {
 }
 
 type jsonScenarioCompareItem struct {
-	Label                  string              `json:"label"`
-	Source                 string              `json:"source"`
-	Commodity              string              `json:"commodity"`
-	ShockType              string              `json:"shock_type"`
-	Drop                   float64             `json:"drop"`
-	Depth                  int                 `json:"depth"`
-	AffectedNodesCount     int                 `json:"affected_nodes_count"`
-	AffectedPathsCount     int                 `json:"affected_paths_count"`
-	AverageFragilityDelta  float64             `json:"average_fragility_delta"`
-	MaxFragilityDelta      float64             `json:"max_fragility_delta"`
-	TopAffectedEntities    []jsonCompareEntity `json:"top_affected_entities"`
-	TopAffectedCountries   []jsonCompareEntity `json:"top_affected_countries"`
-	TopAffectedSectors     []jsonCompareEntity `json:"top_affected_sectors"`
-	Warnings               []string            `json:"warnings,omitempty"`
+	Label                 string              `json:"label"`
+	Source                string              `json:"source"`
+	Commodity             string              `json:"commodity"`
+	ShockType             string              `json:"shock_type"`
+	Drop                  float64             `json:"drop"`
+	Depth                 int                 `json:"depth"`
+	AffectedNodesCount    int                 `json:"affected_nodes_count"`
+	AffectedPathsCount    int                 `json:"affected_paths_count"`
+	AverageFragilityDelta float64             `json:"average_fragility_delta"`
+	MaxFragilityDelta     float64             `json:"max_fragility_delta"`
+	TopAffectedEntities   []jsonCompareEntity `json:"top_affected_entities"`
+	TopAffectedCountries  []jsonCompareEntity `json:"top_affected_countries"`
+	TopAffectedSectors    []jsonCompareEntity `json:"top_affected_sectors"`
+	Warnings              []string            `json:"warnings,omitempty"`
 }
 
 type jsonCompareSummary struct {
@@ -761,8 +768,8 @@ func writeJSON(w io.Writer, v any) error {
 // --- trade dependency & concentration -------------------------------------
 
 type jsonTradeSummary struct {
-	Source        string        `json:"source"`
-	RealTradeData bool          `json:"real_trade_data"`
+	Source        string `json:"source"`
+	RealTradeData bool   `json:"real_trade_data"`
 	trade.Summary
 }
 
@@ -870,30 +877,30 @@ func buildTradeConcentrationJSON(resolved trade.ResolvedTrade, c trade.Concentra
 // --- unified fragility -----------------------------------------------------
 
 type jsonFragilityFile struct {
-	CountryWeights    fragility.CountryWeights    `json:"country_weights"`
-	CommodityWeights  fragility.CommodityWeights  `json:"commodity_weights"`
-	RiskBands         map[string]string           `json:"risk_bands"`
-	Countries         []jsonFragilityCountry      `json:"countries"`
-	Commodities       []jsonFragilityCommodity    `json:"commodities"`
+	CountryWeights   fragility.CountryWeights   `json:"country_weights"`
+	CommodityWeights fragility.CommodityWeights `json:"commodity_weights"`
+	RiskBands        map[string]string          `json:"risk_bands"`
+	Countries        []jsonFragilityCountry     `json:"countries"`
+	Commodities      []jsonFragilityCommodity   `json:"commodities"`
 }
 
 type jsonFragilityCountry struct {
-	CountryCode       string                 `json:"country_code"`
-	CountryName       string                 `json:"country_name"`
-	Score             float64                `json:"score"`
-	RiskLevel         string                 `json:"risk_level"`
-	TopDrivers        []string               `json:"top_drivers"`
-	MissingComponents []string               `json:"missing_components"`
+	CountryCode       string                   `json:"country_code"`
+	CountryName       string                   `json:"country_name"`
+	Score             float64                  `json:"score"`
+	RiskLevel         string                   `json:"risk_level"`
+	TopDrivers        []string                 `json:"top_drivers"`
+	MissingComponents []string                 `json:"missing_components"`
 	Components        []jsonFragilityComponent `json:"components"`
 }
 
 type jsonFragilityCommodity struct {
-	CommodityCode     string                 `json:"commodity_code"`
-	CommodityName     string                 `json:"commodity_name"`
-	Score             float64                `json:"score"`
-	RiskLevel         string                 `json:"risk_level"`
-	TopDrivers        []string               `json:"top_drivers"`
-	MissingComponents []string               `json:"missing_components"`
+	CommodityCode     string                   `json:"commodity_code"`
+	CommodityName     string                   `json:"commodity_name"`
+	Score             float64                  `json:"score"`
+	RiskLevel         string                   `json:"risk_level"`
+	TopDrivers        []string                 `json:"top_drivers"`
+	MissingComponents []string                 `json:"missing_components"`
 	Components        []jsonFragilityComponent `json:"components"`
 }
 

@@ -3,6 +3,8 @@ import type {
   GraphEntitiesResponse,
   FragilitySummaryResponse,
   HealthResponse,
+  DBHealthResponse,
+  DBSummaryResponse,
   ScenariosResponse,
   ShockOptionsResponse,
   ShockValidOptionsResponse,
@@ -86,6 +88,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<HealthResponse>('/health'),
+  dbHealth: () => request<DBHealthResponse>('/api/db/health'),
+  dbSummary: () => request<DBSummaryResponse>('/api/db/summary'),
   graphSummary: () => request<GraphSummaryResponse>('/api/graph/summary'),
   graphEntities: () => request<GraphEntitiesResponse>('/api/graph/entities'),
   scenarios: () => request<ScenariosResponse>('/api/scenarios'),

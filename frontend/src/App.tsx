@@ -4,6 +4,8 @@ import type {
   FragilitySummaryResponse,
   GraphSummaryResponse,
   HealthResponse,
+  DBHealthResponse,
+  DBSummaryResponse,
   RecommendedScenario,
   Scenario,
   ShockOptionsResponse,
@@ -22,10 +24,12 @@ import {
   type ScenarioMeta,
   type ShockMode,
   type SubmittedScenario,
+  operationalRequestFields,
 } from './types/scenario'
 import { Header } from './components/Header'
 import { OverviewCards } from './components/OverviewCards'
 import { DataSourcesCard } from './components/DataSourcesCard'
+import { DataQualityCenter } from './components/DataQualityCenter'
 import { CommodityStressPanel } from './components/CommodityStressPanel'
 import { CommodityPriceHistory } from './components/CommodityPriceHistory'
 import { EventRiskPanel } from './components/EventRiskPanel'
@@ -79,6 +83,12 @@ export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [healthErr, setHealthErr] = useState<ApiRequestError | null>(null)
   const [healthLoading, setHealthLoading] = useState(true)
+
+  // Optional PostgreSQL analytics layer
+  const [dbHealth, setDBHealth] = useState<DBHealthResponse | null>(null)
+  const [dbSummary, setDBSummary] = useState<DBSummaryResponse | null>(null)
+  const [dbErr, setDBErr] = useState<UiError | null>(null)
+  const [dbLoading, setDBLoading] = useState(true)
 
   // Graph summary
   const [summary, setSummary] = useState<GraphSummaryResponse | null>(null)
@@ -296,6 +306,25 @@ export default function App() {
     }
   }, [])
 
+  const loadDBAnalytics = useCallback(async () => {
+    setDBLoading(true)
+    setDBErr(null)
+    try {
+      const dbStatus = await api.dbHealth()
+      setDBHealth(dbStatus)
+      if (!dbStatus.enabled) {
+        setDBSummary(null)
+        return
+      }
+      setDBSummary(await api.dbSummary())
+    } catch (e) {
+      setDBSummary(null)
+      setDBErr(toUiError(e))
+    } finally {
+      setDBLoading(false)
+    }
+  }, [])
+
   const loadAll = useCallback(() => {
     setHealthLoading(true)
     void checkHealth()
@@ -308,12 +337,20 @@ export default function App() {
     void loadCommodityHistoryIndex()
     void loadScenarios()
     void loadGuidance()
-  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadTradeSummary, loadTradeOptions, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance])
+    void loadDBAnalytics()
+  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadTradeSummary, loadTradeOptions, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance, loadDBAnalytics])
 
   // Initial load.
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  // A report is a snapshot of the exact shock and operational assumptions used
+  // to generate it. Hide stale report content as soon as those controls change.
+  useEffect(() => {
+    setScenarioReport(null)
+    setReportErr(null)
+  }, [form, meta.assumptions])
 
   // Poll health so the status badge stays live.
   useEffect(() => {
@@ -374,7 +411,7 @@ export default function App() {
     }
 
     try {
-      const res = await api.runShock(toRequest(form))
+      const res = await api.runShock(toRequest(form, meta.assumptions))
       setResult(res)
       setSubmitted(snapshot)
       void checkHealth()
@@ -395,6 +432,7 @@ export default function App() {
         shock_type: form.shock_type,
         drop_percent: form.drop,
         depth: form.depth,
+        ...operationalRequestFields(meta.assumptions),
       })
       setScenarioReport(res)
     } catch (e) {
@@ -402,7 +440,7 @@ export default function App() {
     } finally {
       setReportLoading(false)
     }
-  }, [form])
+  }, [form, meta.assumptions])
 
   const backendDown = useMemo(
     () => !!healthErr && healthErr.unreachable && health === null,
@@ -431,6 +469,13 @@ export default function App() {
             <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
           </div>
         </div>
+
+        <DataQualityCenter
+          health={dbHealth}
+          summary={dbSummary}
+          loading={dbLoading}
+          error={dbErr}
+        />
 
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 

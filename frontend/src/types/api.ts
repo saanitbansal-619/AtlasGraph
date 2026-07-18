@@ -8,6 +8,22 @@ export interface HealthResponse {
   version: string
 }
 
+export interface DBHealthResponse {
+  enabled: boolean
+  status: 'ok' | 'error' | 'disabled' | string
+  error?: string
+}
+
+export interface DBSummaryResponse {
+  trade_flows: number
+  event_risk_signals: number
+  macro_scores: number
+  commodity_prices: number
+  dependency_edges: number
+  scenario_runs: number
+  data_quality_checks: number
+}
+
 export interface GraphNode {
   name: string
   type: string
@@ -65,6 +81,10 @@ export interface ShockRequest {
   depth: number
   shock_type: string
   explain?: boolean
+  duration_days: number
+  recovery_speed: string
+  substitute_availability: string
+  inventory_buffer_days: number
 }
 
 export interface ExposureItem {
@@ -75,6 +95,20 @@ export interface ExposureItem {
   base_fragility: number
   shock_fragility: number
   delta: number
+  operational_multiplier: number
+  resilience_note: string
+}
+
+export interface OperationalAssumptions {
+  duration_days: number
+  recovery_speed: string
+  substitute_availability: string
+  inventory_buffer_days: number
+  duration_factor: number
+  recovery_factor: number
+  substitute_factor: number
+  inventory_factor: number
+  explanation: string
 }
 
 export interface AffectedPath {
@@ -154,6 +188,7 @@ export interface ShockResponse {
   // Non-fatal, graph-aware advisories for suboptimal but still-valid combos.
   warnings?: string[]
   data_fusion?: DataFusionInfo
+  operational_assumptions?: OperationalAssumptions
 }
 
 export interface DataFusionInfo {
@@ -447,6 +482,10 @@ export interface ScenarioReportRequest {
   shock_type: string
   drop_percent: number
   depth: number
+  duration_days: number
+  recovery_speed: string
+  substitute_availability: string
+  inventory_buffer_days: number
 }
 
 export interface ReportExposureItem {
@@ -459,6 +498,8 @@ export interface ReportExposureItem {
   shock_fragility: number
   note?: string
   data_provenance: string
+  operational_multiplier: number
+  resilience_note: string
 }
 
 export interface ReportTradeEvidence {
@@ -502,4 +543,5 @@ export interface ScenarioReportResponse {
   model_assumptions: string[]
   data_sources: string[]
   limitations: string[]
+  operational_assumptions?: OperationalAssumptions
 }
