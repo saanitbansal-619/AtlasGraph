@@ -41,6 +41,8 @@ func Run(args []string, out, errOut io.Writer) int {
 		return runEvents(args[1:], out, errOut)
 	case "serve":
 		return runServe(args[1:], out, errOut)
+	case "db":
+		return runDB(args[1:], out, errOut)
 	case "version", "--version", "-v":
 		fmt.Fprintf(out, "atlas %s (commit %s, built %s)\n", config.Version, config.Commit, config.BuildDate)
 		return 0
@@ -93,6 +95,8 @@ Commands:
   score commodities     Score commodity price stress from ingested price series
   score fragility       Unified country and commodity fragility from GFIP signals
   events risk           Score country event risk from ingested GDELT data
+  db migrate            Apply PostgreSQL analytics migrations
+  db load               Replace PostgreSQL analytics tables from processed JSON
   serve                 Start the HTTP API server (JSON endpoints)
   version               Print version information
   help                  Show this help

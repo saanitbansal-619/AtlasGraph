@@ -1,10 +1,16 @@
 package cli
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	analyticsdb "github.com/atlasgraph/atlas/internal/db"
 )
 
 // runServe starts the AtlasGraph HTTP API. Data sources are loaded lazily per
@@ -41,6 +47,29 @@ func runServe(args []string, out, errOut io.Writer) int {
 		EventData:          *eventData,
 		ProcessedEventData: *processedEventData,
 		CommodityData:      *commodityData,
+	}
+
+	var store *analyticsdb.DB
+	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if databaseURL == "" {
+		fmt.Fprintln(out, "Postgres disabled; using file-backed analytics only")
+	} else {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		var err error
+		store, err = analyticsdb.Connect(databaseURL)
+		if err != nil {
+			fmt.Fprintf(errOut, "error: PostgreSQL startup: %v\n", err)
+			return 1
+		}
+		if err := store.Ping(ctx); err != nil {
+			store.Close()
+			fmt.Fprintf(errOut, "error: PostgreSQL startup: %v\n", err)
+			return 1
+		}
+		defer store.Close()
+		cfg.Database = store
+		fmt.Fprintln(out, "Postgres enabled; analytics endpoints and scenario persistence active")
 	}
 	handler := newAPIServer(cfg)
 	addr := fmt.Sprintf(":%d", *port)
@@ -91,6 +120,10 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 		"GET  /api/fragility/commodities",
 		"GET  /api/fragility/summary",
 		"POST /api/reports/scenario",
+		"GET  /api/db/health",
+		"GET  /api/db/summary",
+		"GET  /api/db/trade/top-suppliers?importer=USA&commodity=semiconductors",
+		"GET  /api/db/scenarios/recent",
 	} {
 		fmt.Fprintf(out, "    %s\n", e)
 	}

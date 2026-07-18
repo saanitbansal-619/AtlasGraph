@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/config"
 	"github.com/atlasgraph/atlas/internal/data"
+	analyticsdb "github.com/atlasgraph/atlas/internal/db"
 	"github.com/atlasgraph/atlas/internal/graph"
 	"github.com/atlasgraph/atlas/internal/graphfusion"
 	"github.com/atlasgraph/atlas/internal/ingest/commodityprices"
@@ -25,13 +26,14 @@ import (
 // loaded lazily, per request, so the server starts even when some are missing —
 // only the affected endpoint then returns a helpful error.
 type serverConfig struct {
-	GraphData          string // dataset dir (entities/dependencies/scenarios); "" => embedded sample
-	TradeData          string // ingested trade panel dir
-	MacroData          string // ingested World Bank macro dir (raw indicators)
-	ProcessedMacroData string // processed macro scores dir
-	EventData          string // legacy ingested GDELT event dir (demo fallback)
-	ProcessedEventData string // processed event-risk panel dir (event_risk.json)
-	CommodityData      string // ingested commodity price dir
+	GraphData          string          // dataset dir (entities/dependencies/scenarios); "" => embedded sample
+	TradeData          string          // ingested trade panel dir
+	MacroData          string          // ingested World Bank macro dir (raw indicators)
+	ProcessedMacroData string          // processed macro scores dir
+	EventData          string          // legacy ingested GDELT event dir (demo fallback)
+	ProcessedEventData string          // processed event-risk panel dir (event_risk.json)
+	CommodityData      string          // ingested commodity price dir
+	Database           *analyticsdb.DB // optional PostgreSQL analytics store
 }
 
 // corsAllowedOrigins are the dev-frontend origins permitted by CORS, ready for a
@@ -44,12 +46,13 @@ var corsAllowedOrigins = map[string]bool{
 // apiServer wires the data config to the HTTP handlers.
 type apiServer struct {
 	cfg serverConfig
+	db  *analyticsdb.DB
 }
 
 // newAPIServer builds the HTTP handler for the AtlasGraph API. It is separated
 // from the listening loop so it can be exercised directly in tests.
 func newAPIServer(cfg serverConfig) http.Handler {
-	s := &apiServer{cfg: cfg}
+	s := &apiServer{cfg: cfg, db: cfg.Database}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
@@ -72,6 +75,10 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/fragility/commodities", s.handleFragilityCommodities)
 	mux.HandleFunc("/api/fragility/summary", s.handleFragilitySummary)
 	mux.HandleFunc("/api/reports/scenario", s.handleScenarioReport)
+	mux.HandleFunc("/api/db/health", s.handleDBHealth)
+	mux.HandleFunc("/api/db/summary", s.handleDBSummary)
+	mux.HandleFunc("/api/db/trade/top-suppliers", s.handleDBTopSuppliers)
+	mux.HandleFunc("/api/db/scenarios/recent", s.handleDBRecentScenarios)
 	mux.HandleFunc("/", s.handleNotFound)
 
 	return withCORS(mux)

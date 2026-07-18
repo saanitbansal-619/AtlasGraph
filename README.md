@@ -73,6 +73,7 @@ Coverage reflects locally ingested public datasets for selected commodities and 
 | Layer | Stack |
 |-------|-------|
 | Backend | Go (`net/http` JSON API, shared CLI + server engine) |
+| Optional analytics storage | PostgreSQL via `pgx` |
 | Frontend | React, TypeScript, Vite |
 | UI | Tailwind CSS, Recharts |
 | Ingestion | UN Comtrade pipeline, GDELT event-risk pipeline, World Bank commodity-price pipeline |
@@ -95,6 +96,7 @@ Baseline graph + processed trade / events / prices
 
 - Go 1.21+
 - Node.js 18+
+- PostgreSQL 14+ (optional; the file-backed pipeline works without it)
 
 ### 1. Ingest observed data (if needed)
 
@@ -145,6 +147,38 @@ go run ./cmd/atlas serve \
 API: **http://localhost:8080**
 
 Missing processed paths disable only matching signals; the server still starts with the baseline graph.
+
+### Optional PostgreSQL analytics layer
+
+PostgreSQL is an additional analytics and scenario-persistence layer. It does
+not replace the JSON/CSV ingestion pipeline. When `DATABASE_URL` is absent,
+AtlasGraph logs `Postgres disabled; using file-backed analytics only` and all
+existing endpoints continue to use processed files.
+
+From the repository root on Windows Command Prompt:
+
+```bat
+set DATABASE_URL=postgres://postgres:postgres@localhost:5432/atlasgraph?sslmode=disable
+
+go run ./cmd/atlas db migrate
+
+go run ./cmd/atlas db load --trade-data data/processed/trade --macro-data data/processed/macro --event-data data/processed/events --commodity-data data/processed/commodity_prices --graph-data data/strategic_global
+
+go run ./cmd/atlas serve --data data/strategic_global --trade-data data/processed/trade --processed-macro-data data/processed/macro --processed-event-data data/processed/events --commodity-data data/processed/commodity_prices
+```
+
+The v1 loader replaces the PostgreSQL analytics tables from the current
+processed JSON snapshot and records load-quality checks. With PostgreSQL
+enabled, these additional endpoints are available:
+
+- `GET /api/db/health`
+- `GET /api/db/summary`
+- `GET /api/db/trade/top-suppliers?importer=USA&commodity=semiconductors`
+- `GET /api/db/scenarios/recent`
+
+Successful `POST /api/reports/scenario` requests are also persisted to
+`scenario_runs`. Run `go run ./cmd/atlas db migrate` before starting a
+PostgreSQL-enabled server.
 
 ### 3. Frontend
 

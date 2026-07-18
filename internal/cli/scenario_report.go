@@ -1,13 +1,17 @@
 package cli
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/atlasgraph/atlas/internal/config"
+	analyticsdb "github.com/atlasgraph/atlas/internal/db"
 	"github.com/atlasgraph/atlas/internal/graphfusion"
 	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
@@ -66,15 +70,15 @@ const (
 )
 
 type reportExposureItem struct {
-	Entity           string  `json:"entity"`
-	Type             string  `json:"type"`
-	Distance         int     `json:"distance"`
-	EstimatedImpact  float64 `json:"estimated_impact"`
-	FragilityDelta   float64 `json:"fragility_delta"`
-	BaseFragility    float64 `json:"base_fragility"`
-	ShockFragility   float64 `json:"shock_fragility"`
-	Note             string  `json:"note,omitempty"`
-	DataProvenance   string  `json:"data_provenance"`
+	Entity          string  `json:"entity"`
+	Type            string  `json:"type"`
+	Distance        int     `json:"distance"`
+	EstimatedImpact float64 `json:"estimated_impact"`
+	FragilityDelta  float64 `json:"fragility_delta"`
+	BaseFragility   float64 `json:"base_fragility"`
+	ShockFragility  float64 `json:"shock_fragility"`
+	Note            string  `json:"note,omitempty"`
+	DataProvenance  string  `json:"data_provenance"`
 }
 
 type reportTradeEvidence struct {
@@ -152,21 +156,47 @@ func (s *apiServer) handleScenarioReport(w http.ResponseWriter, r *http.Request)
 
 	ctx := s.collectScenarioReportContext(fused.Meta, simCtx)
 	report := buildScenarioReport(res, ctx)
+	if s.db != nil {
+		if err := s.db.InsertScenarioRun(r.Context(), analyticsdb.ScenarioRunInput{
+			ScenarioID:           newScenarioRunID(),
+			Source:               req.Source,
+			Commodity:            req.Commodity,
+			ShockType:            req.ShockType,
+			DropPercent:          req.DropPct,
+			Depth:                req.Depth,
+			TopAffectedCountries: report.MostExposedCountries,
+			TopAffectedSectors:   report.MostExposedSectors,
+			Report:               report,
+		}); err != nil {
+			writeAPIError(w, http.StatusInternalServerError,
+				"scenario report generated but could not be persisted: "+err.Error(),
+				"verify the PostgreSQL migration has been applied")
+			return
+		}
+	}
 	writeJSONStatus(w, http.StatusOK, report)
+}
+
+func newScenarioRunID() string {
+	var suffix [6]byte
+	if _, err := rand.Read(suffix[:]); err != nil {
+		return fmt.Sprintf("scenario-%d", time.Now().UTC().UnixNano())
+	}
+	return fmt.Sprintf("scenario-%d-%s", time.Now().UTC().UnixMilli(), hex.EncodeToString(suffix[:]))
 }
 
 // scenarioReportContext holds optional observed panels used to enrich the report.
 type scenarioReportContext struct {
-	Trade            *trade.ResolvedTrade
-	EventScores      []events.CountryScore
-	MacroScores      []macro.CountryScore
-	CommodityScores  []commodities.CommodityScore
-	FusionMeta       graphfusion.Meta
-	SimCtx           simulation.Context
-	HasPinkSheet     bool
-	HasEventRisk     bool
-	HasMacro         bool
-	HasTrade         bool
+	Trade           *trade.ResolvedTrade
+	EventScores     []events.CountryScore
+	MacroScores     []macro.CountryScore
+	CommodityScores []commodities.CommodityScore
+	FusionMeta      graphfusion.Meta
+	SimCtx          simulation.Context
+	HasPinkSheet    bool
+	HasEventRisk    bool
+	HasMacro        bool
+	HasTrade        bool
 }
 
 func (s *apiServer) collectScenarioReportContext(meta graphfusion.Meta, simCtx simulation.Context) scenarioReportContext {
