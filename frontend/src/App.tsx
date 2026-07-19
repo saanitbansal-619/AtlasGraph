@@ -30,6 +30,7 @@ import { Header } from './components/Header'
 import { OverviewCards } from './components/OverviewCards'
 import { DataSourcesCard } from './components/DataSourcesCard'
 import { DataQualityCenter } from './components/DataQualityCenter'
+import { ClientDataAnalyzer } from './components/ClientDataAnalyzer'
 import { CommodityStressPanel } from './components/CommodityStressPanel'
 import { CommodityPriceHistory } from './components/CommodityPriceHistory'
 import { EventRiskPanel } from './components/EventRiskPanel'
@@ -476,6 +477,8 @@ export default function App() {
           loading={dbLoading}
           error={dbErr}
         />
+
+        <ClientDataAnalyzer />
 
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 

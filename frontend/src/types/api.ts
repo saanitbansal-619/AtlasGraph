@@ -24,6 +24,39 @@ export interface DBSummaryResponse {
   data_quality_checks: number
 }
 
+export interface CustomDataValidationError {
+  row: number
+  field: string
+  message: string
+}
+
+export interface CustomDataSummary {
+  rows_processed: number
+  valid_rows: number
+  invalid_rows: number
+  importers: number
+  commodities: number
+  suppliers: number
+  total_value_usd: number
+}
+
+export interface CustomConcentrationResult {
+  importer: string
+  commodity: string
+  total_value_usd: number
+  supplier_count: number
+  top_supplier: string
+  top_supplier_share: number
+  hhi: number
+  concentration_risk: 'Low' | 'Medium' | 'High'
+}
+
+export interface CustomDataAnalysisResponse {
+  dataset_summary: CustomDataSummary
+  concentration_results: CustomConcentrationResult[]
+  validation_errors: CustomDataValidationError[]
+}
+
 export interface GraphNode {
   name: string
   type: string

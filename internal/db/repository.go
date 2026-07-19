@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/atlasgraph/atlas/internal/customdata"
 )
 
 type TradeFlow struct {
@@ -315,4 +317,49 @@ func (d *DB) RecentScenarios(ctx context.Context, limit int) ([]ScenarioRun, err
 		return nil, fmt.Errorf("read recent scenarios: %w", err)
 	}
 	return out, nil
+}
+
+// SaveCustomAnalysis persists one uploaded client dataset and its derived
+// concentration results atomically.
+func (d *DB) SaveCustomAnalysis(ctx context.Context, datasetName string, analysis customdata.Analysis) error {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin custom data save: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	flowRows := make([][]any, 0, len(analysis.ValidRows))
+	for _, row := range analysis.ValidRows {
+		flowRows = append(flowRows, []any{
+			datasetName, row.Importer, row.Commodity, row.Supplier, row.ValueUSD,
+		})
+	}
+	if len(flowRows) > 0 {
+		if _, err := tx.CopyFrom(ctx, pgx.Identifier{"custom_trade_flows"},
+			[]string{"dataset_name", "importer", "commodity", "supplier", "value_usd"},
+			pgx.CopyFromRows(flowRows)); err != nil {
+			return fmt.Errorf("save custom trade flows: %w", err)
+		}
+	}
+
+	resultRows := make([][]any, 0, len(analysis.ConcentrationResults))
+	for _, result := range analysis.ConcentrationResults {
+		resultRows = append(resultRows, []any{
+			datasetName, result.Importer, result.Commodity, result.TotalValueUSD,
+			result.SupplierCount, result.TopSupplier, result.TopSupplierShare,
+			result.HHI, result.ConcentrationRisk,
+		})
+	}
+	if len(resultRows) > 0 {
+		if _, err := tx.CopyFrom(ctx, pgx.Identifier{"custom_concentration_results"},
+			[]string{"dataset_name", "importer", "commodity", "total_value_usd",
+				"supplier_count", "top_supplier", "top_supplier_share", "hhi", "concentration_risk"},
+			pgx.CopyFromRows(resultRows)); err != nil {
+			return fmt.Errorf("save custom concentration results: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit custom data save: %w", err)
+	}
+	return nil
 }

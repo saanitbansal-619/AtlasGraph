@@ -35,6 +35,20 @@ func TestInitialMigrationExistsAndDefinesAnalyticsTables(t *testing.T) {
 	}
 }
 
+func TestCustomClientDataMigrationExists(t *testing.T) {
+	path := filepath.Join("..", "..", "migrations", "002_custom_client_data.sql")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read migration: %v", err)
+	}
+	sql := strings.ToLower(string(raw))
+	for _, table := range []string{"custom_trade_flows", "custom_concentration_results"} {
+		if !strings.Contains(sql, "create table if not exists "+table) {
+			t.Errorf("migration does not create %s", table)
+		}
+	}
+}
+
 func TestPostgresPingWhenConfigured(t *testing.T) {
 	url := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if url == "" {

@@ -5,6 +5,7 @@ import type {
   HealthResponse,
   DBHealthResponse,
   DBSummaryResponse,
+  CustomDataAnalysisResponse,
   ScenariosResponse,
   ShockOptionsResponse,
   ShockValidOptionsResponse,
@@ -90,6 +91,16 @@ export const api = {
   health: () => request<HealthResponse>('/health'),
   dbHealth: () => request<DBHealthResponse>('/api/db/health'),
   dbSummary: () => request<DBSummaryResponse>('/api/db/summary'),
+  analyzeCustomData: (file: File, datasetName?: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (datasetName?.trim()) form.append('dataset_name', datasetName.trim())
+    return request<CustomDataAnalysisResponse>('/api/custom-data/analyze', {
+      method: 'POST',
+      body: form,
+      headers: {},
+    })
+  },
   graphSummary: () => request<GraphSummaryResponse>('/api/graph/summary'),
   graphEntities: () => request<GraphEntitiesResponse>('/api/graph/entities'),
   scenarios: () => request<ScenariosResponse>('/api/scenarios'),
