@@ -124,6 +124,7 @@ func renderServeBanner(out io.Writer, port int, cfg serverConfig) {
 		"GET  /api/db/summary",
 		"GET  /api/db/trade/top-suppliers?importer=USA&commodity=semiconductors",
 		"GET  /api/db/scenarios/recent",
+		"GET  /api/pipeline/summary",
 		"POST /api/custom-data/analyze",
 	} {
 		fmt.Fprintf(out, "    %s\n", e)

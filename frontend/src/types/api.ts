@@ -24,6 +24,38 @@ export interface DBSummaryResponse {
   data_quality_checks: number
 }
 
+export interface PipelineSourceRow {
+  name: string
+  source: string
+  rows_processed: number
+  rows_loaded: number
+}
+
+export interface PipelineValidationCheck {
+  check_name: string
+  status: 'passed' | 'warning' | 'failed' | string
+  metric_value: number
+  source: string
+  details?: Record<string, unknown> | string | null
+}
+
+export interface PipelineRunSummary {
+  run_id: string
+  started_at?: string
+  completed_at?: string
+  status: 'completed' | 'warning' | 'failed' | 'idle' | string
+  sources_processed: PipelineSourceRow[]
+  total_rows_processed: number
+  total_rows_loaded: number
+  invalid_rows: number
+  validation_checks: PipelineValidationCheck[]
+  validation_checks_passed: number
+  validation_checks_warnings: number
+  validation_checks_failed: number
+  output_tables: string[]
+  notes?: string[]
+}
+
 export interface CustomDataValidationError {
   row: number
   field: string

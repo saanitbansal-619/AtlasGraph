@@ -319,6 +319,49 @@ func (d *DB) RecentScenarios(ctx context.Context, limit int) ([]ScenarioRun, err
 	return out, nil
 }
 
+// PipelineValidationCheck is one row from data_quality_checks for the pipeline API.
+type PipelineValidationCheck struct {
+	CheckName   string
+	RawStatus   string
+	MetricValue float64
+	Source      string
+	Details     json.RawMessage
+	CreatedAt   time.Time
+}
+
+func (d *DB) ListValidationChecks(ctx context.Context) ([]PipelineValidationCheck, error) {
+	rows, err := d.pool.Query(ctx, `SELECT check_name, status, metric_value::double precision,
+		source, details, created_at
+		FROM data_quality_checks ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("query validation checks: %w", err)
+	}
+	defer rows.Close()
+	out := []PipelineValidationCheck{}
+	for rows.Next() {
+		var item PipelineValidationCheck
+		if err := rows.Scan(&item.CheckName, &item.RawStatus, &item.MetricValue,
+			&item.Source, &item.Details, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan validation check: %w", err)
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read validation checks: %w", err)
+	}
+	return out, nil
+}
+
+func (d *DB) CountCustomTradeFlows(ctx context.Context) (int64, error) {
+	var count int64
+	err := d.pool.QueryRow(ctx, `SELECT count(*) FROM custom_trade_flows`).Scan(&count)
+	if err != nil {
+		// Custom tables are optional until migration 002 is applied.
+		return 0, nil
+	}
+	return count, nil
+}
+
 // SaveCustomAnalysis persists one uploaded client dataset and its derived
 // concentration results atomically.
 func (d *DB) SaveCustomAnalysis(ctx context.Context, datasetName string, analysis customdata.Analysis) error {

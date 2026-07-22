@@ -6,6 +6,7 @@ import type {
   HealthResponse,
   DBHealthResponse,
   DBSummaryResponse,
+  PipelineRunSummary,
   RecommendedScenario,
   Scenario,
   ShockOptionsResponse,
@@ -30,6 +31,7 @@ import { Header } from './components/Header'
 import { OverviewCards } from './components/OverviewCards'
 import { DataSourcesCard } from './components/DataSourcesCard'
 import { DataQualityCenter } from './components/DataQualityCenter'
+import { DataPipelineMonitor } from './components/DataPipelineMonitor'
 import { ClientDataAnalyzer } from './components/ClientDataAnalyzer'
 import { CommodityStressPanel } from './components/CommodityStressPanel'
 import { CommodityPriceHistory } from './components/CommodityPriceHistory'
@@ -90,6 +92,11 @@ export default function App() {
   const [dbSummary, setDBSummary] = useState<DBSummaryResponse | null>(null)
   const [dbErr, setDBErr] = useState<UiError | null>(null)
   const [dbLoading, setDBLoading] = useState(true)
+
+  // ETL pipeline monitor
+  const [pipelineSummary, setPipelineSummary] = useState<PipelineRunSummary | null>(null)
+  const [pipelineErr, setPipelineErr] = useState<UiError | null>(null)
+  const [pipelineLoading, setPipelineLoading] = useState(true)
 
   // Graph summary
   const [summary, setSummary] = useState<GraphSummaryResponse | null>(null)
@@ -326,6 +333,19 @@ export default function App() {
     }
   }, [])
 
+  const loadPipelineSummary = useCallback(async () => {
+    setPipelineLoading(true)
+    setPipelineErr(null)
+    try {
+      setPipelineSummary(await api.pipelineSummary())
+    } catch (e) {
+      setPipelineSummary(null)
+      setPipelineErr(toUiError(e))
+    } finally {
+      setPipelineLoading(false)
+    }
+  }, [])
+
   const loadAll = useCallback(() => {
     setHealthLoading(true)
     void checkHealth()
@@ -339,7 +359,8 @@ export default function App() {
     void loadScenarios()
     void loadGuidance()
     void loadDBAnalytics()
-  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadTradeSummary, loadTradeOptions, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance, loadDBAnalytics])
+    void loadPipelineSummary()
+  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadTradeSummary, loadTradeOptions, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance, loadDBAnalytics, loadPipelineSummary])
 
   // Initial load.
   useEffect(() => {
@@ -476,6 +497,12 @@ export default function App() {
           summary={dbSummary}
           loading={dbLoading}
           error={dbErr}
+        />
+
+        <DataPipelineMonitor
+          summary={pipelineSummary}
+          loading={pipelineLoading}
+          error={pipelineErr}
         />
 
         <ClientDataAnalyzer />

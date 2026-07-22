@@ -80,6 +80,7 @@ func newAPIServer(cfg serverConfig) http.Handler {
 	mux.HandleFunc("/api/db/summary", s.handleDBSummary)
 	mux.HandleFunc("/api/db/trade/top-suppliers", s.handleDBTopSuppliers)
 	mux.HandleFunc("/api/db/scenarios/recent", s.handleDBRecentScenarios)
+	mux.HandleFunc("/api/pipeline/summary", s.handlePipelineSummary)
 	mux.HandleFunc("/api/custom-data/analyze", s.handleCustomDataAnalyze)
 	mux.HandleFunc("/", s.handleNotFound)
 

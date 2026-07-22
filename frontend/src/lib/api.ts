@@ -5,6 +5,7 @@ import type {
   HealthResponse,
   DBHealthResponse,
   DBSummaryResponse,
+  PipelineRunSummary,
   CustomDataAnalysisResponse,
   ScenariosResponse,
   ShockOptionsResponse,
@@ -91,6 +92,7 @@ export const api = {
   health: () => request<HealthResponse>('/health'),
   dbHealth: () => request<DBHealthResponse>('/api/db/health'),
   dbSummary: () => request<DBSummaryResponse>('/api/db/summary'),
+  pipelineSummary: () => request<PipelineRunSummary>('/api/pipeline/summary'),
   analyzeCustomData: (file: File, datasetName?: string) => {
     const form = new FormData()
     form.append('file', file)

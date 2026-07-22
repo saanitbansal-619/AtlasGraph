@@ -254,6 +254,7 @@ func buildDBLoadBatch(tradeDir, macroDir, eventDir, commodityDir, graphDir strin
 		qualityCheck("missing macro scores", missingMacro, true, "World Bank Macro"),
 		qualityCheck("missing commodity price series", missingPriceSeries, true, "World Bank Pink Sheet"),
 		qualityCheck("event risk rows loaded", len(batch.EventRiskSignals), false, "GDELT"),
+		qualityCheck("dependency graph edges loaded", len(batch.DependencyEdges), false, "Baseline dependency graph"),
 	}
 	return batch, nil
 }
