@@ -9,7 +9,11 @@ const SCHEMA_EXAMPLE = `importer,commodity,supplier,value_usd
 United States,semiconductors,Taiwan,75000000
 United States,semiconductors,Korea,25000000`
 
-export function ClientDataAnalyzer() {
+export function ClientDataAnalyzer({
+  onAnalyzed,
+}: {
+  onAnalyzed?: (result: CustomDataAnalysisResponse | null) => void
+} = {}) {
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<CustomDataAnalysisResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -20,9 +24,12 @@ export function ClientDataAnalyzer() {
     setLoading(true)
     setError(null)
     try {
-      setResult(await api.analyzeCustomData(file))
+      const analysis = await api.analyzeCustomData(file)
+      setResult(analysis)
+      onAnalyzed?.(analysis)
     } catch (e) {
       setResult(null)
+      onAnalyzed?.(null)
       setError(
         e instanceof ApiRequestError
           ? { message: e.message, hint: e.hint }
@@ -61,6 +68,7 @@ export function ClientDataAnalyzer() {
               onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null)
                 setResult(null)
+                onAnalyzed?.(null)
                 setError(null)
               }}
             />

@@ -1,5 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import type { AffectedPath, BlockedEdge, ExposureItem, ShockResponse } from '../types/api'
+import type {
+  AffectedPath,
+  BlockedEdge,
+  CustomDataAnalysisResponse,
+  ExposureItem,
+  ShockResponse,
+} from '../types/api'
 import { ASSUMPTION_NOTE, type SubmittedScenario } from '../types/scenario'
 import {
   blockedEdgeCategory,
@@ -9,11 +15,13 @@ import {
   pct,
   signed,
 } from '../lib/format'
+import { computeClientExposureOverlay } from '../lib/clientExposure'
 import { selectTopImpactedEntity } from '../lib/shockEntities'
 import { EmptyHint, Panel, Spinner } from './ui'
 import { InlineError } from './States'
 import { AdaptiveRankingChart } from './charts/AdaptiveRankingChart'
 import { CommodityPriceContext } from './CommodityPriceContext'
+import { ClientExposureOverlayPanel } from './ClientExposureOverlay'
 import { ExecutiveImpactBrief } from './ExecutiveImpactBrief'
 
 export function ShockResults({
@@ -21,11 +29,13 @@ export function ShockResults({
   submitted,
   running,
   error,
+  clientData,
 }: {
   result: ShockResponse | null
   submitted?: SubmittedScenario | null
   running: boolean
   error?: { message: string; hint?: string } | null
+  clientData?: CustomDataAnalysisResponse | null
 }) {
   if (error && !running) {
     return (
@@ -59,12 +69,23 @@ export function ShockResults({
 
   const s = result.graph_impact_summary
   const topImpacted = selectTopImpactedEntity(result)
+  const clientOverlay = computeClientExposureOverlay(
+    clientData,
+    result.scenario.source,
+    result.scenario.commodity,
+  )
 
   return (
     <div className={`space-y-4 ${running ? 'opacity-60' : ''}`}>
       <ResultBanner result={result} submitted={submitted} />
 
-      <ExecutiveImpactBrief result={result} />
+      <ExecutiveImpactBrief result={result} clientOverlay={clientOverlay} />
+
+      <ClientExposureOverlayPanel
+        clientData={clientData ?? null}
+        source={result.scenario.source}
+        commodity={result.scenario.commodity}
+      />
 
       <OperationalImpactPanel result={result} />
 

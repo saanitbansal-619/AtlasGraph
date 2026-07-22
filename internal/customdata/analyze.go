@@ -13,10 +13,10 @@ import (
 )
 
 type Row struct {
-	Importer  string
-	Commodity string
-	Supplier  string
-	ValueUSD  float64
+	Importer  string  `json:"importer"`
+	Commodity string  `json:"commodity"`
+	Supplier  string  `json:"supplier"`
+	ValueUSD  float64 `json:"value_usd"`
 }
 
 type ValidationError struct {
@@ -50,7 +50,8 @@ type Analysis struct {
 	DatasetSummary       DatasetSummary        `json:"dataset_summary"`
 	ConcentrationResults []ConcentrationResult `json:"concentration_results"`
 	ValidationErrors     []ValidationError     `json:"validation_errors"`
-	ValidRows            []Row                 `json:"-"`
+	// ValidRows are the normalized supplier dependency rows used for overlay matching.
+	ValidRows []Row `json:"normalized_rows"`
 }
 
 var aliases = map[string]string{

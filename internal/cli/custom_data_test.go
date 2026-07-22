@@ -47,6 +47,12 @@ func TestAPICustomDataAnalyzeMultipartCSV(t *testing.T) {
 	if len(analysis.ConcentrationResults) != 1 || analysis.ConcentrationResults[0].HHI != 0.625 {
 		t.Fatalf("analysis = %+v", analysis)
 	}
+	if len(analysis.ValidRows) != 2 {
+		t.Fatalf("normalized_rows = %d, want 2", len(analysis.ValidRows))
+	}
+	if analysis.ValidRows[0].Importer != "USA" || analysis.ValidRows[0].Supplier != "Taiwan" {
+		t.Fatalf("normalized row = %+v", analysis.ValidRows[0])
+	}
 }
 
 func TestAPICustomDataAnalyzeRejectsMissingColumns(t *testing.T) {

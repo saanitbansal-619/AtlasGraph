@@ -83,10 +83,18 @@ export interface CustomConcentrationResult {
   concentration_risk: 'Low' | 'Medium' | 'High'
 }
 
+export interface CustomNormalizedRow {
+  importer: string
+  commodity: string
+  supplier: string
+  value_usd: number
+}
+
 export interface CustomDataAnalysisResponse {
   dataset_summary: CustomDataSummary
   concentration_results: CustomConcentrationResult[]
   validation_errors: CustomDataValidationError[]
+  normalized_rows?: CustomNormalizedRow[]
 }
 
 export interface GraphNode {

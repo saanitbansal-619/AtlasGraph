@@ -28,6 +28,12 @@ func TestAnalyzeValidCSVComputesHHI(t *testing.T) {
 	if result.ConcentrationRisk != "High" {
 		t.Errorf("risk = %s, want High", result.ConcentrationRisk)
 	}
+	if len(got.ValidRows) != 2 {
+		t.Fatalf("normalized rows = %d, want 2", len(got.ValidRows))
+	}
+	if got.ValidRows[0].Commodity != "semiconductors" || got.ValidRows[0].Supplier != "Taiwan" {
+		t.Errorf("normalized row = %+v", got.ValidRows[0])
+	}
 }
 
 func TestAnalyzeInvalidRowsReturnsValidationErrors(t *testing.T) {

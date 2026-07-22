@@ -7,6 +7,7 @@ import type {
   DBHealthResponse,
   DBSummaryResponse,
   PipelineRunSummary,
+  CustomDataAnalysisResponse,
   RecommendedScenario,
   Scenario,
   ShockOptionsResponse,
@@ -148,6 +149,9 @@ export default function App() {
   const [submitted, setSubmitted] = useState<SubmittedScenario | null>(null)
   const [running, setRunning] = useState(false)
   const [runErr, setRunErr] = useState<UiError | null>(null)
+
+  // Latest successful Client Data Analyzer response for shock overlay matching.
+  const [clientAnalysis, setClientAnalysis] = useState<CustomDataAnalysisResponse | null>(null)
 
   // Scenario intelligence report
   const [scenarioReport, setScenarioReport] = useState<ScenarioReportResponse | null>(null)
@@ -505,7 +509,7 @@ export default function App() {
           error={pipelineErr}
         />
 
-        <ClientDataAnalyzer />
+        <ClientDataAnalyzer onAnalyzed={setClientAnalysis} />
 
         <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
 
@@ -564,7 +568,13 @@ export default function App() {
           </div>
 
           <div className="min-w-0">
-            <ShockResults result={result} submitted={submitted} running={running} error={runErr} />
+            <ShockResults
+              result={result}
+              submitted={submitted}
+              running={running}
+              error={runErr}
+              clientData={clientAnalysis}
+            />
           </div>
         </div>
 

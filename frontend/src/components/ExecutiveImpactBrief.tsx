@@ -1,4 +1,6 @@
 import type { ExposureItem, ShockResponse } from '../types/api'
+import type { ClientExposureOverlay } from '../lib/clientExposure'
+import { clientOverlayBriefSentence } from '../lib/clientExposure'
 import {
   isShockOriginEntity,
   normalizeEntityKey,
@@ -132,7 +134,10 @@ function selectImpactedEntities(result: ShockResponse, max = 4): string[] {
 }
 
 /** Build a concise executive narrative from graph and operational impact fields. */
-export function buildExecutiveImpactBrief(result: ShockResponse): string {
+export function buildExecutiveImpactBrief(
+  result: ShockResponse,
+  clientOverlay?: ClientExposureOverlay | null,
+): string {
   const sc = result.scenario
   const drop = Math.round(sc.shock_percent)
   const shockLabel = formatShockType(sc.shock_type || result.shock_profile.type)
@@ -155,11 +160,22 @@ export function buildExecutiveImpactBrief(result: ShockResponse): string {
       : 'Propagation follows the baseline dependency graph under the selected shock profile.'
 
   const operational = result.operational_assumptions?.explanation
-  return operational ? `${sentence1} ${operational} ${sentence2}` : `${sentence1} ${sentence2}`
+  const clientSentence = clientOverlayBriefSentence(clientOverlay ?? null)
+  const parts = [sentence1]
+  if (operational) parts.push(operational)
+  parts.push(sentence2)
+  if (clientSentence) parts.push(clientSentence)
+  return parts.join(' ')
 }
 
-export function ExecutiveImpactBrief({ result }: { result: ShockResponse }) {
-  const brief = buildExecutiveImpactBrief(result)
+export function ExecutiveImpactBrief({
+  result,
+  clientOverlay,
+}: {
+  result: ShockResponse
+  clientOverlay?: ClientExposureOverlay | null
+}) {
+  const brief = buildExecutiveImpactBrief(result, clientOverlay)
 
   return (
     <Panel title="Executive Impact Brief" dense>
