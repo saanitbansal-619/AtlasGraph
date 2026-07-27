@@ -23,7 +23,7 @@ import { selectTopImpactedEntity } from '../../lib/shockEntities'
 import { AdaptiveRankingChart } from '../charts/AdaptiveRankingChart'
 import { ClientExposureOverlayPanel } from '../ClientExposureOverlay'
 import { ExecutiveImpactBrief } from '../ExecutiveImpactBrief'
-import { MitigationRecommendationsPanel } from '../MitigationRecommendations'
+import { RecommendedActionsPanel } from '../MitigationRecommendations'
 import { ScenarioIntelligenceReport } from '../ScenarioIntelligenceReport'
 import { InlineError } from '../States'
 import { EmptyHint, Panel, Spinner } from '../ui'
@@ -186,7 +186,7 @@ export function ShockResultsWorkspace({
         title="Executive Intelligence Report"
       />
 
-      <MitigationRecommendationsPanel
+      <RecommendedActionsPanel
         result={result}
         clientData={clientData}
         report={scenarioReport}

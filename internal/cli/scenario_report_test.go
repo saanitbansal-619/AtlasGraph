@@ -113,6 +113,12 @@ func TestBuildScenarioReportStructure(t *testing.T) {
 	if len(report.ModelAssumptions) == 0 || len(report.Limitations) == 0 || len(report.DataSources) == 0 {
 		t.Fatal("expected assumptions, limitations, and data sources")
 	}
+	if len(report.ExecutiveActionPlan.Recommendations) == 0 {
+		t.Fatal("expected executive action plan recommendations")
+	}
+	if report.ExecutiveActionPlan.Summary == "" {
+		t.Fatal("expected executive action plan summary")
+	}
 
 	joined := strings.ToLower(strings.Join(report.KeyFindings, " "))
 	for _, phrase := range []string{"estimated", "relative", "observed"} {

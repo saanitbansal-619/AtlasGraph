@@ -17,6 +17,7 @@ import (
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
 	"github.com/atlasgraph/atlas/internal/models"
 	"github.com/atlasgraph/atlas/internal/operationalimpact"
+	"github.com/atlasgraph/atlas/internal/recommendations"
 	"github.com/atlasgraph/atlas/internal/scoring/commodities"
 	"github.com/atlasgraph/atlas/internal/scoring/events"
 	"github.com/atlasgraph/atlas/internal/scoring/macro"
@@ -65,6 +66,7 @@ type scenarioReport struct {
 	DataSources            []string                      `json:"data_sources"`
 	Limitations            []string                      `json:"limitations"`
 	OperationalAssumptions *operationalimpact.Assessment `json:"operational_assumptions,omitempty"`
+	ExecutiveActionPlan    recommendations.ExecutiveActionPlan `json:"executive_action_plan"`
 }
 
 // Exposure-list truncation limits keep the report analyst-readable rather than a raw dump.
@@ -277,6 +279,8 @@ func buildScenarioReport(res simulation.Result, ctx scenarioReportContext) scena
 	dataSources := buildReportDataSources(ctx)
 	summary := buildExecutiveSummary(res, countries, sectors, directTotal, tradeEv)
 	findings := buildKeyFindings(res, countries, sectors, tradeEv, eventCtx, macroCtx, dataSources)
+	recInput := buildRecommendationInput(res, ctx, tradeEv, eventCtx, macroCtx)
+	actionPlan := recommendations.GenerateExecutiveActionPlan(recInput)
 
 	return scenarioReport{
 		Title:            title,
@@ -302,6 +306,7 @@ func buildScenarioReport(res simulation.Result, ctx scenarioReportContext) scena
 		DataSources:            dataSources,
 		Limitations:            buildReportLimitations(ctx),
 		OperationalAssumptions: res.OperationalAssumptions,
+		ExecutiveActionPlan:    actionPlan,
 	}
 }
 

@@ -617,4 +617,35 @@ export interface ScenarioReportResponse {
   data_sources: string[]
   limitations: string[]
   operational_assumptions?: OperationalAssumptions
+  executive_action_plan?: ExecutiveActionPlan
+}
+
+export type RecommendationPriority = 'Critical' | 'High' | 'Medium' | 'Low'
+
+export interface MitigationRecommendation {
+  id: string
+  title: string
+  description: string
+  priority: RecommendationPriority
+  category: string
+  reason: string
+  expected_impact: string
+  implementation_difficulty: 'Low' | 'Medium' | 'High'
+  confidence: 'Low' | 'Medium' | 'High'
+  supporting_metrics: Record<string, number>
+}
+
+export interface PriorityDistribution {
+  critical: number
+  high: number
+  medium: number
+  low: number
+}
+
+export interface ExecutiveActionPlan {
+  summary: string
+  recommendations: MitigationRecommendation[]
+  priority_distribution: PriorityDistribution
+  estimated_business_impact: string
+  supporting_evidence: string[]
 }
