@@ -28,22 +28,17 @@ import {
   type SubmittedScenario,
   operationalRequestFields,
 } from './types/scenario'
-import { Header } from './components/Header'
-import { OverviewCards } from './components/OverviewCards'
-import { DataSourcesCard } from './components/DataSourcesCard'
-import { DataQualityCenter } from './components/DataQualityCenter'
-import { DataPipelineMonitor } from './components/DataPipelineMonitor'
-import { ClientDataAnalyzer } from './components/ClientDataAnalyzer'
-import { CommodityStressPanel } from './components/CommodityStressPanel'
-import { CommodityPriceHistory } from './components/CommodityPriceHistory'
-import { EventRiskPanel } from './components/EventRiskPanel'
-import { TradeSignalsPanel } from './components/TradeSignalsPanel'
-import { UnifiedFragility } from './components/UnifiedFragility'
-import { ShockSimulator, toRequest, type ShockForm } from './components/ShockSimulator'
-import { ShockResults } from './components/ShockResults'
-import { ScenarioComparison } from './components/ScenarioComparison'
-import { ScenarioIntelligenceReport } from './components/ScenarioIntelligenceReport'
+import { type AppTab, TAB_META } from './types/navigation'
+import { Header } from './components/layout/Header'
+import { Sidebar } from './components/layout/Sidebar'
 import { BackendDownNotice } from './components/States'
+import { toRequest, type ShockForm } from './components/ShockSimulator'
+import { DashboardPage } from './pages/Dashboard'
+import { ShockSimulationPage } from './pages/ShockSimulation'
+import { ClientAnalyticsPage } from './pages/ClientAnalytics'
+import { DataOperationsPage } from './pages/DataOperations'
+import { AnalyticsExplorerPage } from './pages/AnalyticsExplorer'
+import { HistoryPage } from './pages/History'
 
 const DEFAULT_SCENARIO_ID = 'taiwan_semiconductor_shock'
 
@@ -66,8 +61,6 @@ const INITIAL_FORM: ShockForm = {
   explain: true,
 }
 
-// True when the form still matches the preset exactly on the fields that drive
-// propagation (source, commodity, shock type, drop, depth).
 function presetMatches(form: ShockForm, p: Scenario): boolean {
   return (
     form.source.trim() === p.source &&
@@ -83,32 +76,29 @@ function titleCase(s: string): string {
 }
 
 export default function App() {
-  // Health
+  const [activeTab, setActiveTab] = useState<AppTab>('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [healthErr, setHealthErr] = useState<ApiRequestError | null>(null)
   const [healthLoading, setHealthLoading] = useState(true)
 
-  // Optional PostgreSQL analytics layer
   const [dbHealth, setDBHealth] = useState<DBHealthResponse | null>(null)
   const [dbSummary, setDBSummary] = useState<DBSummaryResponse | null>(null)
   const [dbErr, setDBErr] = useState<UiError | null>(null)
   const [dbLoading, setDBLoading] = useState(true)
 
-  // ETL pipeline monitor
   const [pipelineSummary, setPipelineSummary] = useState<PipelineRunSummary | null>(null)
   const [pipelineErr, setPipelineErr] = useState<UiError | null>(null)
   const [pipelineLoading, setPipelineLoading] = useState(true)
 
-  // Graph summary
   const [summary, setSummary] = useState<GraphSummaryResponse | null>(null)
   const [summaryErr, setSummaryErr] = useState<UiError | null>(null)
 
-  // Unified fragility summary
   const [fragility, setFragility] = useState<FragilitySummaryResponse | null>(null)
   const [fragilityErr, setFragilityErr] = useState<UiError | null>(null)
   const [fragilityLoading, setFragilityLoading] = useState(true)
 
-  // Commodity stress + price history
   const [commodityStress, setCommodityStress] = useState<CommodityStressResponse | null>(null)
   const [commodityStressErr, setCommodityStressErr] = useState<UiError | null>(null)
   const [commodityStressLoading, setCommodityStressLoading] = useState(true)
@@ -117,12 +107,10 @@ export default function App() {
   const [commodityHistoryErr, setCommodityHistoryErr] = useState<UiError | null>(null)
   const [commodityHistoryLoading, setCommodityHistoryLoading] = useState(true)
 
-  // Event risk signals
   const [eventRisk, setEventRisk] = useState<EventRiskResponse | null>(null)
   const [eventRiskErr, setEventRiskErr] = useState<UiError | null>(null)
   const [eventRiskLoading, setEventRiskLoading] = useState(true)
 
-  // Trade dependency signals
   const [tradeSummary, setTradeSummary] = useState<TradeSummaryResponse | null>(null)
   const [tradeOptions, setTradeOptions] = useState<TradeOptionsResponse | null>(null)
   const [tradeErr, setTradeErr] = useState<UiError | null>(null)
@@ -130,30 +118,24 @@ export default function App() {
   const [tradeLoading, setTradeLoading] = useState(true)
   const [tradeOptionsLoading, setTradeOptionsLoading] = useState(true)
 
-  // Scenarios
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [scenariosLoading, setScenariosLoading] = useState(true)
   const [selectedId, setSelectedId] = useState('')
 
-  // Graph-aware guidance: shock options + valid custom-shock combos.
   const [options, setOptions] = useState<ShockOptionsResponse | null>(null)
   const [validOptions, setValidOptions] = useState<ShockValidOptionsResponse | null>(null)
 
-  // Shock form + scenario metadata (metadata is frontend-only).
   const [mode, setMode] = useState<ShockMode>('preset')
   const [form, setForm] = useState<ShockForm>(INITIAL_FORM)
   const [meta, setMeta] = useState<ScenarioMeta>(DEFAULT_META)
 
-  // Shock result + the scenario snapshot captured when it was run.
   const [result, setResult] = useState<ShockResponse | null>(null)
   const [submitted, setSubmitted] = useState<SubmittedScenario | null>(null)
   const [running, setRunning] = useState(false)
   const [runErr, setRunErr] = useState<UiError | null>(null)
 
-  // Latest successful Client Data Analyzer response for shock overlay matching.
   const [clientAnalysis, setClientAnalysis] = useState<CustomDataAnalysisResponse | null>(null)
 
-  // Scenario intelligence report
   const [scenarioReport, setScenarioReport] = useState<ScenarioReportResponse | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportErr, setReportErr] = useState<UiError | null>(null)
@@ -167,7 +149,6 @@ export default function App() {
       depth: sc.depth || 3,
       explain: true,
     })
-    // Carry the preset's name into the metadata; keep the analyst's assumptions.
     setMeta((m) => ({ ...m, name: sc.name || sc.id, notes: '' }))
   }, [])
 
@@ -364,21 +345,30 @@ export default function App() {
     void loadGuidance()
     void loadDBAnalytics()
     void loadPipelineSummary()
-  }, [checkHealth, loadSummary, loadFragility, loadEventRisk, loadTradeSummary, loadTradeOptions, loadCommodityStress, loadCommodityHistoryIndex, loadScenarios, loadGuidance, loadDBAnalytics, loadPipelineSummary])
+  }, [
+    checkHealth,
+    loadSummary,
+    loadFragility,
+    loadEventRisk,
+    loadTradeSummary,
+    loadTradeOptions,
+    loadCommodityStress,
+    loadCommodityHistoryIndex,
+    loadScenarios,
+    loadGuidance,
+    loadDBAnalytics,
+    loadPipelineSummary,
+  ])
 
-  // Initial load.
   useEffect(() => {
     loadAll()
   }, [loadAll])
 
-  // A report is a snapshot of the exact shock and operational assumptions used
-  // to generate it. Hide stale report content as soon as those controls change.
   useEffect(() => {
     setScenarioReport(null)
     setReportErr(null)
   }, [form, meta.assumptions])
 
-  // Poll health so the status badge stays live.
   useEffect(() => {
     const id = setInterval(() => void checkHealth(), 15000)
     return () => clearInterval(id)
@@ -398,8 +388,6 @@ export default function App() {
     setMeta({ ...DEFAULT_META, assumptions: { ...DEFAULT_META.assumptions } })
   }, [])
 
-  // Clicking a recommended scenario drops into custom mode pre-filled with a
-  // combination known to make sense for the current graph.
   const onApplyRecommended = useCallback((rs: RecommendedScenario) => {
     setMode('custom')
     setForm({
@@ -417,8 +405,6 @@ export default function App() {
     setRunning(true)
     setRunErr(null)
 
-    // Build a snapshot of exactly what is being submitted, and resolve the title
-    // from the current form/preset relationship so it never goes stale.
     const preset = scenarios.find((s) => s.id === selectedId)
     const modifiedPreset = mode === 'preset' && !!preset && !presetMatches(form, preset)
     let title: string
@@ -473,128 +459,134 @@ export default function App() {
     [healthErr, health],
   )
 
+  const tab = TAB_META[activeTab]
+  const canGenerateReport = !backendDown && !!form.source.trim() && !!form.commodity.trim()
+
   return (
-    <div className="min-h-screen">
-      <Header health={health} error={!!healthErr} loading={healthLoading} />
+    <div className="flex h-screen min-h-0 overflow-hidden">
+      <Sidebar
+        activeTab={activeTab}
+        onSelect={setActiveTab}
+        mobileOpen={sidebarOpen}
+        onCloseMobile={() => setSidebarOpen(false)}
+      />
 
-      <main className="dashboard-shell space-y-4 py-5">
-        {backendDown && (
-          <BackendDownNotice message={healthErr?.message} onRetry={loadAll} />
-        )}
-
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
-          <div className="min-w-0 lg:h-full">
-            <DataSourcesCard
-              summary={summary}
-              fragility={fragility}
-              loading={healthLoading || fragilityLoading}
-              compact
-            />
-          </div>
-          <div className="min-w-0">
-            <OverviewCards summary={summary} loading={healthLoading} error={summaryErr} />
-          </div>
-        </div>
-
-        <DataQualityCenter
-          health={dbHealth}
-          summary={dbSummary}
-          loading={dbLoading}
-          error={dbErr}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Header
+          title={tab.title}
+          description={tab.description}
+          health={health}
+          error={!!healthErr}
+          loading={healthLoading}
+          onOpenSidebar={() => setSidebarOpen(true)}
         />
 
-        <DataPipelineMonitor
-          summary={pipelineSummary}
-          loading={pipelineLoading}
-          error={pipelineErr}
-        />
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-4 px-4 py-4 sm:px-5 lg:px-6">
+            {backendDown && (
+              <BackendDownNotice message={healthErr?.message} onRetry={loadAll} />
+            )}
 
-        <ClientDataAnalyzer onAnalyzed={setClientAnalysis} />
+            {activeTab === 'dashboard' && (
+              <DashboardPage
+                summary={summary}
+                summaryLoading={healthLoading}
+                summaryErr={summaryErr}
+                fragility={fragility}
+                fragilityLoading={fragilityLoading}
+                fragilityErr={fragilityErr}
+                result={result}
+                clientAnalysis={clientAnalysis}
+                scenarioReport={scenarioReport}
+                reportLoading={reportLoading}
+                reportErr={reportErr}
+                onGenerateReport={generateScenarioReport}
+                canGenerateReport={canGenerateReport}
+                onOpenShock={() => setActiveTab('shock')}
+              />
+            )}
 
-        <UnifiedFragility summary={fragility} loading={fragilityLoading} error={fragilityErr} />
+            {activeTab === 'shock' && (
+              <ShockSimulationPage
+                mode={mode}
+                setMode={setMode}
+                form={form}
+                setForm={setForm}
+                meta={meta}
+                setMeta={setMeta}
+                scenarios={scenarios}
+                selectedId={selectedId}
+                onSelectScenario={onSelectScenario}
+                scenariosLoading={scenariosLoading}
+                options={options}
+                validOptions={validOptions}
+                onApplyRecommended={onApplyRecommended}
+                onRun={runShock}
+                onReset={onReset}
+                running={running}
+                result={result}
+                submitted={submitted}
+                runErr={runErr}
+                clientAnalysis={clientAnalysis}
+                scenarioReport={scenarioReport}
+                reportLoading={reportLoading}
+                reportErr={reportErr}
+                onGenerateReport={generateScenarioReport}
+                canGenerateReport={canGenerateReport}
+              />
+            )}
 
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <div className="min-w-0">
-            <EventRiskPanel data={eventRisk} loading={eventRiskLoading} error={eventRiskErr} />
+            {activeTab === 'client' && (
+              <ClientAnalyticsPage
+                clientAnalysis={clientAnalysis}
+                onAnalyzed={setClientAnalysis}
+              />
+            )}
+
+            {activeTab === 'data-ops' && (
+              <DataOperationsPage
+                dbHealth={dbHealth}
+                dbSummary={dbSummary}
+                dbLoading={dbLoading}
+                dbErr={dbErr}
+                pipelineSummary={pipelineSummary}
+                pipelineLoading={pipelineLoading}
+                pipelineErr={pipelineErr}
+              />
+            )}
+
+            {activeTab === 'analytics' && (
+              <AnalyticsExplorerPage
+                eventRisk={eventRisk}
+                eventRiskLoading={eventRiskLoading}
+                eventRiskErr={eventRiskErr}
+                tradeSummary={tradeSummary}
+                tradeLoading={tradeLoading}
+                tradeErr={tradeErr}
+                tradeOptions={tradeOptions}
+                tradeOptionsLoading={tradeOptionsLoading}
+                tradeOptionsErr={tradeOptionsErr}
+                fetchTradeDependency={fetchTradeDependency}
+                fetchTradeConcentration={fetchTradeConcentration}
+                commodityStress={commodityStress}
+                commodityStressLoading={commodityStressLoading}
+                commodityStressErr={commodityStressErr}
+                commodityHistoryIndex={commodityHistoryIndex}
+                commodityHistoryLoading={commodityHistoryLoading}
+                commodityHistoryErr={commodityHistoryErr}
+                fetchCommodityHistory={fetchCommodityHistory}
+              />
+            )}
+
+            {activeTab === 'history' && <HistoryPage />}
+
+            <footer className="flex flex-col gap-1 border-t border-slate-800/80 pt-4 text-[11px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+              <span>GFIP · Global Fragility Intelligence Platform · Powered by AtlasGraph</span>
+              <span className="font-mono">analyst workspace</span>
+            </footer>
           </div>
-          <div className="min-w-0">
-            <TradeSignalsPanel
-              summary={tradeSummary}
-              summaryLoading={tradeLoading}
-              summaryError={tradeErr}
-              options={tradeOptions}
-              optionsLoading={tradeOptionsLoading}
-              optionsError={tradeOptionsErr}
-              fetchDependency={fetchTradeDependency}
-              fetchConcentration={fetchTradeConcentration}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <CommodityStressPanel
-            data={commodityStress}
-            loading={commodityStressLoading}
-            error={commodityStressErr}
-          />
-          <CommodityPriceHistory
-            index={commodityHistoryIndex}
-            loadingIndex={commodityHistoryLoading}
-            indexError={commodityHistoryErr}
-            fetchHistory={fetchCommodityHistory}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,30%)_minmax(0,1fr)] xl:grid-cols-[minmax(300px,28%)_minmax(0,1fr)]">
-          <div className="min-w-0">
-            <ShockSimulator
-              mode={mode}
-              setMode={setMode}
-              form={form}
-              setForm={setForm}
-              meta={meta}
-              setMeta={setMeta}
-              scenarios={scenarios}
-              selectedId={selectedId}
-              onSelectScenario={onSelectScenario}
-              scenariosLoading={scenariosLoading}
-              options={options}
-              validOptions={validOptions}
-              onApplyRecommended={onApplyRecommended}
-              onRun={runShock}
-              onReset={onReset}
-              running={running}
-            />
-          </div>
-
-          <div className="min-w-0">
-            <ShockResults
-              result={result}
-              submitted={submitted}
-              running={running}
-              error={runErr}
-              clientData={clientAnalysis}
-            />
-          </div>
-        </div>
-
-        <ScenarioIntelligenceReport
-          report={scenarioReport}
-          loading={reportLoading}
-          error={reportErr}
-          onGenerate={generateScenarioReport}
-          canGenerate={!backendDown && !!form.source.trim() && !!form.commodity.trim()}
-        />
-
-        <ScenarioComparison options={options} />
-
-        <footer className="flex flex-col gap-1 border-t border-slate-800/80 pt-4 text-[11px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            GFIP · Global Fragility Intelligence Platform · Powered by AtlasGraph
-          </span>
-          <span className="font-mono">analyst dashboard</span>
-        </footer>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }

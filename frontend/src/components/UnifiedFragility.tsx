@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import type { FragilityComponent, FragilitySummaryResponse } from '../types/api'
 import { fixed, riskBadgeClass } from '../lib/format'
+import {
+  normalizeCommodityRankings,
+  sortCountriesByScore,
+} from '../lib/commodityNormalize'
 import { HorizontalBarChartCard } from './charts/HorizontalBarChartCard'
 import { Panel, Spinner } from './ui'
 import { InlineError } from './States'
@@ -54,11 +58,13 @@ export function UnifiedFragility({
             subtitle="fragility score"
             valueLabel="Fragility score"
             valueDigits={1}
-            data={summary.countries.map((c) => ({
-              label: c.country_name,
-              value: c.score,
-              meta: { risk: c.risk_level },
-            }))}
+            data={sortCountriesByScore(
+              summary.countries.map((c) => ({
+                label: c.country_name,
+                value: c.score,
+                meta: { risk: c.risk_level },
+              })),
+            )}
             emptyLabel="No country fragility scores available."
             topN={5}
             showValueLabels
@@ -69,14 +75,12 @@ export function UnifiedFragility({
             subtitle="fragility score"
             valueLabel="Fragility score"
             valueDigits={1}
-            data={summary.commodities.map((c) => ({
-              label: c.commodity_name,
-              value: c.score,
-              meta: {
-                risk: c.risk_level,
-                drivers: (c.top_drivers ?? []).slice(0, 3).join(', '),
-              },
-            }))}
+            data={normalizeCommodityRankings(
+              summary.commodities.map((c) => ({
+                label: c.commodity_name,
+                value: c.score,
+              })),
+            )}
             emptyLabel="No commodity fragility scores available."
             topN={5}
             showValueLabels
@@ -125,13 +129,27 @@ export function UnifiedFragility({
               />
               <FragilityTable
                 label="Commodities"
-                rows={summary.commodities.map((c) => ({
-                  name: c.commodity_name,
-                  score: c.score,
-                  risk: c.risk_level,
-                  drivers: c.top_drivers,
-                  components: c.components,
-                }))}
+                rows={normalizeCommodityRankings(
+                  summary.commodities.map((c) => ({
+                    label: c.commodity_name,
+                    value: c.score,
+                  })),
+                ).map((row) => {
+                  const original =
+                    summary.commodities.find((c) => c.commodity_name === row.label) ??
+                    summary.commodities.find(
+                      (c) =>
+                        c.commodity_name.toLowerCase() === 'lng' && row.label === 'natural gas',
+                    ) ??
+                    summary.commodities.find((c) => c.score === row.value)
+                  return {
+                    name: row.label,
+                    score: row.value,
+                    risk: original?.risk_level ?? '—',
+                    drivers: original?.top_drivers ?? [],
+                    components: original?.components,
+                  }
+                })}
                 empty="No commodity fragility scores available."
               />
             </div>
@@ -159,9 +177,13 @@ function FragilityTable({
   empty: string
   macroSourceActive?: boolean
 }) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+
   if (rows.length === 0) {
     return <p className="text-sm text-slate-500">{empty}</p>
   }
+
+  const sorted = [...rows].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
 
   return (
     <div>
@@ -173,28 +195,54 @@ function FragilityTable({
               <th className="th text-left">{label.slice(0, -1)}</th>
               <th className="th text-right">Score</th>
               <th className="th text-center">Risk</th>
-              <th className="th text-left">Top drivers</th>
+              <th className="th text-left">Risk Drivers</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.name} className="border-b border-slate-800/60 hover:bg-slate-800/30">
-                <td className="td align-top">
-                  <div className="font-medium text-slate-100">{row.name}</div>
-                  <ComponentProvenance
-                    components={row.components}
-                    macroSourceActive={macroSourceActive}
-                  />
-                </td>
-                <td className="td align-top text-right font-mono tabular-nums text-slate-200">
-                  {fixed(row.score, 1)}
-                </td>
-                <td className="td align-top text-center">
-                  <span className={`badge ${riskBadgeClass(row.risk)}`}>{row.risk}</span>
-                </td>
-                <td className="td align-top text-xs text-slate-400">{row.drivers.join(', ') || '—'}</td>
-              </tr>
-            ))}
+            {sorted.map((row) => {
+              const open = expanded === row.name
+              const sourceCount =
+                row.components?.filter(
+                  (c) =>
+                    c.available &&
+                    (c.source ||
+                      c.note ||
+                      (macroSourceActive && c.key === 'macro_exposure_score')),
+                ).length ?? 0
+              return (
+                <tr key={row.name} className="border-b border-slate-800/60 hover:bg-slate-800/30">
+                  <td className="td align-top">
+                    <div className="font-medium text-slate-100">{row.name}</div>
+                  </td>
+                  <td className="td align-top text-right font-mono tabular-nums text-slate-200">
+                    {fixed(row.score, 1)}
+                  </td>
+                  <td className="td align-top text-center">
+                    <span className={`badge ${riskBadgeClass(row.risk)}`}>{row.risk}</span>
+                  </td>
+                  <td className="td align-top">
+                    <button
+                      type="button"
+                      className="text-left text-xs text-cyan-300/90 hover:underline"
+                      onClick={() => setExpanded(open ? null : row.name)}
+                      aria-expanded={open}
+                    >
+                      {sourceCount > 0
+                        ? open
+                          ? 'Hide sources'
+                          : `Risk Drivers (${sourceCount})`
+                        : row.drivers.join(', ') || '—'}
+                    </button>
+                    {open && (
+                      <ComponentProvenance
+                        components={row.components}
+                        macroSourceActive={macroSourceActive}
+                      />
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -231,8 +279,8 @@ function ComponentProvenance({
         return (
           <div key={c.key} className="text-[10px] leading-snug text-slate-500">
             <span className="text-slate-400">{c.name}</span>
-            {source && <span> · source: {source}</span>}
-            {c.note && <span> · note: {c.note}</span>}
+            {source && <span className="text-slate-600"> — {source}</span>}
+            {c.note && <span className="text-slate-600"> — {c.note}</span>}
           </div>
         )
       })}

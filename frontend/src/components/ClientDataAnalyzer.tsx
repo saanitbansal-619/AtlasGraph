@@ -11,13 +11,16 @@ United States,semiconductors,Korea,25000000`
 
 export function ClientDataAnalyzer({
   onAnalyzed,
+  result: controlledResult,
 }: {
   onAnalyzed?: (result: CustomDataAnalysisResponse | null) => void
+  result?: CustomDataAnalysisResponse | null
 } = {}) {
   const [file, setFile] = useState<File | null>(null)
-  const [result, setResult] = useState<CustomDataAnalysisResponse | null>(null)
+  const [localResult, setLocalResult] = useState<CustomDataAnalysisResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<{ message: string; hint?: string } | null>(null)
+  const result = controlledResult !== undefined ? controlledResult : localResult
 
   const analyze = async () => {
     if (!file) return
@@ -25,10 +28,10 @@ export function ClientDataAnalyzer({
     setError(null)
     try {
       const analysis = await api.analyzeCustomData(file)
-      setResult(analysis)
+      setLocalResult(analysis)
       onAnalyzed?.(analysis)
     } catch (e) {
-      setResult(null)
+      setLocalResult(null)
       onAnalyzed?.(null)
       setError(
         e instanceof ApiRequestError
@@ -67,7 +70,7 @@ export function ClientDataAnalyzer({
               className="field file:mr-3 file:rounded file:border-0 file:bg-cyan-500/15 file:px-2 file:py-1 file:text-xs file:font-medium file:text-cyan-200"
               onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null)
-                setResult(null)
+                setLocalResult(null)
                 onAnalyzed?.(null)
                 setError(null)
               }}

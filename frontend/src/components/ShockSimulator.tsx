@@ -193,7 +193,7 @@ export function ShockSimulator({
   const recommended = options?.recommended_scenarios ?? []
 
   return (
-    <Panel title="Shock Simulator" right={<ModeToggle mode={mode} setMode={switchMode} />}>
+    <Panel title="Scenario Setup" right={<ModeToggle mode={mode} setMode={switchMode} />}>
       <form
         className="space-y-4"
         onSubmit={(e) => {

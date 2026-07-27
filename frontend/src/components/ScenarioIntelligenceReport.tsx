@@ -235,12 +235,14 @@ export function ScenarioIntelligenceReport({
   error,
   onGenerate,
   canGenerate,
+  title = 'Scenario Intelligence Report',
 }: {
   report: ScenarioReportResponse | null
   loading: boolean
   error?: { message: string; hint?: string } | null
   onGenerate: () => void
   canGenerate: boolean
+  title?: string
 }) {
   const [copied, setCopied] = useState(false)
   const [assumptionsOpen, setAssumptionsOpen] = useState(false)
@@ -260,7 +262,7 @@ export function ScenarioIntelligenceReport({
 
   return (
     <Panel
-      title="Scenario Intelligence Report"
+      title={title}
       right={
         <div className="flex items-center gap-2">
           {report && (
