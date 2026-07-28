@@ -73,6 +73,7 @@ export function ShockResults({
     clientData,
     result.scenario.source,
     result.scenario.commodity,
+    result.scenario.shock_percent,
   )
 
   return (
@@ -85,6 +86,7 @@ export function ShockResults({
         clientData={clientData ?? null}
         source={result.scenario.source}
         commodity={result.scenario.commodity}
+        dropPercent={result.scenario.shock_percent}
       />
 
       <OperationalImpactPanel result={result} />

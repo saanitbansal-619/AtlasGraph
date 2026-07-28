@@ -52,6 +52,7 @@ export function DashboardPage({
         clientAnalysis,
         result.scenario.source,
         result.scenario.commodity,
+        result.scenario.shock_percent,
       )
     : null
 

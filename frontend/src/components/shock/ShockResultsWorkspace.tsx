@@ -10,7 +10,7 @@ import {
   normalizeCommodityRankings,
   sortCountriesByScore,
 } from '../../lib/commodityNormalize'
-import { computeClientExposureOverlay } from '../../lib/clientExposure'
+import { computeClientExposureOverlay, formatCompactUSD } from '../../lib/clientExposure'
 import {
   blockedEdgeCategory,
   deltaClass,
@@ -91,6 +91,7 @@ export function ShockResultsWorkspace({
     clientData,
     result.scenario.source,
     result.scenario.commodity,
+    result.scenario.shock_percent,
   )
 
   const countryRows = sortCountriesByScore(
@@ -173,6 +174,7 @@ export function ShockResultsWorkspace({
         clientData={clientData ?? null}
         source={result.scenario.source}
         commodity={result.scenario.commodity}
+        dropPercent={result.scenario.shock_percent}
       />
 
       <PropagationGraphPanel paths={result.affected_paths} result={result} />
@@ -232,15 +234,17 @@ function RiskDriversPanel({
       clientData,
       result.scenario.source,
       result.scenario.commodity,
+      result.scenario.shock_percent,
     )
     if (overlay && overlay.matchedCount > 0) {
       rows.push({
         key: 'client',
         label: 'Client supplier exposure',
-        summary: `${overlay.matchedCount} matched importer groups`,
+        summary: `${overlay.matchedCount} matched importers · ${formatCompactUSD(overlay.totalEstimatedExposedTrade)} exposed`,
         details: overlay.exposures.slice(0, 5).map(
           (e) =>
             `${e.importer} · ${e.commodity} · share ${(e.supplier_share * 100).toFixed(0)}%` +
+            ` · exposed ${formatCompactUSD(e.estimated_exposed_trade)}` +
             (e.concentration_risk ? ` · risk ${e.concentration_risk}` : ''),
         ),
       })

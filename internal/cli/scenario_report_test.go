@@ -59,7 +59,7 @@ func TestBuildScenarioReportStructure(t *testing.T) {
 		},
 	}
 
-	report := buildScenarioReport(res, ctx)
+	report := buildScenarioReport(res, ctx, nil)
 
 	if !strings.Contains(report.Title, "Taiwan") || !strings.Contains(report.Title, "semiconductors") {
 		t.Fatalf("title = %q, want Taiwan/semiconductors", report.Title)
@@ -130,7 +130,7 @@ func TestBuildScenarioReportStructure(t *testing.T) {
 }
 
 func TestBuildScenarioReportEmptyContext(t *testing.T) {
-	report := buildScenarioReport(sampleReportResult(), scenarioReportContext{})
+	report := buildScenarioReport(sampleReportResult(), scenarioReportContext{}, nil)
 	if report.Title == "" || report.ExecutiveSummary == "" {
 		t.Fatal("expected title and summary even without context panels")
 	}
@@ -196,7 +196,7 @@ func TestScenarioReportTruncatesExposure(t *testing.T) {
 	res.Direct = manyCountryImpacts("dir", 15, 2)
 	res.SecondOrder = manyCountryImpacts("sec", 15, 3)
 
-	report := buildScenarioReport(res, scenarioReportContext{})
+	report := buildScenarioReport(res, scenarioReportContext{}, nil)
 
 	if len(report.DirectExposure) != maxDirectExposure {
 		t.Fatalf("direct exposure len = %d, want %d", len(report.DirectExposure), maxDirectExposure)
@@ -221,7 +221,7 @@ func TestScenarioReportMetadataCounts(t *testing.T) {
 	res.Direct = manyCountryImpacts("dir", 15, 2)
 	res.SecondOrder = manyCountryImpacts("sec", 7, 3)
 
-	report := buildScenarioReport(res, scenarioReportContext{})
+	report := buildScenarioReport(res, scenarioReportContext{}, nil)
 
 	if report.TotalDirectExposureCount != 15 {
 		t.Errorf("total_direct_exposure_count = %d, want 15", report.TotalDirectExposureCount)
@@ -250,7 +250,7 @@ func TestScenarioReportTaiwanMacroUnavailable(t *testing.T) {
 		},
 	}
 
-	report := buildScenarioReport(res, ctx)
+	report := buildScenarioReport(res, ctx, nil)
 
 	var taiwan *reportContextItem
 	for i := range report.MacroContext {
@@ -304,7 +304,7 @@ func TestScenarioReportTaiwanMacroZeroRecordUnavailable(t *testing.T) {
 		},
 	}
 
-	report := buildScenarioReport(res, ctx)
+	report := buildScenarioReport(res, ctx, nil)
 
 	var taiwan *reportContextItem
 	for i := range report.MacroContext {
@@ -355,7 +355,7 @@ func TestScenarioReportNoEncodingArtifacts(t *testing.T) {
 		{Node: models.Node{Name: "China", Type: models.Country}, Distance: 2, Impact: 0.5, Delta: 50},
 		{Node: models.Node{Name: "United States", Type: models.Country}, Distance: 2, Impact: 0.4, Delta: 40},
 	}
-	report := buildScenarioReport(res, scenarioReportContext{})
+	report := buildScenarioReport(res, scenarioReportContext{}, nil)
 
 	blobs := append([]string{report.ExecutiveSummary}, report.KeyFindings...)
 	for _, s := range blobs {
@@ -400,7 +400,7 @@ func TestScenarioReportKeyFindingsCovered(t *testing.T) {
 			},
 		},
 	}
-	report := buildScenarioReport(res, ctx)
+	report := buildScenarioReport(res, ctx, nil)
 	joined := strings.ToLower(strings.Join(report.KeyFindings, " "))
 	for _, want := range []string{"shock profile", "most exposed countries", "most exposed sectors", "trade concentration", "event-risk", "provenance"} {
 		if !strings.Contains(joined, want) {
@@ -432,7 +432,7 @@ func TestScenarioReportCommodityContextForSemiconductors(t *testing.T) {
 			},
 		},
 	}
-	report := buildScenarioReport(res, ctx)
+	report := buildScenarioReport(res, ctx, nil)
 	if len(report.CommodityFragility) == 0 {
 		t.Fatal("expected commodity fragility context for the shocked commodity")
 	}
@@ -462,7 +462,7 @@ func TestScenarioReportCommodityContextWithPriceData(t *testing.T) {
 			{CommodityCode: "SEMI", CommodityName: "semiconductors", Score: 61, RiskLevel: "High"},
 		},
 	}
-	report := buildScenarioReport(res, ctx)
+	report := buildScenarioReport(res, ctx, nil)
 	if len(report.CommodityFragility) == 0 {
 		t.Fatal("expected commodity fragility context")
 	}

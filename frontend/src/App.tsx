@@ -445,6 +445,14 @@ export default function App() {
         drop_percent: form.drop,
         depth: form.depth,
         ...operationalRequestFields(meta.assumptions),
+        ...(clientAnalysis
+          ? {
+              client_data: {
+                concentration_results: clientAnalysis.concentration_results ?? [],
+                normalized_rows: clientAnalysis.normalized_rows ?? [],
+              },
+            }
+          : {}),
       })
       setScenarioReport(res)
     } catch (e) {
@@ -452,7 +460,7 @@ export default function App() {
     } finally {
       setReportLoading(false)
     }
-  }, [form, meta.assumptions])
+  }, [form, meta.assumptions, clientAnalysis])
 
   const backendDown = useMemo(
     () => !!healthErr && healthErr.unreachable && health === null,

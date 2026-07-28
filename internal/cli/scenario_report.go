@@ -12,6 +12,7 @@ import (
 
 	"github.com/atlasgraph/atlas/internal/config"
 	analyticsdb "github.com/atlasgraph/atlas/internal/db"
+	"github.com/atlasgraph/atlas/internal/clientoverlay"
 	"github.com/atlasgraph/atlas/internal/graphfusion"
 	"github.com/atlasgraph/atlas/internal/ingest/eventrisk"
 	"github.com/atlasgraph/atlas/internal/ingest/trade"
@@ -37,6 +38,7 @@ type scenarioReportRequest struct {
 	RecoverySpeed          string   `json:"recovery_speed,omitempty"`
 	SubstituteAvailability string   `json:"substitute_availability,omitempty"`
 	InventoryBufferDays    *int     `json:"inventory_buffer_days,omitempty"`
+	ClientData             *clientAnalysisPayload `json:"client_data,omitempty"`
 }
 
 // scenarioReport is the structured analyst-style intelligence report.
@@ -67,6 +69,8 @@ type scenarioReport struct {
 	Limitations            []string                      `json:"limitations"`
 	OperationalAssumptions *operationalimpact.Assessment `json:"operational_assumptions,omitempty"`
 	ExecutiveActionPlan    recommendations.ExecutiveActionPlan `json:"executive_action_plan"`
+	ClientExposureOverlay  *clientoverlay.OverlayResult `json:"client_exposure_overlay,omitempty"`
+	ClientExposureAssessment string `json:"client_exposure_assessment,omitempty"`
 }
 
 // Exposure-list truncation limits keep the report analyst-readable rather than a raw dump.
@@ -169,7 +173,8 @@ func (s *apiServer) handleScenarioReport(w http.ResponseWriter, r *http.Request)
 	}
 
 	ctx := s.collectScenarioReportContext(fused.Meta, simCtx)
-	report := buildScenarioReport(res, ctx)
+	overlay := buildClientOverlay(body.ClientData, res)
+	report := buildScenarioReport(res, ctx, overlay)
 	if s.db != nil {
 		if err := s.db.InsertScenarioRun(r.Context(), analyticsdb.ScenarioRunInput{
 			ScenarioID:           newScenarioRunID(),
@@ -255,7 +260,7 @@ func depCount(r trade.ResolvedTrade) int {
 
 // buildScenarioReport assembles a deterministic analyst report from a shock result
 // and optional observed-context panels.
-func buildScenarioReport(res simulation.Result, ctx scenarioReportContext) scenarioReport {
+func buildScenarioReport(res simulation.Result, ctx scenarioReportContext, overlay *clientoverlay.OverlayResult) scenarioReport {
 	source := res.SourceNode.Name
 	commodity := res.CommodityNode.Name
 	drop := res.Request.DropPct
@@ -277,10 +282,16 @@ func buildScenarioReport(res simulation.Result, ctx scenarioReportContext) scena
 	commodityCtx := buildCommodityFragilityContext(res, ctx, tradeEv)
 
 	dataSources := buildReportDataSources(ctx)
-	summary := buildExecutiveSummary(res, countries, sectors, directTotal, tradeEv)
-	findings := buildKeyFindings(res, countries, sectors, tradeEv, eventCtx, macroCtx, dataSources)
+	summary := buildExecutiveSummary(res, countries, sectors, directTotal, tradeEv, overlay)
+	findings := buildKeyFindings(res, countries, sectors, tradeEv, eventCtx, macroCtx, dataSources, overlay)
 	recInput := buildRecommendationInput(res, ctx, tradeEv, eventCtx, macroCtx)
+	recInput = applyClientOverlayToRecommendations(recInput, overlay)
 	actionPlan := recommendations.GenerateExecutiveActionPlan(recInput)
+
+	clientAssessment := ""
+	if overlay != nil {
+		clientAssessment = overlay.Assessment
+	}
 
 	return scenarioReport{
 		Title:            title,
@@ -307,6 +318,8 @@ func buildScenarioReport(res simulation.Result, ctx scenarioReportContext) scena
 		Limitations:            buildReportLimitations(ctx),
 		OperationalAssumptions: res.OperationalAssumptions,
 		ExecutiveActionPlan:    actionPlan,
+		ClientExposureOverlay:  overlay,
+		ClientExposureAssessment: clientAssessment,
 	}
 }
 
@@ -349,7 +362,7 @@ func topExposure(items []simulation.NodeImpact, provenance string, limit int) ([
 	return all, total
 }
 
-func buildExecutiveSummary(res simulation.Result, countries, sectors []reportExposureItem, directTotal int, tradeEv []reportTradeEvidence) string {
+func buildExecutiveSummary(res simulation.Result, countries, sectors []reportExposureItem, directTotal int, tradeEv []reportTradeEvidence, overlay *clientoverlay.OverlayResult) string {
 	source := res.SourceNode.Name
 	commodity := res.CommodityNode.Name
 	drop := res.Request.DropPct
@@ -392,6 +405,9 @@ func buildExecutiveSummary(res simulation.Result, countries, sectors []reportExp
 	if res.OperationalAssumptions != nil {
 		parts = append(parts, res.OperationalAssumptions.Explanation)
 	}
+	if overlay != nil && overlay.Assessment != "" {
+		parts = append(parts, overlay.Assessment)
+	}
 	parts = append(parts, "Figures are relative exposure estimates, not predictions.")
 	return sanitizeText(strings.Join(parts, " "))
 }
@@ -402,6 +418,7 @@ func buildKeyFindings(
 	tradeEv []reportTradeEvidence,
 	eventCtx, macroCtx []reportContextItem,
 	dataSources []string,
+	overlay *clientoverlay.OverlayResult,
 ) []string {
 	findings := []string{}
 
@@ -447,6 +464,14 @@ func buildKeyFindings(
 	// f. macro context availability (report the source country's status first)
 	if mf := buildMacroFinding(res, macroCtx); mf != "" {
 		findings = append(findings, mf)
+	}
+
+	if overlay != nil && overlay.MatchedImporters > 0 {
+		findings = append(findings, fmt.Sprintf(
+			"Client exposure overlay: %d importer(s) matched with %.0f%% peak supplier dependence and %s estimated directly exposed trade.",
+			overlay.MatchedImporters, overlay.HighestSupplierShare*100,
+			clientoverlay.FormatCompactUSD(overlay.TotalEstimatedExposedUSD),
+		))
 	}
 
 	if res.OperationalAssumptions != nil {

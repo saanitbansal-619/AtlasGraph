@@ -315,6 +315,15 @@ export function ScenarioIntelligenceReport({
             <p className="text-sm leading-relaxed text-slate-300">{report.executive_summary}</p>
           </div>
 
+          {report.client_exposure_assessment && (
+            <div className="rounded border border-violet-900/40 bg-violet-950/10 p-3">
+              <div className="label mb-1">Client Exposure Assessment</div>
+              <p className="text-sm leading-relaxed text-slate-300">
+                {report.client_exposure_assessment}
+              </p>
+            </div>
+          )}
+
           {report.operational_assumptions && (
             <div className="rounded border border-cyan-900/50 bg-cyan-950/10 p-3">
               <div className="label mb-2">Operational Assumptions</div>

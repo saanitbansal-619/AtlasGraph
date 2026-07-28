@@ -559,6 +559,37 @@ export interface ScenarioReportRequest {
   recovery_speed: string
   substitute_availability: string
   inventory_buffer_days: number
+  client_data?: {
+    concentration_results: CustomConcentrationResult[]
+    normalized_rows: CustomNormalizedRow[]
+  }
+}
+
+export interface ClientExposureOverlayRow {
+  importer: string
+  commodity: string
+  supplier: string
+  supplier_value_usd: number
+  total_import_value_usd: number
+  supplier_share: number
+  hhi?: number
+  concentration_risk?: string
+  estimated_exposed_trade: number
+  estimated_remaining_trade: number
+}
+
+export interface ClientExposureOverlayResponse {
+  exposures: ClientExposureOverlayRow[]
+  matched_importers: number
+  total_estimated_exposed_trade_usd: number
+  highest_supplier_share: number
+  highest_hhi: number
+  average_concentration_risk: string
+  top_importer?: string
+  commodity: string
+  source: string
+  shock_drop_percent: number
+  assessment: string
 }
 
 export interface ReportExposureItem {
@@ -618,6 +649,8 @@ export interface ScenarioReportResponse {
   limitations: string[]
   operational_assumptions?: OperationalAssumptions
   executive_action_plan?: ExecutiveActionPlan
+  client_exposure_overlay?: ClientExposureOverlayResponse
+  client_exposure_assessment?: string
 }
 
 export type RecommendationPriority = 'Critical' | 'High' | 'Medium' | 'Low'

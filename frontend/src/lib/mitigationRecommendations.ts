@@ -7,7 +7,7 @@ import type {
   ScenarioReportResponse,
   ShockResponse,
 } from '../types/api'
-import { computeClientExposureOverlay } from './clientExposure'
+import { computeClientExposureOverlay, type ClientExposureOverlay } from './clientExposure'
 import { normalizeCommodityLabel } from './commodityNormalize'
 
 export type MitigationDifficulty = 'Low' | 'Medium' | 'High'
@@ -103,7 +103,12 @@ export function buildMitigationInputs(
   report?: ScenarioReportResponse | null,
 ): MitigationInputs {
   const scenario = result.scenario
-  const overlay = computeClientExposureOverlay(clientData, scenario.source, scenario.commodity)
+  const overlay = computeClientExposureOverlay(
+    clientData,
+    scenario.source,
+    scenario.commodity,
+    scenario.shock_percent,
+  )
   const reportConcentration = concentrationFromReport(report, scenario.commodity)
 
   const overlayHhi = overlay?.exposures.find((row) => row.hhi != null)?.hhi ?? null
@@ -463,14 +468,67 @@ function buildSupportingEvidence(input: MitigationInputs): string[] {
   return evidence
 }
 
-export function generateExecutiveActionPlan(input: MitigationInputs): ExecutiveActionPlan {
+function tailorRecommendationsWithClientOverlay(
+  recommendations: MitigationRecommendation[],
+  overlay: ClientExposureOverlay | null,
+  input: MitigationInputs,
+): MitigationRecommendation[] {
+  if (!overlay || overlay.matchedCount === 0 || !overlay.topImporter) {
+    return recommendations
+  }
+  const sharePct = (overlay.topShare * 100).toFixed(0)
+  const commodity = titleCase(input.commodity)
+
+  return recommendations.map((rec) => {
+    const tailored = { ...rec }
+    switch (rec.category) {
+      case 'Supplier Diversification':
+        tailored.title = `Diversify ${input.source} ${commodity} Sourcing for ${overlay.topImporter} Operations`
+        tailored.reason = `Client overlay shows ${sharePct}% supplier dependence on ${input.source} for ${commodity} imports to ${overlay.topImporter}.`
+        break
+      case 'Alternative Sourcing':
+        tailored.title = `Activate Alternative ${commodity} Sources for ${overlay.topImporter}`
+        tailored.reason = `${overlay.topImporter} relies on ${input.source} for ${sharePct}% of ${commodity} supply; alternate suppliers should be qualified.`
+        break
+      case 'Dual Sourcing':
+        tailored.title = `Establish Dual Sourcing for ${overlay.topImporter} ${commodity}`
+        tailored.reason = `Client concentration (share ${sharePct}%, HHI ${(overlay.highestHHI ?? 0).toFixed(3)}) requires dual sourcing for ${overlay.topImporter}.`
+        break
+      case 'Inventory Increase':
+        tailored.title = `Increase ${commodity} Inventory for ${overlay.topImporter}`
+        tailored.reason = `Estimated ${formatCompactUSD(overlay.totalEstimatedExposedTrade)} exposed trade under the ${input.dropPercent.toFixed(0)}% shock warrants additional buffer for ${overlay.topImporter}.`
+        break
+      case 'Supplier Monitoring':
+        tailored.reason = `Monitor ${input.source} supply chain signals affecting ${overlay.topImporter}'s ${commodity} imports (${sharePct}% dependence).`
+        break
+      default:
+        break
+    }
+    return tailored
+  })
+}
+
+function formatCompactUSD(value: number): string {
+  const abs = Math.abs(value)
+  if (abs >= 1e9) return `$${(value / 1e9).toFixed(1)}B`
+  if (abs >= 1e6) return `$${(value / 1e6).toFixed(1)}M`
+  if (abs >= 1e3) return `$${(value / 1e3).toFixed(1)}K`
+  return `$${value.toFixed(0)}`
+}
+
+export function generateExecutiveActionPlan(
+  input: MitigationInputs,
+  overlay?: ClientExposureOverlay | null,
+): ExecutiveActionPlan {
   const candidates = evaluateRules(input)
-  const recommendations = candidates
+  let recommendations = candidates
     .map((c) => ({ ...c, id: c.id ?? c.category }))
     .sort((a, b) => {
       const diff = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
       return diff !== 0 ? diff : a.title.localeCompare(b.title)
     })
+
+  recommendations = tailorRecommendationsWithClientOverlay(recommendations, overlay ?? null, input)
 
   return {
     summary: buildExecutiveSummary(input, recommendations),
@@ -486,10 +544,27 @@ export function executiveActionPlanForScenario(
   clientData?: CustomDataAnalysisResponse | null,
   report?: ScenarioReportResponse | null,
 ): ExecutiveActionPlan {
+  const input = buildMitigationInputs(result, clientData, report)
+  const overlay = computeClientExposureOverlay(
+    clientData,
+    result.scenario.source,
+    result.scenario.commodity,
+    result.scenario.shock_percent,
+  )
+
   if (report?.executive_action_plan?.recommendations?.length) {
-    return report.executive_action_plan
+    const plan = { ...report.executive_action_plan }
+    plan.recommendations = tailorRecommendationsWithClientOverlay(
+      plan.recommendations,
+      overlay,
+      input,
+    )
+    if (overlay?.assessment) {
+      plan.summary = `${overlay.assessment} ${plan.summary}`
+    }
+    return plan
   }
-  return generateExecutiveActionPlan(buildMitigationInputs(result, clientData, report))
+  return generateExecutiveActionPlan(input, overlay)
 }
 
 // Backward-compatible helpers

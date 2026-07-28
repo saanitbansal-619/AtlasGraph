@@ -1,19 +1,13 @@
 import type { CustomDataAnalysisResponse } from '../types/api'
 import {
+  buildClientExposureAssessment,
   computeClientExposureOverlay,
+  formatCompactUSD,
   type ClientExposureOverlay,
 } from '../lib/clientExposure'
 import { fixed, pct, riskBadgeClass } from '../lib/format'
+import { HorizontalBarChartCard } from './charts/HorizontalBarChartCard'
 import { EmptyHint, Panel } from './ui'
-
-function formatUSD(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(value)
-}
 
 function SummaryCard({
   label,
@@ -38,39 +32,70 @@ function SummaryCard({
   )
 }
 
-function OverlaySummary({ overlay }: { overlay: ClientExposureOverlay }) {
+function ExposureChart({ overlay }: { overlay: ClientExposureOverlay }) {
+  const data = overlay.exposures.slice(0, 8).map((row) => ({
+    label: row.importer,
+    value: row.estimated_exposed_trade,
+    color: 'rgba(167,139,250,0.55)',
+  }))
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-        <SummaryCard label="Matched client exposures" value={String(overlay.matchedCount)} />
+    <HorizontalBarChartCard
+      title="Top Client Exposure by Importer"
+      subtitle="Estimated exposed trade"
+      data={data}
+      valueLabel="Exposed trade"
+      valueDigits={1}
+      topN={8}
+      height={Math.max(160, data.length * 36)}
+      valueSuffix=""
+    />
+  )
+}
+
+function OverlayContent({ overlay }: { overlay: ClientExposureOverlay }) {
+  const assessment = overlay.assessment ?? buildClientExposureAssessment(overlay)
+
+  return (
+    <div className="space-y-4">
+      {assessment && (
+        <div className="rounded border border-violet-900/40 bg-violet-950/10 p-3">
+          <div className="label mb-1">Client Exposure Assessment</div>
+          <p className="text-sm leading-relaxed text-slate-300">{assessment}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+        <SummaryCard label="Matched importers" value={String(overlay.matchedCount)} />
         <SummaryCard
-          label="Top exposed importer"
-          value={overlay.topImporter ?? '—'}
-          tone="violet"
-        />
-        <SummaryCard
-          label="Shocked supplier share"
-          value={pct(overlay.topShare)}
+          label="Estimated exposed trade"
+          value={formatCompactUSD(overlay.totalEstimatedExposedTrade)}
           tone="amber"
         />
+        <SummaryCard label="Highest supplier share" value={pct(overlay.topShare)} tone="violet" />
         <SummaryCard
-          label="Concentration risk"
-          value={overlay.topRisk ?? '—'}
-          tone={overlay.topRisk === 'High' ? 'amber' : 'cyan'}
+          label="Highest HHI"
+          value={overlay.highestHHI == null ? '—' : fixed(overlay.highestHHI, 3)}
+        />
+        <SummaryCard
+          label="Average concentration risk"
+          value={overlay.averageConcentrationRisk ?? '—'}
+          tone={overlay.averageConcentrationRisk === 'High' ? 'amber' : 'cyan'}
         />
       </div>
 
-      <div className="max-h-72 overflow-auto rounded border border-slate-800">
-        <table className="w-full min-w-[820px] text-left text-xs">
+      <ExposureChart overlay={overlay} />
+
+      <div className="max-h-80 overflow-auto rounded border border-slate-800">
+        <table className="w-full min-w-[980px] text-left text-xs">
           <thead className="sticky top-0 bg-slate-900/95 backdrop-blur">
             <tr className="border-b border-slate-800 text-slate-500">
               {[
                 'Importer',
                 'Commodity',
-                'Shocked supplier',
+                'Supplier',
                 'Supplier share',
                 'Supplier value',
-                'Total value',
+                'Estimated exposed trade',
                 'HHI',
                 'Risk',
               ].map((label) => (
@@ -91,10 +116,10 @@ function OverlaySummary({ overlay }: { overlay: ClientExposureOverlay }) {
                 <td className="px-3 py-2 text-slate-200">{row.shocked_supplier}</td>
                 <td className="px-3 py-2 font-mono text-slate-300">{pct(row.supplier_share)}</td>
                 <td className="px-3 py-2 font-mono text-slate-300">
-                  {formatUSD(row.supplier_value_usd)}
+                  {formatCompactUSD(row.supplier_value_usd)}
                 </td>
-                <td className="px-3 py-2 font-mono text-slate-300">
-                  {formatUSD(row.total_import_value_usd)}
+                <td className="px-3 py-2 font-mono text-amber-200">
+                  {formatCompactUSD(row.estimated_exposed_trade)}
                 </td>
                 <td className="px-3 py-2 font-mono text-slate-300">
                   {row.hhi == null ? '—' : fixed(row.hhi, 3)}
@@ -121,27 +146,30 @@ export function ClientExposureOverlayPanel({
   clientData,
   source,
   commodity,
+  dropPercent = 0,
 }: {
   clientData: CustomDataAnalysisResponse | null
   source: string
   commodity: string
+  dropPercent?: number
 }) {
-  const overlay = computeClientExposureOverlay(clientData, source, commodity)
+  const overlay = computeClientExposureOverlay(clientData, source, commodity, dropPercent)
 
   return (
     <Panel
-      title="Client Exposure Overlay"
+      title="Client Exposure"
       dense
       right={
-        <span className="badge border-violet-500/40 bg-violet-500/10 text-violet-300">
-          Client CSV
-        </span>
+        clientData ? (
+          <span className="badge border-violet-500/40 bg-violet-500/10 text-violet-300">
+            Client CSV
+          </span>
+        ) : undefined
       }
     >
       {!clientData && (
         <EmptyHint>
-          Upload client supplier data to compare public scenario exposure against client-specific
-          dependencies.
+          Upload client supplier data to assess organization-specific exposure.
         </EmptyHint>
       )}
 
@@ -151,7 +179,7 @@ export function ClientExposureOverlayPanel({
         </EmptyHint>
       )}
 
-      {clientData && overlay && overlay.matchedCount > 0 && <OverlaySummary overlay={overlay} />}
+      {clientData && overlay && overlay.matchedCount > 0 && <OverlayContent overlay={overlay} />}
     </Panel>
   )
 }
