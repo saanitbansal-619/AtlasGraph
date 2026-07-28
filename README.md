@@ -1,237 +1,174 @@
-# GFIP — Global Fragility Intelligence Platform
+# GFIP
+**Global Fragility Intelligence Platform**
 
-**Powered by AtlasGraph**
-
-## Project Overview
-
-GFIP is a full-stack global fragility intelligence platform powered by AtlasGraph, a Go backend engine that combines observed trade, event-risk, and commodity-price data with a baseline dependency graph to estimate supply-chain exposure.
-
-- **GFIP** — React/TypeScript analyst dashboard for exploring exposure, fragility, and shock results
-- **AtlasGraph** — Go engine for graph modeling, scoring, data fusion, and the HTTP API
-
-Scores are model-derived estimates, not raw factual predictions.
+GFIP models how supply chain disruptions propagate through global trade and dependency networks. It fuses a curated dependency graph with observed trade, event-risk, macro, and commodity-price data to estimate exposure, run shock scenarios, and produce analyst-ready outputs. The platform is built for supply chain analysts, risk teams, and decision makers who need deterministic, explainable impact analysis rather than black-box forecasts.
 
 ---
 
-## Observed Data Sources
+## Features
 
-| Source | Role |
-|--------|------|
-| **UN Comtrade** | Trade flows, import dependencies, supplier concentration, trade concentration |
-| **GDELT** | Country-level event-risk signals |
-| **World Bank Pink Sheet** | Commodity price history and stress |
-| **Baseline dependency graph** | Curated supply-chain relationships and sector dependencies (`data/strategic_global`) |
-
-Observed panels live under `data/processed/` and fuse into the baseline graph when present. Baseline edges remain; real trade edges are additive and marked as real-data.
-
----
-
-## Model-Derived Outputs
-
-These are estimates under stated model assumptions, driven by the observed panels above:
-
-- **Fragility scores** — explainable country and commodity composites
-- **Shock propagation** — relationship-aware cascade along graph edges
-- **Estimated impact deltas** — before/after fragility and exposure changes
-- **Graph centrality** — structural importance in the dependency network
-- **Executive impact briefs** — concise narrative summaries of estimated exposure
+- **Graph-based shock simulation** — Propagates export collapses, supply cuts, route disruptions, and price spikes along relationship-aware graph edges.
+- **Real-world data ingestion** — Ingests UN Comtrade, GDELT, World Bank macro, and Pink Sheet commodity prices into normalized analytics panels.
+- **PostgreSQL analytics** — Optional persistence layer for trade flows, concentration metrics, scenario runs, and client upload storage.
+- **Client supply chain analysis** — Uploads supplier dependency CSVs and computes importer-level exposure against simulated shocks.
+- **Supplier concentration (HHI)** — Measures import concentration and supplier share per importer–commodity pair.
+- **Executive intelligence reports** — Generates structured scenario reports with trade, event, macro, and commodity context.
+- **Mitigation recommendation engine** — Produces ranked, rule-based mitigation actions with priority, confidence, and supporting metrics.
+- **Pipeline monitoring and validation** — Surfaces ETL health, validation checks, and load-quality metrics in the Data Operations workspace.
+- **Enterprise workspace frontend** — Multi-tab React application with dashboard, shock simulation, client analytics, analytics explorer, and history views.
 
 ---
 
-## Current Data Coverage
-
-Snapshot with processed panels fused into the baseline graph:
-
-| Metric | Value |
-|--------|------:|
-| UN Comtrade records | 1,669 |
-| Countries (trade panel) | 197 |
-| Commodities (trade panel) | 8 |
-| Trade value represented | US$ 2.64T+ |
-| Total dependencies (fused) | 2,039 |
-| Real trade edges | 1,846 |
-
-Coverage reflects locally ingested public datasets for selected commodities and years — not a live global feed for every HS code.
-
----
-
-## Key Features
-
-- **Shock simulation** — model export collapses, supply cuts, route disruptions, and price spikes
-- **Unified fragility scoring** — composite scores blending trade, event, commodity, and graph signals
-- **Trade dependency signals** — importer/commodity concentration and supplier shares from Comtrade
-- **Event risk signals** — GDELT-derived country risk indicators
-- **Commodity price history** — World Bank Pink Sheet time series and stress views
-- **Executive impact brief** — short estimated-exposure narrative for each shock run
-- **Scenario comparison** — side-by-side ranking by average/max fragility delta
-- **Data fusion status** — transparent badges for baseline graph, Comtrade, GDELT, and Pink Sheet
-
----
-
-## Tech Stack
-
-| Layer | Stack |
-|-------|-------|
-| Backend | Go (`net/http` JSON API, shared CLI + server engine) |
-| Optional analytics storage | PostgreSQL via `pgx` |
-| Frontend | React, TypeScript, Vite |
-| UI | Tailwind CSS, Recharts |
-| Ingestion | UN Comtrade pipeline, GDELT event-risk pipeline, World Bank commodity-price pipeline |
+## System Architecture
 
 ```
-React / TypeScript dashboard
+Public Data Sources (Comtrade, GDELT, World Bank)
         ↓
-Go HTTP API (`atlas serve`)
+ETL Pipeline (ingest, validate, normalize)
         ↓
-AtlasGraph engine + data fusion
+PostgreSQL / Processed JSON panels
         ↓
-Baseline graph + processed trade / events / prices
+Dependency Graph + Data Fusion
+        ↓
+Shock Simulation Engine
+        ↓
+Business Impact Analysis (fragility, exposure, client overlay)
+        ↓
+Executive Reports + Mitigation Recommendations
+        ↓
+GFIP Frontend (React)
 ```
 
 ---
 
-## Run Locally
+## Technology Stack
 
-### Prerequisites
+**Backend**
+Go 1.21, `net/http` JSON API, shared CLI (`cmd/atlas`), graph fusion engine, simulation and scoring packages
 
-- Go 1.21+
-- Node.js 18+
-- PostgreSQL 14+ (optional; the file-backed pipeline works without it)
+**Frontend**
+React 18, TypeScript, Vite, Tailwind CSS, Recharts, Vitest
 
-### 1. Ingest observed data (if needed)
+**Database**
+PostgreSQL 14+ via `pgx/v5`, SQL migrations
 
-Skip if `data/processed/{trade,events,commodity_prices}` already exists.
+**Data Sources**
+UN Comtrade, GDELT, World Bank macro indicators, World Bank Pink Sheet, baseline strategic dependency graph (`data/strategic_global`)
+
+**Analytics**
+Herfindahl-Hirschman Index (HHI), fragility scoring, event-risk composites, trade concentration, operational impact multipliers, deterministic recommendation rules
+
+---
+
+## Core Modules
+
+**Shock Simulation**
+Runs relationship-constrained propagation over the fused dependency graph. Supports configurable drop percentage, depth, shock type, and operational assumptions (duration, recovery, substitutes, inventory buffer).
+
+**Client Analytics**
+Parses client supplier CSV uploads, validates rows, and computes concentration results. Overlays matched importers onto shock scenarios with estimated exposed trade and supplier dependence.
+
+**Business Impact Assessment**
+Aggregates direct and second-order exposure, fragility deltas, propagation paths, and client-specific impact into executive briefs and risk driver panels.
+
+**Data Pipeline**
+Ingests raw public datasets, validates schema and row quality, normalizes entities, and loads analytics tables. Exposes pipeline summary and validation status via API.
+
+**Executive Reporting**
+Builds scenario intelligence reports from simulation output and observed context panels. Includes executive action plans, client exposure assessment, and mitigation recommendations when client data is provided.
+
+---
+
+## Repository Structure
+
+```
+cmd/atlas/          CLI entrypoint and HTTP server
+frontend/           React/TypeScript dashboard
+internal/
+  cli/              API handlers and report builders
+  simulation/       Shock propagation engine
+  scoring/          Fragility, event, macro, commodity scoring
+  ingest/           ETL loaders (trade, events, macro, prices)
+  customdata/       Client CSV analysis
+  clientoverlay/    Client exposure overlay service
+  recommendations/  Mitigation recommendation engine
+  pipeline/         ETL validation and summary
+  db/               PostgreSQL repository layer
+migrations/         PostgreSQL schema
+data/               Baseline graph, raw inputs, processed panels
+docs/               Technical reference
+```
+
+---
+
+## Running the Project
+
+**Prerequisites:** Go 1.21+, Node.js 18+, Docker (for PostgreSQL)
+
+**1. Start PostgreSQL**
 
 ```bash
-# UN Comtrade (place CSVs under data/raw/un_comtrade/)
-go run ./cmd/atlas ingest trade \
-  --dir data/raw/un_comtrade \
-  --out data/processed/trade \
-  --source un-comtrade
-
-# GDELT / event risk
-go run ./cmd/atlas ingest events \
-  --file data/raw/gdelt_events/gdelt_events_2024_expanded.csv \
-  --out data/processed/events \
-  --source gdelt
-
-# World Bank macro (API fetch with CSV fallback)
-go run ./cmd/atlas ingest macro \
-  --out data/processed/macro \
-  --source worldbank
-
-# World Bank Pink Sheet (download CMO-Historical-Data-Monthly.xlsx first)
-go run ./cmd/atlas ingest commodity-prices \
-  --file data/raw/worldbank_pinksheet/CMO-Historical-Data-Monthly.xlsx \
-  --out data/processed/commodity_prices \
-  --source worldbank-pinksheet
+docker run -d --name atlasgraph-postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=atlasgraph \
+  -p 5432:5432 postgres:14
 ```
 
-### 2. Backend
+**2. Configure database**
 
 ```bash
-go mod tidy
-go test ./...
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/atlasgraph?sslmode=disable
+go run ./cmd/atlas db migrate
+```
 
+**3. Start backend**
+
+```bash
 go run ./cmd/atlas serve \
   --data data/strategic_global \
   --trade-data data/processed/trade \
-  --processed-macro-data data/processed/macro \
-  --macro-data data/raw/worldbank \
-  --event-data data/raw/gdelt \
   --processed-event-data data/processed/events \
   --commodity-data data/processed/commodity_prices \
   --port 8080
 ```
 
-API: **http://localhost:8080**
+API: `http://localhost:8080`
 
-Missing processed paths disable only matching signals; the server still starts with the baseline graph.
-
-### Optional PostgreSQL analytics layer
-
-PostgreSQL is an additional analytics and scenario-persistence layer. It does
-not replace the JSON/CSV ingestion pipeline. When `DATABASE_URL` is absent,
-AtlasGraph logs `Postgres disabled; using file-backed analytics only` and all
-existing endpoints continue to use processed files.
-
-From the repository root on Windows Command Prompt:
-
-```bat
-set DATABASE_URL=postgres://postgres:postgres@localhost:5432/atlasgraph?sslmode=disable
-
-go run ./cmd/atlas db migrate
-
-go run ./cmd/atlas db load --trade-data data/processed/trade --macro-data data/processed/macro --event-data data/processed/events --commodity-data data/processed/commodity_prices --graph-data data/strategic_global
-
-go run ./cmd/atlas serve --data data/strategic_global --trade-data data/processed/trade --processed-macro-data data/processed/macro --processed-event-data data/processed/events --commodity-data data/processed/commodity_prices
-```
-
-The v1 loader replaces the PostgreSQL analytics tables from the current
-processed JSON snapshot and records load-quality checks. With PostgreSQL
-enabled, these additional endpoints are available:
-
-- `GET /api/db/health`
-- `GET /api/db/summary`
-- `GET /api/db/trade/top-suppliers?importer=USA&commodity=semiconductors`
-- `GET /api/db/scenarios/recent`
-
-Successful `POST /api/reports/scenario` requests are also persisted to
-`scenario_runs`. Run `go run ./cmd/atlas db migrate` before starting a
-PostgreSQL-enabled server.
-
-### 3. Frontend
+**4. Start frontend**
 
 ```bash
-cd frontend
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
 ```
 
-Dashboard: **http://localhost:5173**
+Dashboard: `http://localhost:5173`
 
----
-
-## Useful CLI
-
-```bash
-go run ./cmd/atlas graph summary \
-  --data data/strategic_global \
-  --trade-data data/processed/trade \
-  --event-data data/processed/events \
-  --commodity-data data/processed/commodity_prices
-
-go run ./cmd/atlas scenario list --data data/strategic_global
-go run ./cmd/atlas scenario run taiwan_semiconductor_shock --data data/strategic_global --explain
-go run ./cmd/atlas scenario compare --data data/strategic_global
-```
-
----
-
-## Testing
+**Tests**
 
 ```bash
 go test ./...
-
-cd frontend
-npm run build
+cd frontend && npm run test && npm run build
 ```
+
+---
+
+## Screenshots
+
+| Dashboard | Shock Simulation | Client Analytics |
+|:---:|:---:|:---:|
+| _[screenshot placeholder]_ | _[screenshot placeholder]_ | _[screenshot placeholder]_ |
+
+---
+
+## Future Enhancements
+
+- Interactive dependency graph explorer with zoom and path highlighting
+- PDF export for executive intelligence reports
+- SQL-backed analytics explorer for ad hoc trade and concentration queries
+- Expanded longitudinal scenario library with multi-period comparison
 
 ---
 
 ## Further Reading
 
-Detailed API reference, scoring formulas, and ingestion notes:
-[`docs/TECHNICAL_REFERENCE.md`](docs/TECHNICAL_REFERENCE.md)
-
-Dataset notes:
-- [`data/strategic_global/README.md`](data/strategic_global/README.md)
-- [`data/raw/un_comtrade/README.md`](data/raw/un_comtrade/README.md)
-- [`data/raw/gdelt_events/README.md`](data/raw/gdelt_events/README.md)
-- [`data/raw/worldbank_pinksheet/README.md`](data/raw/worldbank_pinksheet/README.md)
-
----
-
-## License
-
-See repository license file if present. Observed panels use public data sources under their respective terms. Model outputs are estimates under stated assumptions.
+- [`docs/TECHNICAL_REFERENCE.md`](docs/TECHNICAL_REFERENCE.md) — API reference, scoring formulas, ingestion details
+- [`data/strategic_global/README.md`](data/strategic_global/README.md) — Baseline graph dataset notes
