@@ -1,6 +1,8 @@
 # GFIP
 Global Fragility Intelligence Platform
 
+[![CI](https://github.com/saanitbansal-619/AtlasGraph/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/saanitbansal-619/AtlasGraph/actions/workflows/ci.yml)
+
 GFIP models supply-chain fragility and disruption propagation across a fused dependency graph built from public trade, event, macro, and commodity datasets. It addresses concentrated supplier risk and cross-border exposure by simulating shocks (export collapse, supply cut, route disruption, price spike) and quantifying downstream impact. The stack is a Go analytics engine (AtlasGraph) with a PostgreSQL-backed ETL layer and a React/TypeScript analyst workspace. Users ingest datasets, run shock scenarios, overlay client supplier portfolios, generate executive intelligence reports, and receive deterministic mitigation recommendations.
 
 ---
