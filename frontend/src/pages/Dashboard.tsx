@@ -5,13 +5,15 @@ import type {
   ScenarioReportResponse,
   ShockResponse,
 } from '../types/api'
+import type { AppTab } from '../types/navigation'
 import { compactInt } from '../lib/format'
 import { DataSourcesCard } from '../components/DataSourcesCard'
 import { OverviewCards } from '../components/OverviewCards'
 import { ExecutiveImpactBrief } from '../components/ExecutiveImpactBrief'
 import { ScenarioIntelligenceReport } from '../components/ScenarioIntelligenceReport'
 import { UnifiedFragility } from '../components/UnifiedFragility'
-import { computeClientExposureOverlay } from '../lib/clientExposure'
+import { AnalystWorkflow, ModelDisclaimer } from '../components/AnalystWorkflow'
+import { computeClientExposureOverlay, formatCompactUSD } from '../lib/clientExposure'
 import { SectionCard } from '../components/shared/SectionCard'
 import { StatCard } from '../components/shared/StatCard'
 import { EmptyHint } from '../components/ui'
@@ -30,7 +32,8 @@ export function DashboardPage({
   reportErr,
   onGenerateReport,
   canGenerateReport,
-  onOpenShock,
+  onNavigate,
+  onLoadCaseStudy,
 }: {
   summary: GraphSummaryResponse | null
   summaryLoading: boolean
@@ -45,7 +48,8 @@ export function DashboardPage({
   reportErr?: { message: string; hint?: string } | null
   onGenerateReport: () => void
   canGenerateReport: boolean
-  onOpenShock: () => void
+  onNavigate: (tab: AppTab, opts?: { shockTab?: 'setup' | 'results' | 'comparison' }) => void
+  onLoadCaseStudy: () => void
 }) {
   const clientOverlay = result
     ? computeClientExposureOverlay(
@@ -58,24 +62,24 @@ export function DashboardPage({
 
   const topCountries = fragility?.countries?.slice(0, 3) ?? []
   const topCommodities = fragility?.commodities?.slice(0, 3) ?? []
+  const exposedTrade =
+    clientOverlay && clientOverlay.matchedCount > 0
+      ? formatCompactUSD(clientOverlay.totalEstimatedExposedTrade)
+      : '—'
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
-        <div className="min-w-0 lg:h-full">
-          <DataSourcesCard
-            summary={summary}
-            fragility={fragility}
-            loading={summaryLoading || fragilityLoading}
-            compact
-          />
-        </div>
-        <div className="min-w-0">
-          <OverviewCards summary={summary} loading={summaryLoading} error={summaryErr} />
-        </div>
-      </div>
+      <AnalystWorkflow
+        clientAnalysis={clientAnalysis}
+        result={result}
+        scenarioReport={scenarioReport}
+        onNavigate={onNavigate}
+        onLoadCaseStudy={onLoadCaseStudy}
+      />
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      <ModelDisclaimer />
+
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <StatCard
           label="Graph nodes"
           value={summary ? compactInt(summary.nodes) : '—'}
@@ -93,6 +97,21 @@ export function DashboardPage({
           compact
         />
         <StatCard label="Client datasets" value={clientAnalysis ? 'Loaded' : 'None'} compact />
+        <StatCard label="Client $ at risk" value={exposedTrade} accent compact />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
+        <div className="min-w-0 lg:h-full">
+          <DataSourcesCard
+            summary={summary}
+            fragility={fragility}
+            loading={summaryLoading || fragilityLoading}
+            compact
+          />
+        </div>
+        <div className="min-w-0">
+          <OverviewCards summary={summary} loading={summaryLoading} error={summaryErr} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -101,14 +120,15 @@ export function DashboardPage({
         ) : (
           <SectionCard title="Executive Summary" dense>
             <EmptyHint>
-              Run a shock simulation to populate the executive impact brief.{' '}
+              Follow the Analyst Workflow above, or{' '}
               <button
                 type="button"
                 className="text-cyan-300 underline-offset-2 hover:underline"
-                onClick={onOpenShock}
+                onClick={() => onNavigate('shock')}
               >
-                Open Shock Simulation
+                open Shock Simulation
               </button>
+              .
             </EmptyHint>
           </SectionCard>
         )}

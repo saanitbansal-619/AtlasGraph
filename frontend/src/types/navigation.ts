@@ -13,7 +13,7 @@ export const TAB_META: Record<
   dashboard: {
     title: 'Dashboard',
     description:
-      'Executive overview of graph coverage, data fusion status, and latest scenario intelligence.',
+      'Analyst workflow: client portfolio → shock → dollars at risk → evidence-backed actions.',
   },
   shock: {
     title: 'Shock Simulation',

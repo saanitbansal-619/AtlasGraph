@@ -5,7 +5,7 @@ import {
   normalizeCommodityRankings,
   sortCountriesByScore,
 } from '../../lib/commodityNormalize'
-import { computeClientExposureOverlay } from '../../lib/clientExposure'
+import { computeClientExposureOverlay, formatCompactUSD } from '../../lib/clientExposure'
 import { deltaClass, fixed, pct, signed } from '../../lib/format'
 import { AdaptiveRankingChart } from '../charts/AdaptiveRankingChart'
 import { EmptyHint, Panel } from '../ui'
@@ -18,9 +18,24 @@ function hhiForScenario(
     clientData,
     result.scenario.source,
     result.scenario.commodity,
+    result.scenario.shock_percent,
   )
   const withHhi = overlay?.exposures.find((e) => e.hhi != null)
   return withHhi?.hhi ?? null
+}
+
+function exposedTradeForScenario(
+  result: ShockResponse,
+  clientData: CustomDataAnalysisResponse | null,
+): string {
+  const overlay = computeClientExposureOverlay(
+    clientData,
+    result.scenario.source,
+    result.scenario.commodity,
+    result.scenario.shock_percent,
+  )
+  if (!overlay || overlay.matchedCount === 0) return '—'
+  return formatCompactUSD(overlay.totalEstimatedExposedTrade)
 }
 
 function metricCards(a: SavedShockScenario, b: SavedShockScenario, clientData: CustomDataAnalysisResponse | null) {
@@ -29,6 +44,13 @@ function metricCards(a: SavedShockScenario, b: SavedShockScenario, clientData: C
   const as = ar.graph_impact_summary
   const bs = br.graph_impact_summary
   return [
+    {
+      label: 'Client $ at risk',
+      left: exposedTradeForScenario(ar, clientData),
+      right: exposedTradeForScenario(br, clientData),
+      leftClass: 'text-amber-200',
+      rightClass: 'text-amber-200',
+    },
     {
       label: 'Countries affected',
       left: String(as.affected_countries),

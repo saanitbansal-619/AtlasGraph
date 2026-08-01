@@ -24,6 +24,24 @@ export interface DBSummaryResponse {
   data_quality_checks: number
 }
 
+/** Row from GET /api/db/scenarios/recent when PostgreSQL is enabled. */
+export interface DBScenarioRun {
+  scenario_id: string
+  source: string
+  commodity: string
+  shock_type: string
+  drop_percent: number
+  depth: number
+  top_affected_countries?: unknown
+  top_affected_sectors?: unknown
+  report_json?: unknown
+  created_at: string
+}
+
+export interface DBRecentScenariosResponse {
+  scenarios: DBScenarioRun[]
+}
+
 export interface PipelineSourceRow {
   name: string
   source: string

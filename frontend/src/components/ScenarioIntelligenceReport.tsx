@@ -9,6 +9,7 @@ import type {
 import { deltaClass, fixed, pct, riskBadgeClass, signed } from '../lib/format'
 import { EmptyHint, Panel, Spinner, TypeBadge } from './ui'
 import { InlineError } from './States'
+import { ModelDisclaimer } from './AnalystWorkflow'
 
 function reportToMarkdown(report: ScenarioReportResponse): string {
   const lines: string[] = []
@@ -245,7 +246,7 @@ export function ScenarioIntelligenceReport({
   title?: string
 }) {
   const [copied, setCopied] = useState(false)
-  const [assumptionsOpen, setAssumptionsOpen] = useState(false)
+  const [assumptionsOpen, setAssumptionsOpen] = useState(true)
 
   const markdown = useMemo(() => (report ? reportToMarkdown(report) : ''), [report])
 
@@ -303,11 +304,17 @@ export function ScenarioIntelligenceReport({
 
       {report && (
         <div className={`space-y-4 ${loading ? 'opacity-60' : ''}`}>
+          <ModelDisclaimer compact />
+
           <div>
             <h3 className="text-sm font-medium text-slate-100">{report.title}</h3>
             <div className="mt-2">
               <SourceBadges sources={report.data_sources ?? []} />
             </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Evidence badges show which observed panels contributed. Dim badges were not used for
+              this scenario.
+            </p>
           </div>
 
           <div className="rounded border border-slate-800 bg-slate-900/40 p-3">

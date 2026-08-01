@@ -47,6 +47,9 @@ export function ShockSimulationPage({
   reportErr,
   onGenerateReport,
   canGenerateReport,
+  initialWorkspaceTab = 'setup',
+  workspaceNavToken = 0,
+  caseStudyHint = false,
 }: {
   mode: ShockMode
   setMode: Dispatch<SetStateAction<ShockMode>>
@@ -73,10 +76,17 @@ export function ShockSimulationPage({
   reportErr?: { message: string; hint?: string } | null
   onGenerateReport: () => void
   canGenerateReport: boolean
+  initialWorkspaceTab?: ShockWorkspaceTab
+  workspaceNavToken?: number
+  caseStudyHint?: boolean
 }) {
-  const [workspaceTab, setWorkspaceTab] = useState<ShockWorkspaceTab>('setup')
+  const [workspaceTab, setWorkspaceTab] = useState<ShockWorkspaceTab>(initialWorkspaceTab)
   const [saved, setSaved] = useState<SavedShockScenario[]>(() => loadSavedScenarios())
   const prevRunning = useRef(false)
+
+  useEffect(() => {
+    setWorkspaceTab(initialWorkspaceTab)
+  }, [initialWorkspaceTab, workspaceNavToken])
 
   useEffect(() => {
     if (prevRunning.current && !running && result && !runErr) {
@@ -109,6 +119,17 @@ export function ShockSimulationPage({
   return (
     <div className="space-y-4">
       <ShockWorkspaceNav active={workspaceTab} onChange={setWorkspaceTab} />
+
+      {caseStudyHint && workspaceTab === 'setup' && (
+        <div className="rounded border border-cyan-900/40 bg-cyan-950/15 px-3 py-2 text-xs text-slate-300">
+          <span className="font-semibold text-cyan-200">Taiwan case study loaded. </span>
+          Preset parameters match{' '}
+          <span className="font-mono text-slate-400">docs/CASE_STUDY_TAIWAN_SEMICONDUCTORS.md</span>
+          . Optional: upload{' '}
+          <span className="font-mono text-slate-400">data/client_overlay_test.csv</span> on Client
+          Analytics, then run the shock and generate the report.
+        </div>
+      )}
 
       {workspaceTab === 'setup' && (
         <div className="mx-auto max-w-xl">

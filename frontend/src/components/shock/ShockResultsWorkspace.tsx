@@ -123,7 +123,18 @@ export function ShockResultsWorkspace({
 
       <ExecutiveImpactBrief result={result} clientOverlay={clientOverlay} />
 
-      <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-6">
+        <MetricCard
+          label="Client $ at risk"
+          value={
+            clientOverlay && clientOverlay.matchedCount > 0
+              ? formatCompactUSD(clientOverlay.totalEstimatedExposedTrade)
+              : '—'
+          }
+          valueClassName={
+            clientOverlay && clientOverlay.matchedCount > 0 ? 'text-amber-200' : 'text-slate-500'
+          }
+        />
         <MetricCard label="Affected nodes" value={String(s.affected_nodes)} />
         <MetricCard label="Affected paths" value={String(s.affected_paths)} />
         <MetricCard
@@ -141,7 +152,6 @@ export function ShockResultsWorkspace({
           value={topImpacted.label}
           valueClassName={topImpacted.isDirectCommodityFallback ? 'text-slate-400' : undefined}
           small
-          wrapperClassName="col-span-2 min-[480px]:col-span-1"
         />
       </div>
 

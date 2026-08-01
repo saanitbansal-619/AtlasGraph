@@ -29,6 +29,7 @@ import {
   operationalRequestFields,
 } from './types/scenario'
 import { type AppTab, TAB_META } from './types/navigation'
+import type { ShockWorkspaceTab } from './types/savedScenario'
 import { Header } from './components/layout/Header'
 import { Sidebar } from './components/layout/Sidebar'
 import { BackendDownNotice } from './components/States'
@@ -75,9 +76,14 @@ function titleCase(s: string): string {
   return s.trim().replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+const CASE_STUDY_SCENARIO_ID = 'taiwan_semiconductor_shock'
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [shockWorkspaceTab, setShockWorkspaceTab] = useState<ShockWorkspaceTab>('setup')
+  const [shockNavToken, setShockNavToken] = useState(0)
+  const [caseStudyHint, setCaseStudyHint] = useState(false)
 
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [healthErr, setHealthErr] = useState<ApiRequestError | null>(null)
@@ -383,6 +389,44 @@ export default function App() {
     [scenarios, applyScenario],
   )
 
+  const navigateWorkspace = useCallback(
+    (tab: AppTab, opts?: { shockTab?: ShockWorkspaceTab }) => {
+      setActiveTab(tab)
+      if (tab === 'shock') {
+        setShockWorkspaceTab(opts?.shockTab ?? 'setup')
+        setShockNavToken((n) => n + 1)
+      }
+    },
+    [],
+  )
+
+  const loadTaiwanCaseStudy = useCallback(() => {
+    setMode('preset')
+    setCaseStudyHint(true)
+    const sc = scenarios.find((s) => s.id === CASE_STUDY_SCENARIO_ID)
+    if (sc) {
+      setSelectedId(sc.id)
+      applyScenario(sc)
+    } else {
+      setForm({
+        source: 'Taiwan',
+        commodity: 'semiconductors',
+        shock_type: 'export_collapse',
+        drop: 30,
+        depth: 3,
+        explain: true,
+      })
+      setMeta((m) => ({
+        ...m,
+        name: 'Taiwan Semiconductor Export Collapse',
+        notes: 'Case study: see docs/CASE_STUDY_TAIWAN_SEMICONDUCTORS.md',
+      }))
+    }
+    setShockWorkspaceTab('setup')
+    setShockNavToken((n) => n + 1)
+    setActiveTab('shock')
+  }, [scenarios, applyScenario])
+
   const onReset = useCallback(() => {
     setForm(INITIAL_FORM)
     setMeta({ ...DEFAULT_META, assumptions: { ...DEFAULT_META.assumptions } })
@@ -510,7 +554,8 @@ export default function App() {
                 reportErr={reportErr}
                 onGenerateReport={generateScenarioReport}
                 canGenerateReport={canGenerateReport}
-                onOpenShock={() => setActiveTab('shock')}
+                onNavigate={navigateWorkspace}
+                onLoadCaseStudy={loadTaiwanCaseStudy}
               />
             )}
 
@@ -541,6 +586,9 @@ export default function App() {
                 reportErr={reportErr}
                 onGenerateReport={generateScenarioReport}
                 canGenerateReport={canGenerateReport}
+                initialWorkspaceTab={shockWorkspaceTab}
+                workspaceNavToken={shockNavToken}
+                caseStudyHint={caseStudyHint}
               />
             )}
 
@@ -586,7 +634,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'history' && <HistoryPage />}
+            {activeTab === 'history' && <HistoryPage dbHealth={dbHealth} />}
 
             <footer className="flex flex-col gap-1 border-t border-slate-800/80 pt-4 text-[11px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
               <span>GFIP · Global Fragility Intelligence Platform · Powered by AtlasGraph</span>

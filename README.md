@@ -34,10 +34,12 @@ GFIP models supply-chain fragility and disruption propagation across a fused dep
 
 ### Platform
 
+- Guided analyst workflow (client portfolio → shock → dollars at risk → actions)
 - Enterprise React dashboard (multi-tab analyst workspace)
 - Saved scenario comparison (browser localStorage)
 - Shock workspace navigation (setup / results / comparison)
 - Data Operations pipeline monitor
+- Reproducible case study: [Taiwan semiconductors](docs/CASE_STUDY_TAIWAN_SEMICONDUCTORS.md)
 - Analytics Explorer (event risk, trade signals, commodity stress)
 
 ---
