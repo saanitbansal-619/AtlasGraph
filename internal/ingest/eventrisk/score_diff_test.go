@@ -1,6 +1,8 @@
 package eventrisk
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -106,7 +108,10 @@ func TestSingleCountryNoDivideByZero(t *testing.T) {
 }
 
 func TestExpandedPanelNotAllHigh(t *testing.T) {
-	path := "../../../data/raw/gdelt_events/gdelt_events_2024_expanded.csv"
+	path := filepath.Join("..", "..", "..", "data", "raw", "gdelt_events", "gdelt_events_2024_expanded.csv")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("expanded GDELT CSV not present; generate locally to run this test")
+	}
 	file, _, err := IngestFromFile(path, SourceName)
 	if err != nil {
 		t.Fatalf("ingest: %v", err)

@@ -10,6 +10,9 @@ import (
 
 func TestExpandedGDELTCSVIngest(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "data", "raw", "gdelt_events", "gdelt_events_2024_expanded.csv")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("expanded GDELT CSV not present; generate locally to run this test")
+	}
 	file, warnings, err := eventrisk.IngestFromFile(path, "gdelt")
 	if err != nil {
 		t.Fatalf("IngestFromFile: %v", err)
