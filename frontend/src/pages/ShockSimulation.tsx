@@ -132,7 +132,7 @@ export function ShockSimulationPage({
       )}
 
       {workspaceTab === 'setup' && (
-        <div className="mx-auto max-w-xl">
+        <div className="w-full">
           <ShockSimulator
             mode={mode}
             setMode={setMode}
